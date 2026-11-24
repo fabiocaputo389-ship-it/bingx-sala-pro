@@ -568,12 +568,23 @@
     }
 
     document.querySelectorAll("#cat-bar .cat-btn").forEach(btn => {
-      btn.addEventListener("click", () => {
+      btn.addEventListener("click", async () => {
         document.querySelectorAll("#cat-bar .cat-btn").forEach(b => b.classList.remove("active"));
         btn.classList.add("active");
         activeCategory = btn.getAttribute("data-cat") || "Materie Prime";
         forceScanNext = true;
-        pollNow();
+        await fetch("/api/auto-trade", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ category: activeCategory })
+        });
+        const res = await fetch(`/api/live-ticker?tf=${encodeURIComponent(getFormValues().tf)}&category=${encodeURIComponent(activeCategory)}&scan=1`);
+        const data = await res.json();
+        const firstRowSym = data?.markets?.rows?.[0]?.symbol;
+        if (firstRowSym) {
+          document.getElementById("symbol-input").value = firstRowSym;
+        }
+        renderData(data);
       });
     });
 
