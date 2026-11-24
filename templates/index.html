@@ -2,640 +2,441 @@
 <html lang="it">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
-  <title>BINGX PRO SIGNAL DESK</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BingX Pro Signal Terminal</title>
   <style>
-    :root {
-      --bg: #070b12;
-      --panel: #0d1420;
-      --panel-2: #131d2f;
-      --border: #1e2d46;
-      --text: #e8eef8;
-      --muted: #8fa1bd;
-      --green: #16c784;
-      --red: #ea3943;
-      --amber: #f5b942;
-      --blue: #2563eb;
-    }
     * { box-sizing: border-box; touch-action: manipulation; }
     body {
       margin: 0;
-      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      padding: 10px;
-    }
-    .container { max-width: 1080px; margin: 0 auto; display: flex; flex-direction: column; gap: 10px; }
-    .card {
-      background: var(--panel);
-      border: 1px solid var(--border);
-      border-radius: 10px;
+      background: #090d16;
+      color: #f3f6fc;
+      font-family: system-ui, -apple-system, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
       padding: 12px;
+      gap: 10px;
     }
-    .brand-title { font-size: 16px; font-weight: 800; letter-spacing: 0.4px; }
-    .sub { font-size: 11px; color: var(--muted); }
-    .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 8px; }
-    .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 8px; }
-    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 8px; }
-    @media (max-width: 640px) {
-      .grid-4 { grid-template-columns: repeat(2, 1fr); }
-      .grid-3 { grid-template-columns: repeat(2, 1fr); }
-    }
-    .kpi {
-      background: var(--panel-2);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 8px 10px;
-    }
-    .kpi-label { font-size: 10px; color: var(--muted); text-transform: uppercase; font-weight: 700; }
-    .kpi-val { font-size: 15px; font-weight: 800; margin-top: 3px; }
-    .cat-bar { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
-    .cat-btn {
-      padding: 7px 12px;
-      font-size: 12px;
+    .panel { width: 100%; max-width: 430px; }
+    .tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+    .tab-btn {
+      padding: 6px 10px;
+      border-radius: 10px;
+      border: 1px solid #334155;
+      background: #141e33;
+      color: #f8fafc;
+      font-size: 11px;
       font-weight: 700;
-      border-radius: 7px;
-      background: var(--panel-2);
-      border: 1px solid var(--border);
-      color: var(--text);
       cursor: pointer;
     }
-    .cat-btn.active { background: var(--blue); border-color: var(--blue); color: #fff; }
-    input, select {
+    .tab-btn.active { background: #2563eb; border-color: #60a5fa; }
+    .card {
       width: 100%;
-      background: var(--panel-2);
-      color: var(--text);
-      border: 1px solid var(--border);
-      border-radius: 7px;
-      padding: 9px 10px;
-      font-size: 13px;
+      max-width: 430px;
+      background: #101726;
+      border: 1px solid #1e2a42;
+      border-radius: 20px;
+      padding: 16px;
     }
-    label { display: block; font-size: 11px; color: var(--muted); margin-bottom: 4px; }
-    button {
-      border: 0;
-      border-radius: 8px;
-      padding: 10px 12px;
-      font-weight: 800;
-      font-size: 12px;
-      cursor: pointer;
-      color: #fff;
-    }
-    .btn-primary { background: var(--blue); }
-    .btn-buy { background: var(--green); color: #03190f; }
-    .btn-sell { background: var(--red); }
-    .btn-warn { background: var(--amber); color: #191202; }
-    .btn-ghost { background: var(--panel-2); border: 1px solid var(--border); color: var(--text); }
-    .market-row { cursor: pointer; }
-    .market-row:hover { background: var(--panel-2); }
-    .market-row.selected { background: rgba(37, 99, 235, 0.18); }
-    .tag-buy { color: var(--green); font-weight: 800; }
-    .tag-sell { color: var(--red); font-weight: 800; }
-    .tag-warn { color: var(--amber); font-weight: 800; }
-    .table-wrap { overflow-x: auto; max-height: 280px; overflow-y: auto; }
-    table { width: 100%; border-collapse: collapse; font-size: 12px; }
-    th, td { padding: 7px 6px; border-bottom: 1px solid var(--border); text-align: left; }
-    th { color: var(--muted); font-size: 10px; text-transform: uppercase; position: sticky; top: 0; background: var(--panel); }
-    .outcome-box {
-      margin-top: 8px;
-      padding: 10px;
-      border-radius: 8px;
-      background: var(--panel-2);
-      border: 1px solid var(--border);
-      font-size: 12px;
+    .top-bar { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .badge-top {
+      background: #282112;
+      color: #f5b942;
+      border: 1px solid #6b4f18;
+      font-size: 11px;
       font-weight: 700;
+      padding: 4px 8px;
+      border-radius: 8px;
     }
-    .check-row { display: flex; align-items: center; gap: 6px; font-size: 12px; margin-top: 6px; }
-    .check-row input { width: auto; }
-    canvas { width: 100%; height: 210px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; display: block; margin-top: 8px; }
+    .price { font-size: 36px; font-weight: 800; margin: 10px 0 6px; letter-spacing: -0.5px; }
+    .gauge-wrap { display: flex; flex-direction: column; align-items: center; margin: 6px 0 12px; }
+    .gauge-label { margin-top: -16px; font-size: 20px; font-weight: 800; color: #22c55e; }
+    .meter { margin-bottom: 10px; }
+    .meter-head { display: flex; justify-content: space-between; font-size: 12px; font-weight: 700; margin-bottom: 5px; }
+    .bar-bg { height: 8px; background: #1e293b; border-radius: 999px; overflow: hidden; }
+    .bar-fill { height: 100%; border-radius: 999px; transition: width 0.25s ease; }
+    .risk-box {
+      background: #2a1219;
+      border: 1px solid #991b1b;
+      border-radius: 14px;
+      padding: 12px;
+      margin: 10px 0;
+    }
+    .risk-box.safe { background: #0d2419; border-color: #15803d; }
+    .risk-title { color: #f87171; font-weight: 800; font-size: 12px; }
+    .risk-box.safe .risk-title { color: #4ade80; }
+    .risk-sub { color: #fca5a5; font-size: 11px; margin-top: 4px; }
+    .risk-box.safe .risk-sub { color: #bbf7d0; }
+    .timer-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      font-weight: 700;
+      margin-top: 8px;
+      color: #86efac;
+    }
+    .rec-box {
+      background: #0d1b2a;
+      border: 1px solid #1d4ed8;
+      border-radius: 14px;
+      padding: 12px;
+      margin-bottom: 10px;
+    }
+    .rec-title { color: #22c55e; font-weight: 800; font-size: 13px; }
+    .rec-sub { color: #cbd5e1; font-size: 12px; margin-top: 4px; }
+    .grid-4 {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+    .stat-box {
+      background: #141e33;
+      border: 1px solid #233252;
+      border-radius: 12px;
+      padding: 9px 4px;
+      text-align: center;
+    }
+    .stat-val { font-weight: 800; font-size: 13px; }
+    .stat-lbl { font-size: 10px; color: #94a3b8; margin-top: 2px; }
+    .cfg-box {
+      background: #141e33;
+      border: 1px solid #233252;
+      border-radius: 14px;
+      padding: 12px;
+      margin-bottom: 12px;
+      font-size: 12px;
+    }
+    .cfg-input {
+      width: 100%;
+      background: #090d16;
+      color: #fff;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 5px;
+      font-size: 12px;
+    }
+    .btn-save {
+      width: 100%;
+      background: #2563eb;
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      padding: 9px;
+      font-weight: 800;
+      cursor: pointer;
+      margin-top: 6px;
+    }
+    .btn-copy {
+      width: 100%;
+      background: #16a34a;
+      color: #ffffff;
+      border: none;
+      border-radius: 14px;
+      padding: 13px;
+      font-size: 14px;
+      font-weight: 800;
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
-  <div class="container">
-    <div class="card">
-      <div style="display:flex; justify-content:space-between; align-items:center;">
-        <div class="brand-title">BINGX PRO SIGNAL DESK</div>
-        <div class="sub" id="sync-indicator">Sincronizzato</div>
-      </div>
-
-      <div class="grid-2">
-        <div class="kpi">
-          <div class="kpi-label">API BingX</div>
-          <div class="kpi-val tag-buy" id="api-status-txt">ATTIVA</div>
-        </div>
-        <div class="kpi">
-          <div class="kpi-label">Blocco Segnale</div>
-          <div class="kpi-val tag-warn" id="lock-status-txt">LIBERO</div>
-        </div>
-      </div>
-
-      <div class="grid-3">
-        <div class="kpi">
-          <div class="kpi-label">Modalita'</div>
-          <div class="kpi-val" id="mode-txt">AUTOMATICO</div>
-        </div>
-        <div class="kpi">
-          <div class="kpi-label">Simbolo</div>
-          <div class="kpi-val" id="sym-txt">BTC-USDT</div>
-        </div>
-        <div class="kpi">
-          <div class="kpi-label">Prezzo</div>
-          <div class="kpi-val" id="price-txt">--</div>
-        </div>
-      </div>
-
-      <div class="grid-2">
-        <div class="kpi">
-          <div class="kpi-label">Affidabilita' Segnale</div>
-          <div class="kpi-val" id="conf-txt">--% ATTESA • NO TRADE CERTO</div>
-        </div>
-        <div class="kpi">
-          <div class="kpi-label">Score Quant</div>
-          <div class="kpi-val" id="score-txt">0 (NEUTRAL)</div>
-        </div>
-      </div>
-
-      <div class="grid-4">
-        <div class="kpi">
-          <div class="kpi-label">Candela TF</div>
-          <div class="kpi-val" id="tf-countdown-txt">01:00</div>
-        </div>
-        <div class="kpi">
-          <div class="kpi-label">Stima TP</div>
-          <div class="kpi-val" id="tp-est-txt">--</div>
-        </div>
-        <div class="kpi">
-          <div class="kpi-label">Funding</div>
-          <div class="kpi-val" id="funding-txt">0.0048%</div>
-        </div>
-        <div class="kpi">
-          <div class="kpi-label">Equity / Leva</div>
-          <div class="kpi-val" id="eq-lev-txt">0.00 | 20x</div>
-        </div>
-      </div>
-    </div>
-
-    <div class="card">
-      <div style="display:flex; justify-content:space-between; align-items:center;">
-        <strong id="mkt-title">MERCATI (0)</strong>
-        <span class="sub" id="mkt-cat-label">Materie Prime</span>
-      </div>
-
-      <div class="cat-bar" id="cat-bar">
-        <button type="button" class="cat-btn" data-cat="Tutti">Tutti</button>
-        <button type="button" class="cat-btn" data-cat="Crypto Major">Crypto</button>
-        <button type="button" class="cat-btn" data-cat="Meme/Alt">Meme/Alt</button>
-        <button type="button" class="cat-btn" data-cat="Azioni">Azioni</button>
-        <button type="button" class="cat-btn active" data-cat="Materie Prime">Materie Prime</button>
-      </div>
-
-      <input id="mkt-search" placeholder="Categoria o coppia (es. Azioni, Crypto, XAUT, TSLA)..." style="margin-bottom:8px;" />
-      <button type="button" class="btn-primary" id="btn-scan-cat" style="width:100%;">SCANSIONA CATEGORIA ATTIVA</button>
-
-      <div class="table-wrap" style="margin-top:8px;">
-        <table>
-          <thead>
-            <tr>
-              <th>Coppia / Categoria</th>
-              <th>Prezzo Live</th>
-              <th>Var. 24h</th>
-              <th>Segnale</th>
-            </tr>
-          </thead>
-          <tbody id="markets-tbody">
-            <tr><td colspan="4">Caricamento...</td></tr>
-          </tbody>
-        </table>
-      </div>
-
-      <canvas id="chartCanvas" width="900" height="210"></canvas>
-    </div>
-
-    <div class="card">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-        <strong id="pos-title">POSIZIONI APERTE (0)</strong>
-        <button type="button" class="btn-ghost" id="btn-refresh-top">Aggiorna</button>
-      </div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Simbolo</th>
-              <th>Lato</th>
-              <th>Size</th>
-              <th>Entry</th>
-              <th>PnL / %</th>
-              <th>Azioni</th>
-            </tr>
-          </thead>
-          <tbody id="pos-tbody">
-            <tr><td colspan="6">Nessuna posizione aperta</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <div class="card">
-      <strong style="display:block; margin-bottom:6px;">REGISTRO SEGNALI & ESECUZIONI SALA</strong>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Ora</th>
-              <th>Coppia</th>
-              <th>TF</th>
-              <th>Segnale / %</th>
-              <th>TP1 / TP2 / SL</th>
-              <th>Esito</th>
-            </tr>
-          </thead>
-          <tbody id="logs-tbody">
-            <tr><td colspan="6">Nessun evento</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <div class="card">
-      <strong style="display:block; margin-bottom:6px;">STORICO PNL CHIUSO (BINGX INCOME)</strong>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Tipo</th>
-              <th>Simbolo</th>
-              <th>Importo USDT</th>
-            </tr>
-          </thead>
-          <tbody id="income-tbody">
-            <tr><td colspan="3">Nessun movimento</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <div class="card">
-      <strong style="display:block; margin-bottom:8px;">APERTURA MANUALE / AUTOMATICA</strong>
-      <div class="grid-2">
-        <button type="button" class="btn-ghost" id="btn-unlock-signal">SBLOCCA SEGNALE</button>
-        <button type="button" class="btn-primary" id="btn-auto-toggle">AUTO-TRADE: ON (ATTIVO)</button>
-      </div>
-
-      <div class="outcome-box" id="bingx-outcome-box">ESITO BINGX: In attesa di scansione</div>
-
-      <div class="grid-2" style="margin-top:10px;">
-        <div>
-          <label for="symbol-input">Simbolo</label>
-          <input id="symbol-input" value="BTC-USDT" />
-        </div>
-        <div>
-          <label for="tf-select">Timeframe (TF / SL)</label>
-          <select id="tf-select">
-            <option value="1m" selected>1m</option>
-            <option value="5m">5m</option>
-            <option value="15m">15m</option>
-            <option value="1h">1h</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="grid-3" style="margin-top:8px;">
-        <div>
-          <label for="qty-input">Quantita'</label>
-          <input id="qty-input" type="number" step="0.0001" value="0.0005" />
-        </div>
-        <div>
-          <label for="lev-input">Leva</label>
-          <input id="lev-input" type="number" min="1" max="125" value="20" />
-        </div>
-        <div>
-          <label for="tp-input">TP Ordine</label>
-          <input id="tp-input" type="number" step="any" placeholder="Auto" />
-        </div>
-      </div>
-
-      <div style="margin-top:8px;">
-        <label for="sl-input">Stop Loss</label>
-        <input id="sl-input" type="number" step="any" placeholder="Auto" />
-      </div>
-
-      <label class="check-row"><input id="chk-close-candle" type="checkbox" checked /> Chiudi posizione a fine candela TF</label>
-      <label class="check-row"><input id="chk-rotate" type="checkbox" checked /> Avanza su altre coppie dopo blocco segnale</label>
-
-      <div class="grid-2" style="margin-top:10px;">
-        <button type="button" class="btn-buy" id="btn-buy-long">BUY / LONG</button>
-        <button type="button" class="btn-sell" id="btn-sell-short">SELL / SHORT</button>
-      </div>
-      <button type="button" class="btn-sell" id="btn-close-all" style="width:100%; margin-top:8px;">CHIUDI TUTTO</button>
+  <div class="panel">
+    <div class="tabs" id="assetTabs">
+      <button type="button" data-sym="BTC-USDT" class="tab-btn active">BTC</button>
+      <button type="button" data-sym="EUR-USDT" class="tab-btn">EURUSDT</button>
+      <button type="button" data-sym="XAU-USDT" class="tab-btn">ORO</button>
+      <button type="button" data-sym="OIL-USDT" class="tab-btn">PETROLIO</button>
+      <button type="button" data-sym="TSLA-USDT" class="tab-btn">TSLA</button>
+      <button type="button" data-sym="NVDA-USDT" class="tab-btn">NVDA</button>
     </div>
   </div>
 
+  <div class="card">
+    <div class="top-bar">
+      <div>
+        <strong id="symbolTitle">BTC</strong> · <span id="wrText">WR 77%</span>
+        <div id="dirBadge" style="color:#22c55e;font-size:12px;font-weight:700;margin-top:2px;">▲ LONG · SCORE --</div>
+      </div>
+      <span class="badge-top" id="catBadge">💎 CRYPTO</span>
+    </div>
+
+    <div class="price" id="priceVal">$0.00</div>
+
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+      <select id="tfSelect" class="tab-btn">
+        <option value="1m">1m</option>
+        <option value="5m">5m</option>
+        <option value="15m" selected>15m</option>
+        <option value="1h">1h</option>
+        <option value="4h">4h</option>
+        <option value="1d">1d</option>
+      </select>
+      <div style="font-size:11px;color:#cbd5e1;text-align:right;">
+        Chiusura: <strong id="candleCloseLocal">--:--:--</strong> (<span id="candleCloseUtc">--:--:-- UTC</span>)
+      </div>
+    </div>
+
+    <div class="gauge-wrap">
+      <svg width="240" height="125" viewBox="0 0 240 125">
+        <defs>
+          <linearGradient id="gGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#ef4444" />
+            <stop offset="50%" stop-color="#f59e0b" />
+            <stop offset="100%" stop-color="#22c55e" />
+          </linearGradient>
+        </defs>
+        <path d="M 20 110 A 100 100 0 0 1 220 110" fill="none" stroke="url(#gGrad)" stroke-width="16" stroke-linecap="round" />
+        <line id="needle" x1="120" y1="110" x2="120" y2="28" stroke="#f8fafc" stroke-width="4" stroke-linecap="round" />
+        <circle cx="120" cy="110" r="6" fill="#f8fafc" />
+      </svg>
+      <div class="gauge-label" id="gaugeText">Neutral</div>
+    </div>
+
+    <div class="meter">
+      <div class="meter-head"><span>TREND HEALTH</span><span id="trendVal">50%</span></div>
+      <div class="bar-bg"><div id="trendBar" class="bar-fill" style="width:50%;background:linear-gradient(90deg,#ef4444,#f59e0b);"></div></div>
+    </div>
+
+    <div class="meter">
+      <div class="meter-head"><span>VALUE SCORE</span><span id="whaleBearText">50% Balene / 50% Orsi</span></div>
+      <div class="bar-bg"><div id="whaleBar" class="bar-fill" style="width:50%;background:#10b981;"></div></div>
+    </div>
+
+    <div class="risk-box" id="riskBox">
+      <div class="risk-title" id="riskTitle">⛔ CONTROLLO RISCHIO & ANTI-FAKE</div>
+      <div class="risk-sub" id="riskReason">Motivo: --</div>
+      <div style="font-size:11px;color:#fcd34d;margin-top:4px;" id="antiFakeStatus">Anti-Fake: --</div>
+      <div class="timer-row">
+        <span id="timerLabel">⏱ TEMPO RESIDUO</span>
+        <span id="validityInfo">● VALIDO --% · --:--</span>
+      </div>
+      <div class="bar-bg" style="margin-top:6px;">
+        <div id="validityBar" class="bar-fill" style="width:0%;background:#22c55e;"></div>
+      </div>
+    </div>
+
+    <div class="rec-box">
+      <div class="rec-title" id="recTitle">RECOMMENDATION: NEUTRAL</div>
+      <div class="rec-sub" id="recSub">MACD: -- | EMA: -- | ATR: --</div>
+    </div>
+
+    <div class="grid-4">
+      <div class="stat-box">
+        <div class="stat-val" style="color:#38bdf8;" id="rsiVal">--</div>
+        <div class="stat-lbl">RSI</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-val" style="color:#22c55e;" id="whaleVal">--%</div>
+        <div class="stat-lbl">BALENE</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-val" style="color:#f87171;" id="bearVal">--%</div>
+        <div class="stat-lbl">ORSI</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-val" style="color:#fbbf24;" id="scoreVal">--</div>
+        <div class="stat-lbl">SCORE</div>
+      </div>
+    </div>
+
+    <div class="cfg-box">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <strong>SCORE MINIMO: <span id="minScoreLabel">65</span></strong>
+        <label style="font-size:11px;">
+          <input id="antiFakeChk" type="checkbox" checked /> Anti-Fake Attivo
+        </label>
+      </div>
+      <input id="minScoreInput" type="range" min="0" max="100" value="65" style="width:100%;margin-bottom:8px;" />
+
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;">
+        <div>
+          <span style="color:#94a3b8;font-size:10px;">RSI Periodo</span>
+          <input id="rsiPeriodInput" class="cfg-input" type="number" min="2" max="100" value="14" />
+        </div>
+        <div>
+          <span style="color:#94a3b8;font-size:10px;">MACD (F/S/Sig)</span>
+          <div style="display:flex;gap:2px;">
+            <input id="macdFastInput" class="cfg-input" type="number" value="12" />
+            <input id="macdSlowInput" class="cfg-input" type="number" value="26" />
+            <input id="macdSigInput" class="cfg-input" type="number" value="9" />
+          </div>
+        </div>
+        <div>
+          <span style="color:#94a3b8;font-size:10px;">EMA (Fast/Slow)</span>
+          <div style="display:flex;gap:2px;">
+            <input id="emaFastInput" class="cfg-input" type="number" value="20" />
+            <input id="emaSlowInput" class="cfg-input" type="number" value="50" />
+          </div>
+        </div>
+      </div>
+
+      <button id="saveParamsBtn" class="btn-save" type="button">💾 SALVA SCORE E PARAMETRI</button>
+    </div>
+
+    <button class="btn-copy" id="copyBingxBtn" type="button">📋 COPIA SEGNALE PER APP BINGX</button>
+  </div>
+
   <script>
-    let activeCategory = "Materie Prime";
-    let autoEnabled = true;
-    let forceScanNext = false;
-    let reqCounter = 0;
-    let appliedReqId = 0;
+    let currentSymbol = "BTC-USDT";
+    let currentTimeframe = "15m";
+    let latestData = null;
 
-    function fmtCountdown(sec) {
-      const s = Math.max(0, parseInt(sec || 0, 10));
-      const mm = String(Math.floor(s / 60)).padStart(2, "0");
-      const ss = String(s % 60).padStart(2, "0");
-      return `${mm}:${ss}`;
+    function setNeedleAngle(deg) {
+      const rad = (deg - 90) * (Math.PI / 180);
+      const len = 82;
+      const x2 = 120 + len * Math.cos(rad);
+      const y2 = 110 + len * Math.sin(rad);
+      const needle = document.getElementById("needle");
+      needle.setAttribute("x2", x2.toFixed(1));
+      needle.setAttribute("y2", y2.toFixed(1));
     }
 
-    function getFormValues() {
-      return {
-        symbol: (document.getElementById("symbol-input").value || "BTC-USDT").trim().toUpperCase(),
-        tf: (document.getElementById("tf-select").value || "1m").toLowerCase(),
-        qty: parseFloat(document.getElementById("qty-input").value || "0.0005"),
-        leverage: parseInt(document.getElementById("lev-input").value || "20", 10),
-        tp: document.getElementById("tp-input").value,
-        sl: document.getElementById("sl-input").value,
-        close_at_candle_end: document.getElementById("chk-close-candle").checked,
-        rotate_after_open: document.getElementById("chk-rotate").checked,
-        category: activeCategory,
-      };
-    }
-
-    function drawCandles(candles, symLabel) {
-      const canvas = document.getElementById("chartCanvas");
-      const ctx = canvas.getContext("2d");
-      const w = canvas.width;
-      const h = canvas.height;
-      ctx.clearRect(0, 0, w, h);
-
-      ctx.fillStyle = "#8fa1bd";
-      ctx.font = "bold 12px sans-serif";
-      ctx.fillText(symLabel || "", 10, 16);
-
-      if (!candles || candles.length < 2) return;
-      let minP = Infinity, maxP = -Infinity;
-      for (const c of candles) {
-        if (c.low < minP) minP = c.low;
-        if (c.high > maxP) maxP = c.high;
-      }
-      const pad = Math.max((maxP - minP) * 0.12, 1e-6);
-      minP -= pad;
-      maxP += pad;
-
-      const stepX = w / candles.length;
-      const toY = (p) => h - ((p - minP) / (maxP - minP)) * (h - 34) - 10;
-
-      for (let i = 0; i < candles.length; i++) {
-        const c = candles[i];
-        const x = i * stepX + stepX * 0.5;
-        const yO = toY(c.open);
-        const yC = toY(c.close);
-        const yH = toY(c.high);
-        const yL = toY(c.low);
-        const up = c.close >= c.open;
-
-        ctx.strokeStyle = up ? "#16c784" : "#ea3943";
-        ctx.beginPath();
-        ctx.moveTo(x, yH);
-        ctx.lineTo(x, yL);
-        ctx.stroke();
-
-        ctx.fillStyle = up ? "#16c784" : "#ea3943";
-        ctx.fillRect(i * stepX + stepX * 0.22, Math.min(yO, yC), Math.max(2, stepX * 0.56), Math.max(2, Math.abs(yC - yO)));
-      }
-    }
-
-    function renderData(data) {
-      if (!data || !data.ok) return;
-      const q = data.quant || {};
-      const bal = data.balance || {};
-      const pos = data.positions || [];
-      const logs = data.logs || [];
-      const inc = data.income || [];
-      const t = data.timing || {};
-      const at = data.auto_trade || {};
-      const mkt = data.markets || {};
-
-      const activeSym = q.symbol || at.symbol || "BTC-USDT";
-      const symInput = document.getElementById("symbol-input");
-      if (document.activeElement !== symInput) {
-        symInput.value = activeSym;
-      }
-
-      autoEnabled = Boolean(at.enabled);
-      const lockedMap = at.locked_signals || {};
-      const lockedSide = lockedMap[activeSym];
-
-      document.getElementById("lock-status-txt").textContent = lockedSide ? `${lockedSide} • BLOCCATO` : "LIBERO";
-      document.getElementById("mode-txt").textContent = autoEnabled ? "AUTOMATICO" : "MANUALE";
-      document.getElementById("sym-txt").textContent = activeSym;
-      document.getElementById("price-txt").textContent = q.price ?? "--";
-      document.getElementById("conf-txt").textContent = `${q.confidence ?? "--"}% ${q.label || ""}`;
-      document.getElementById("score-txt").textContent = `${q.score >= 0 ? "+" : ""}${q.score ?? 0} (${q.signal || "NEUTRAL"})`;
-      document.getElementById("tf-countdown-txt").textContent = fmtCountdown(t.remaining_sec);
-      document.getElementById("tp-est-txt").textContent = q.tp != null ? `${q.tp}` : "--";
-      document.getElementById("funding-txt").textContent = `${Number(bal.funding || 0.0048).toFixed(4)}%`;
-      document.getElementById("eq-lev-txt").textContent = `${Number(bal.equity || 0).toFixed(2)} | ${at.leverage || 20}x`;
-
-      const autoBtn = document.getElementById("btn-auto-toggle");
-      autoBtn.textContent = autoEnabled ? "AUTO-TRADE: ON (ATTIVO)" : "AUTO-TRADE: OFF";
-      autoBtn.className = autoEnabled ? "btn-primary" : "btn-ghost";
-
-      if (at.last_outcome) {
-        document.getElementById("bingx-outcome-box").textContent = at.last_outcome;
-      }
-
-      const rows = mkt.rows || [];
-      document.getElementById("mkt-title").textContent = `MERCATI (${rows.length})`;
-      document.getElementById("mkt-cat-label").textContent = mkt.category || activeCategory;
-      const mktTbody = document.getElementById("markets-tbody");
-      if (!rows.length) {
-        mktTbody.innerHTML = `<tr><td colspan="4">Nessuna coppia trovata</td></tr>`;
-      } else {
-        mktTbody.innerHTML = rows.map(r => {
-          const chg = Number(r.change_pct || 0);
-          const chgCls = chg >= 0 ? "tag-buy" : "tag-sell";
-          const isLocked = Boolean(lockedMap[r.symbol]);
-          const sigTxt = isLocked ? `${r.signal} • BLOCCATO` : r.signal;
-          const sigCls = isLocked ? "tag-warn" : (r.signal === "BUY" ? "tag-buy" : (r.signal === "SELL" ? "tag-sell" : "tag-warn"));
-          const sel = r.symbol === activeSym ? "market-row selected" : "market-row";
-          return `<tr class="${sel}" data-sym="${r.symbol}">
-            <td><strong>${r.symbol}</strong><br><span class="sub">${r.category}</span></td>
-            <td>${r.price ?? "--"}</td>
-            <td class="${chgCls}">${chg > 0 ? "+" : ""}${chg.toFixed(2)}%</td>
-            <td class="${sigCls}">${sigTxt}</td>
-          </tr>`;
-        }).join("");
-
-        mktTbody.querySelectorAll("tr[data-sym]").forEach(tr => {
-          tr.addEventListener("click", () => {
-            const clickedSym = tr.getAttribute("data-sym");
-            document.getElementById("symbol-input").value = clickedSym;
-            pollNow(clickedSym);
-          });
-        });
-      }
-
-      drawCandles(q.candles || [], `${activeSym} (${t.tf || "1m"})`);
-
-      document.getElementById("pos-title").textContent = `POSIZIONI APERTE (${pos.length})`;
-      const posTbody = document.getElementById("pos-tbody");
-      if (!pos.length) {
-        posTbody.innerHTML = `<tr><td colspan="6">Nessuna posizione aperta</td></tr>`;
-      } else {
-        posTbody.innerHTML = pos.map(p => {
-          const sCls = p.positionSide === "LONG" ? "tag-buy" : "tag-sell";
-          return `<tr>
-            <td>${p.symbol}</td>
-            <td class="${sCls}">${p.positionSide}</td>
-            <td>${p.positionAmt}</td>
-            <td>${p.entryPrice}</td>
-            <td>${Number(p.unrealizedProfit || 0).toFixed(4)}</td>
-            <td><button type="button" class="btn-ghost" onclick="closeOne('${p.symbol}')">Chiudi</button></td>
-          </tr>`;
-        }).join("");
-      }
-
-      const logsTbody = document.getElementById("logs-tbody");
-      if (!logs.length) {
-        logsTbody.innerHTML = `<tr><td colspan="6">Nessun evento</td></tr>`;
-      } else {
-        logsTbody.innerHTML = logs.map(l => {
-          const s = String(l.segnale || "");
-          const cls = s.includes("BUY") ? "tag-buy" : (s.includes("SELL") ? "tag-sell" : "tag-warn");
-          return `<tr>
-            <td>${l.ora}</td>
-            <td>${l.coppia}</td>
-            <td>${l.tf}</td>
-            <td class="${cls}">${l.segnale}<br><span class="sub">${l.confidenza}% • ${l.label || ""}</span></td>
-            <td>${l.tp1 ?? "-"} / ${l.tp2 ?? "-"} / ${l.sl ?? "-"}</td>
-            <td>${l.esito}</td>
-          </tr>`;
-        }).join("");
-      }
-
-      const incTbody = document.getElementById("income-tbody");
-      if (!inc.length) {
-        incTbody.innerHTML = `<tr><td colspan="3">Nessun movimento</td></tr>`;
-      } else {
-        incTbody.innerHTML = inc.map(r => `<tr>
-          <td>${r.type}</td>
-          <td>${r.symbol}</td>
-          <td>${Number(r.income || 0).toFixed(4)} ${r.asset || "USDT"}</td>
-        </tr>`).join("");
-      }
-    }
-
-    async function pollNow(overrideSymbol = null) {
-      const thisReq = ++reqCounter;
-      const v = getFormValues();
-      const targetSym = overrideSymbol || v.symbol;
-      const qStr = encodeURIComponent(document.getElementById("mkt-search").value || "");
-      const catStr = encodeURIComponent(activeCategory);
-      const scanParam = forceScanNext ? "&scan=1" : "";
-      forceScanNext = false;
-
+    async function loadInitialConfig() {
       try {
-        const res = await fetch(`/api/live-ticker?symbol=${encodeURIComponent(targetSym)}&tf=${encodeURIComponent(v.tf)}&category=${catStr}&query=${qStr}${scanParam}`);
-        const data = await res.json();
-        if (thisReq >= appliedReqId) {
-          appliedReqId = thisReq;
-          renderData(data);
+        const r = await fetch("/api/config");
+        const cfg = await r.json();
+        document.getElementById("minScoreInput").value = cfg.min_signal_score ?? 65;
+        document.getElementById("minScoreLabel").textContent = cfg.min_signal_score ?? 65;
+        document.getElementById("rsiPeriodInput").value = cfg.rsi_period ?? 14;
+        document.getElementById("macdFastInput").value = cfg.macd_fast ?? 12;
+        document.getElementById("macdSlowInput").value = cfg.macd_slow ?? 26;
+        document.getElementById("macdSigInput").value = cfg.macd_signal ?? 9;
+        document.getElementById("emaFastInput").value = cfg.ema_fast ?? 20;
+        document.getElementById("emaSlowInput").value = cfg.ema_slow ?? 50;
+        document.getElementById("antiFakeChk").checked = cfg.anti_fake_enabled ?? true;
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    async function pollTicker() {
+      try {
+        const url = `/api/live-ticker?symbol=${encodeURIComponent(currentSymbol)}&timeframe=${encodeURIComponent(currentTimeframe)}`;
+        const res = await fetch(url);
+        const d = await res.json();
+        latestData = d;
+
+        const decimals = Number.isInteger(d.priceDecimals) ? d.priceDecimals : 2;
+        document.getElementById("symbolTitle").textContent = d.label || d.symbol;
+        document.getElementById("catBadge").textContent = `💎 ${(d.category || "CRYPTO").toUpperCase()}`;
+        document.getElementById("wrText").textContent = `WR ${d.winRate}%`;
+        document.getElementById("priceVal").textContent = `$${Number(d.lastPrice).toFixed(decimals)}`;
+        document.getElementById("candleCloseLocal").textContent = d.closeTimeLocal || "--:--:--";
+        document.getElementById("candleCloseUtc").textContent = d.closeTimeUtc || "--:--:-- UTC";
+
+        document.getElementById("trendVal").textContent = `${d.trendHealth}%`;
+        document.getElementById("trendBar").style.width = `${d.trendHealth}%`;
+        document.getElementById("whaleBearText").textContent = `${d.whalePct}% Balene / ${d.bearPct}% Orsi`;
+        document.getElementById("whaleBar").style.width = `${d.whalePct}%`;
+
+        const riskBox = document.getElementById("riskBox");
+        if (d.highRiskWarning) {
+          riskBox.classList.remove("safe");
+          document.getElementById("riskTitle").textContent = "⛔ ATTENZIONE — FILTRO RISCHIO / ANTI-FAKE";
+        } else {
+          riskBox.classList.add("safe");
+          document.getElementById("riskTitle").textContent = "✅ SETUP VALIDATO — RISCHIO CONTROLLATO";
+        }
+        document.getElementById("riskReason").textContent = `Motivo: ${d.riskReason}`;
+
+        const af = d.antiFake || {};
+        const afText = af.isFalseSignal
+          ? `Anti-Fake: BLOCCATO (${af.fakeBreakout}, penalità -${af.penaltyScore})`
+          : `Anti-Fake: OK (penalità -${af.penaltyScore ?? 0})`;
+        document.getElementById("antiFakeStatus").textContent = afText;
+
+        document.getElementById("timerLabel").textContent = `⏱ CHIUSURA CANDELA (${d.timeframe})`;
+        document.getElementById("validityInfo").textContent = `● VALIDO ${d.validityPct}% · ${d.remainingText}`;
+        document.getElementById("validityBar").style.width = `${d.validityPct}%`;
+
+        const ind = d.indicators || {};
+        document.getElementById("recTitle").textContent = `RECOMMENDATION: ${d.signalSide} (${d.timeframe})`;
+        document.getElementById("recSub").textContent =
+          `MACD: ${ind.macdStatus} (${ind.macd ?? 0}) | EMA: ${ind.emaFast ?? 0}/${ind.emaSlow ?? 0} | ATR: ${ind.atr ?? 0}`;
+
+        document.getElementById("rsiVal").textContent = `${ind.rsi ?? "--"}`;
+        document.getElementById("whaleVal").textContent = `${d.whalePct}%`;
+        document.getElementById("bearVal").textContent = `${d.bearPct}%`;
+        document.getElementById("scoreVal").textContent = `${d.signalScore}/${d.minSignalScore}`;
+        document.getElementById("dirBadge").textContent = `▲ ${d.signalSide} · SCORE ${d.signalScore}`;
+        document.getElementById("copyBingxBtn").textContent = `📋 COPIA ${d.label || d.symbol} PER APP BINGX`;
+
+        if (d.signalSide === "BUY") {
+          setNeedleAngle(35);
+          document.getElementById("gaugeText").textContent = "Buy";
+          document.getElementById("gaugeText").style.color = "#22c55e";
+        } else if (d.signalSide === "SELL") {
+          setNeedleAngle(-35);
+          document.getElementById("gaugeText").textContent = "Sell";
+          document.getElementById("gaugeText").style.color = "#ef4444";
+        } else {
+          setNeedleAngle(0);
+          document.getElementById("gaugeText").textContent = "Neutral";
+          document.getElementById("gaugeText").style.color = "#fbbf24";
         }
       } catch (err) {
-        document.getElementById("bingx-outcome-box").textContent = `ESITO BINGX: Errore connessione (${err})`;
+        console.error("Errore polling ticker:", err);
       }
     }
 
-    async function sendManualOrder(side) {
-      const v = getFormValues();
-      const res = await fetch("/api/order", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...v, side, order_type: "MARKET" })
-      });
-      const data = await res.json();
-      const r = data.result || {};
-      if (r.outcome_text) {
-        document.getElementById("bingx-outcome-box").textContent = r.outcome_text;
-      }
-      await pollNow(v.symbol);
-    }
-
-    async function closeOne(sym) {
-      await fetch("/api/close-position", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ symbol: sym })
-      });
-      await pollNow();
-    }
-
-    document.querySelectorAll("#cat-bar .cat-btn").forEach(btn => {
-      btn.addEventListener("click", async () => {
-        document.querySelectorAll("#cat-bar .cat-btn").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll(".tab-btn[data-sym]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".tab-btn[data-sym]").forEach((b) => b.classList.remove("active"));
         btn.classList.add("active");
-        activeCategory = btn.getAttribute("data-cat") || "Materie Prime";
-        forceScanNext = true;
-        await fetch("/api/auto-trade", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ category: activeCategory })
-        });
-        const res = await fetch(`/api/live-ticker?tf=${encodeURIComponent(getFormValues().tf)}&category=${encodeURIComponent(activeCategory)}&scan=1`);
-        const data = await res.json();
-        const firstRowSym = data?.markets?.rows?.[0]?.symbol;
-        if (firstRowSym) {
-          document.getElementById("symbol-input").value = firstRowSym;
-        }
-        renderData(data);
+        currentSymbol = btn.getAttribute("data-sym");
+        pollTicker();
       });
     });
 
-    document.getElementById("btn-scan-cat").addEventListener("click", () => {
-      forceScanNext = true;
-      pollNow();
-    });
-    document.getElementById("mkt-search").addEventListener("input", () => pollNow());
-    document.getElementById("symbol-input").addEventListener("change", () => pollNow());
-    document.getElementById("tf-select").addEventListener("change", () => pollNow());
-    document.getElementById("btn-refresh-top").addEventListener("click", () => {
-      forceScanNext = true;
-      pollNow();
-    });
-    document.getElementById("btn-unlock-signal").addEventListener("click", async () => {
-      await fetch("/api/auto-trade", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reset_locks: true })
-      });
-      await pollNow();
-    });
-    document.getElementById("btn-auto-toggle").addEventListener("click", async () => {
-      const v = getFormValues();
-      await fetch("/api/auto-trade", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          enabled: !autoEnabled,
-          symbol: v.symbol,
-          tf: v.tf,
-          qty: v.qty,
-          leverage: v.leverage,
-          category: activeCategory
-        })
-      });
-      await pollNow();
-    });
-    document.getElementById("btn-buy-long").addEventListener("click", () => sendManualOrder("BUY"));
-    document.getElementById("btn-sell-short").addEventListener("click", () => sendManualOrder("SELL"));
-    document.getElementById("btn-close-all").addEventListener("click", async () => {
-      await fetch("/api/close-position", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({})
-      });
-      await pollNow();
+    document.getElementById("tfSelect").addEventListener("change", (e) => {
+      currentTimeframe = e.target.value;
+      pollTicker();
     });
 
-    pollNow();
-    setInterval(() => pollNow(), 3000);
+    document.getElementById("minScoreInput").addEventListener("input", (e) => {
+      document.getElementById("minScoreLabel").textContent = e.target.value;
+    });
+
+    document.getElementById("saveParamsBtn").addEventListener("click", async () => {
+      const payload = {
+        min_signal_score: Number(document.getElementById("minScoreInput").value),
+        rsi_period: Number(document.getElementById("rsiPeriodInput").value),
+        macd_fast: Number(document.getElementById("macdFastInput").value),
+        macd_slow: Number(document.getElementById("macdSlowInput").value),
+        macd_signal: Number(document.getElementById("macdSigInput").value),
+        ema_fast: Number(document.getElementById("emaFastInput").value),
+        ema_slow: Number(document.getElementById("emaSlowInput").value),
+        anti_fake_enabled: document.getElementById("antiFakeChk").checked,
+      };
+      await fetch("/api/config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      pollTicker();
+    });
+
+    document.getElementById("copyBingxBtn").addEventListener("click", async () => {
+      if (!latestData) return;
+      const ind = latestData.indicators || {};
+      const txt = [
+        `${latestData.symbol} (${latestData.timeframe}) | ${latestData.signalSide}`,
+        `Prezzo: ${latestData.lastPrice} | Score: ${latestData.signalScore}/${latestData.minSignalScore}`,
+        `RSI(${ind.rsiPeriod}): ${ind.rsi} | MACD: ${ind.macdStatus} | ATR: ${ind.atr}`,
+        `Chiusura candela: ${latestData.closeTimeLocal}`,
+      ].join("\n");
+      await navigator.clipboard.writeText(txt);
+      const btn = document.getElementById("copyBingxBtn");
+      const prev = btn.textContent;
+      btn.textContent = "✅ COPIATO PER BINGX";
+      setTimeout(() => { btn.textContent = prev; }, 1500);
+    });
+
+    loadInitialConfig().then(() => {
+      pollTicker();
+      setInterval(pollTicker, 3000);
+    });
   </script>
 </body>
 </html>
