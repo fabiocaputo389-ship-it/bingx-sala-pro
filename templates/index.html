@@ -228,6 +228,40 @@
       color: #ffffff;
       border-color: var(--green-bright);
     }
+    .lock-box {
+      background: #000000;
+      padding: 8px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .lock-badge {
+      padding: 6px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 800;
+      text-align: center;
+      background: var(--surface);
+      color: #ffffff;
+      border: 1px solid var(--border);
+    }
+    .lock-badge.is-locked {
+      background: var(--blue);
+      color: #ffffff;
+      border-color: var(--blue-bright);
+    }
+    .unlock-btn {
+      width: 100%;
+      padding: 7px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 800;
+      background: var(--red);
+      color: #ffffff;
+      border: 1px solid var(--red-bright);
+    }
     .certainty-banner {
       padding: 8px 10px;
       border-radius: 4px;
@@ -339,6 +373,7 @@
   <div class="top">
     <div class="brand">BINGX <span>PRO SIGNAL DESK</span></div>
     <div class="kpis">
+      <div class="kpi"><small>BLOCCO SEGNALE</small><strong id="k-lock" class="warn">LIBERO</strong></div>
       <div class="kpi"><small>MODALITÀ</small><strong id="k-mode" class="warn">MANUALE</strong></div>
       <div class="kpi"><small>SIMBOLO</small><strong id="k-sym">BTC-USDT</strong></div>
       <div class="kpi"><small>PREZZO</small><strong id="k-price">--</strong></div>
@@ -364,7 +399,7 @@
         <button class="cat-btn" data-cat="Azioni & Indici">Azioni</button>
         <button class="cat-btn" data-cat="Materie Prime">Materie Prime</button>
       </div>
-      <input id="m-search" class="search" placeholder="Categoria o coppia (es. Azioni, Crypto, GOLD, TSLA)..." />
+      <input id="m-search" class="search" placeholder="Categoria o coppia (es. Azioni, Crypto, XAUT, TSLA)..." />
       <button class="calc-btn" style="border-radius:0;border-left:none;border-right:none;" onclick="scanActiveCategory(true)">SCANSIONA CATEGORIA ATTIVA</button>
       <div id="m-list" class="list">Caricamento...</div>
     </div>
@@ -419,6 +454,11 @@
     <div class="panel" style="border-right:none;">
       <div class="p-head"><span>APERTURA MANUALE / AUTOMATICA</span></div>
       <div class="form">
+        <div class="lock-box">
+          <div id="lock-badge" class="lock-badge">BLOCCO SEGNALE CERTO: IN ATTESA</div>
+          <button id="btn-unlock" class="unlock-btn" onclick="unlockSignal()">SBLOCCA SEGNALE</button>
+        </div>
+
         <div class="auto-box">
           <label>Modalità Apertura Posizioni BingX</label>
           <div class="mode-switch">
@@ -550,7 +590,7 @@
   <script>
     let sym = "BTC-USDT", activeCat = "ALL", markets = [], remainingSec = 0;
     let autoTradeOn = false, audioOn = true, voiceOn = true;
-    let lastSpokenKey = "", latestQuant = null;
+    let lastSpokenKey = "", latestQuant = null, lastLockedKey = "";
 
     function fmtSec(s) {
       s = Math.max(0, Math.floor(s || 0));
@@ -571,8 +611,51 @@
       if (q.includes("AZION") || q.includes("STOCK") || q.includes("IND")) return { cat: "Azioni & Indici", query: "" };
       if (q.includes("CRYPTO") || q.includes("CRIPTO")) return { cat: "Crypto Major", query: "" };
       if (q.includes("MEME") || q.includes("ALT")) return { cat: "Meme & Altcoin", query: "" };
-      if (q.includes("MATER") || q.includes("GOLD") || q.includes("OIL")) return { cat: "Materie Prime", query: "" };
+      if (q.includes("MATER") || q.includes("XAUT") || q.includes("PAXG")) return { cat: "Materie Prime", query: "" };
       return { cat: "ALL", query: q };
+    }
+
+    function renderSignalLock(lockInfo) {
+      const badge = document.getElementById("lock-badge");
+      const kLock = document.getElementById("k-lock");
+      if (lockInfo && lockInfo.locked && lockInfo.symbol) {
+        const rem = fmtSec(lockInfo.remaining_sec || 0);
+        const txt = `BLOCCATO: ${lockInfo.side} ${lockInfo.symbol} (${lockInfo.certainty_pct}% • ${rem})`;
+        badge.className = "lock-badge is-locked";
+        badge.innerText = txt;
+        kLock.className = "pos";
+        kLock.innerText = `${lockInfo.side} ${lockInfo.symbol}`;
+
+        const lockKey = `${lockInfo.symbol}_${lockInfo.side}_${lockInfo.certainty_pct}`;
+        if (lockKey !== lastLockedKey) {
+          lastLockedKey = lockKey;
+          playBeep(lockInfo.side === "SELL" ? "sell" : "buy");
+          speakText(`Segnale certo rilevato e bloccato: ${lockInfo.side === "SELL" ? "short" : "long"} su ${lockInfo.symbol.replace("-", " ")}, affidabilità ${lockInfo.certainty_pct} percento.`);
+        }
+        if (lockInfo.symbol !== sym) {
+          sym = lockInfo.symbol;
+          document.getElementById("k-sym").innerText = sym;
+          renderChart(sym);
+          drawMarkets();
+        }
+      } else {
+        lastLockedKey = "";
+        badge.className = "lock-badge";
+        badge.innerText = "BLOCCO SEGNALE CERTO: IN ATTESA";
+        kLock.className = "warn";
+        kLock.innerText = "LIBERO";
+      }
+    }
+
+    async function unlockSignal() {
+      const r = await fetch("/api/signal-lock", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "UNLOCK" })
+      });
+      const d = await r.json();
+      renderSignalLock(d.signal_lock);
+      speakText("Blocco segnale rimosso");
     }
 
     function syncModeUI() {
@@ -693,6 +776,7 @@
       try {
         const r = await fetch(`/api/scan-category?category=${encodeURIComponent(eff.cat)}&query=${encodeURIComponent(eff.query)}&tf=${encodeURIComponent(tf)}&symbol=${encodeURIComponent(sym)}`);
         const d = await r.json();
+        if (d.signal_lock) renderSignalLock(d.signal_lock);
         if (d.code === 0 && d.scan && d.scan.best) {
           const best = d.scan.best;
           if (switchToBest && best.symbol && best.symbol !== sym) {
@@ -734,6 +818,7 @@
           })
         });
         const d = await r.json();
+        if (d.signal_lock) renderSignalLock(d.signal_lock);
         document.getElementById("auto-st").innerText = d.msg || "In attesa...";
         if (d.selected_symbol && d.selected_symbol !== sym) {
           sym = d.selected_symbol;
@@ -933,6 +1018,7 @@
       const d = await r.json();
       if (d.code === 0) {
         remainingSec = d.timing.remaining_sec;
+        if (d.signal_lock) renderSignalLock(d.signal_lock);
         renderQuant(d.quant);
         if (d.quant?.tp) document.getElementById("o-tp").value = d.quant.tp;
         if (d.quant?.sl) document.getElementById("o-sl").value = d.quant.sl;
@@ -945,6 +1031,7 @@
         const tf = document.getElementById("o-tf").value;
         const r = await fetch(`/api/live-ticker?symbol=${encodeURIComponent(sym)}&tf=${encodeURIComponent(tf)}`);
         const d = await r.json();
+        if (d.signal_lock) renderSignalLock(d.signal_lock);
         if (d.timing && typeof d.timing.remaining_sec === "number") {
           remainingSec = d.timing.remaining_sec;
         }
@@ -989,6 +1076,7 @@
       try {
         const r = await fetch("/api/account");
         const d = await r.json();
+        if (d.signal_lock) renderSignalLock(d.signal_lock);
         document.getElementById("k-eq").innerText = Number(d.equity || 0).toFixed(2);
         document.getElementById("k-lev").innerText = (d.recommended_leverage || 20) + "x";
         document.getElementById("o-lev").value = d.recommended_leverage || 20;
@@ -1042,6 +1130,7 @@
         })
       });
       const res = await r.json();
+      if (res.signal_lock) renderSignalLock(res.signal_lock);
       if (res.signals_log) renderSignalLog(res.signals_log);
       if (res.code === 0) {
         playBeep(side === "SELL" ? "sell" : "buy");
