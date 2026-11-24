@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>BingX Pro Desk</title>
+  <title>BingX Pro Desk • Sala Segnali</title>
   <style>
     :root {
       --bg: #0b0e14; --panel: #131722; --border: #2a2e39;
@@ -16,7 +16,7 @@
     .brand span { color: var(--blue); }
     .kpis { display: flex; flex-wrap: wrap; gap: 14px; }
     .kpi small { display: block; font-size: 10px; color: var(--muted); }
-    .grid { display: grid; grid-template-columns: 265px 1fr 230px 320px; min-height: calc(100vh - 46px); }
+    .grid { display: grid; grid-template-columns: 265px 1fr 230px 330px; min-height: calc(100vh - 46px); }
     @media (max-width: 1120px) { .grid { grid-template-columns: 1fr; } }
     .panel { background: var(--panel); border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); display: flex; flex-direction: column; }
     .p-head { padding: 8px 10px; font-size: 11px; font-weight: 600; color: var(--muted); border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
@@ -30,22 +30,28 @@
     .pos { color: var(--green); }
     .neg { color: var(--red); }
     .warn { color: var(--warn); }
-    #chart { height: 390px; width: 100%; }
+    #chart { height: 360px; width: 100%; }
     .pos-box { padding: 8px; overflow-y: auto; border-top: 1px solid var(--border); }
-    table { width: 100%; border-collapse: collapse; font-size: 12px; }
-    th, td { padding: 6px; border-bottom: 1px solid #1e222d; text-align: left; }
+    table { width: 100%; border-collapse: collapse; font-size: 11px; }
+    th, td { padding: 5px 6px; border-bottom: 1px solid #1e222d; text-align: left; }
     .ob { padding: 6px 8px; font-family: monospace; }
     .ob-row { display: flex; justify-content: space-between; padding: 2px 0; }
     .mid { text-align: center; padding: 6px; font-weight: 700; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); margin: 4px 0; }
     .form { padding: 10px; display: flex; flex-direction: column; gap: 8px; }
     .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
     label { display: block; font-size: 11px; color: var(--muted); margin-bottom: 3px; }
     input, select { width: 100%; padding: 7px; border-radius: 4px; border: 1px solid var(--border); background: #1e222d; color: #fff; }
+    .certainty-banner { padding: 8px 10px; border-radius: 5px; font-weight: 800; font-size: 12px; text-align: center; border: 1px solid var(--border); background: #10141d; }
+    .banner-buy { color: #00e676; border-color: #089981; background: rgba(8, 153, 129, 0.14); }
+    .banner-sell { color: #ff5252; border-color: #f23645; background: rgba(242, 54, 69, 0.14); }
+    .banner-wait { color: var(--warn); border-color: var(--warn); background: rgba(255, 179, 0, 0.12); }
     .score-card { background: #10141d; padding: 8px; border-radius: 4px; border: 1px solid var(--border); }
     .score-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
-    .score-val { font-size: 14px; font-weight: 800; }
+    .score-val { font-size: 13px; font-weight: 800; }
     .ind-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; font-size: 11px; color: var(--muted); }
     .ind-grid span strong { color: var(--text); float: right; }
+    .sig-box { background: #10141d; padding: 8px; border-radius: 4px; border: 1px solid var(--border); font-size: 11px; line-height: 1.55; }
     .chk-box { display: flex; flex-direction: column; gap: 5px; background: #10141d; padding: 8px; border-radius: 4px; border: 1px solid var(--border); font-size: 12px; }
     .chk-box label { display: flex; align-items: center; gap: 6px; color: var(--text); margin: 0; cursor: pointer; }
     .chk-box input[type="checkbox"] { width: auto; }
@@ -61,10 +67,11 @@
 </head>
 <body>
   <div class="top">
-    <div class="brand">BINGX <span>PRO DESK</span></div>
+    <div class="brand">BINGX <span>PRO SIGNAL DESK</span></div>
     <div class="kpis">
       <div class="kpi"><small>SIMBOLO</small><strong id="k-sym">BTC-USDT</strong></div>
       <div class="kpi"><small>PREZZO</small><strong id="k-price">--</strong></div>
+      <div class="kpi"><small>AFFIDABILITÀ SEGNALE</small><strong id="k-cert" class="warn">--% • ATTESA</strong></div>
       <div class="kpi"><small>SCORE QUANT</small><strong id="k-score" class="warn">0 (NEUTRAL)</strong></div>
       <div class="kpi"><small>CANDELA TF</small><strong id="k-cd" class="warn">--:--</strong></div>
       <div class="kpi"><small>STIMA TP</small><strong id="k-eta" class="pos">--</strong></div>
@@ -91,10 +98,17 @@
     <div class="panel">
       <div id="chart"></div>
       <div class="pos-box">
-        <div class="p-head"><span>POSIZIONI APERTE & CHIUSURA FINE CANDELA</span><button onclick="loadAccount()" style="background:none;color:#2962ff;padding:0;">Aggiorna</button></div>
+        <div class="p-head"><span>POSIZIONI APERTE</span><button onclick="loadAccount()" style="background:none;color:#2962ff;padding:0;">Aggiorna</button></div>
         <table>
           <thead><tr><th>Simbolo</th><th>Lato</th><th>Size</th><th>Entry</th><th>PnL</th></tr></thead>
           <tbody id="pos-body"><tr><td colspan="5" style="text-align:center;color:#787b86;">Nessuna posizione</td></tr></tbody>
+        </table>
+      </div>
+      <div class="pos-box">
+        <div class="p-head"><span>REGISTRO SEGNALI & ESECUZIONI SALA</span></div>
+        <table>
+          <thead><tr><th>Ora</th><th>Coppia</th><th>TF</th><th>Segnale / %</th><th>TP1 / TP2 / SL</th><th>Esito</th></tr></thead>
+          <tbody id="sig-log-body"><tr><td colspan="6" style="text-align:center;color:#787b86;">Nessun segnale registrato</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -107,9 +121,20 @@
     </div>
 
     <div class="panel" style="border-right:none;">
-      <div class="p-head"><span>CERVELLO QUANT & ORDINI</span></div>
+      <div class="p-head"><span>SALA SEGNALI PRO & ORDINI</span></div>
       <div class="form">
+        <div id="certainty-banner" class="certainty-banner banner-wait">0% • ATTESA • NO TRADE CERTO</div>
         <div id="st-box" class="status">STATO: NEUTRAL</div>
+
+        <div class="sig-box">
+          <div>Stato Setup: <strong id="sig-status">--</strong></div>
+          <div>Entry Zone: <strong id="sig-entry">--</strong></div>
+          <div class="row3" style="margin-top:4px;">
+            <div>TP1: <strong id="sig-tp1" class="pos">--</strong></div>
+            <div>TP2: <strong id="sig-tp2" class="pos">--</strong></div>
+            <div>TP3: <strong id="sig-tp3" class="pos">--</strong></div>
+          </div>
+        </div>
 
         <div class="score-card">
           <div class="score-top">
@@ -140,15 +165,27 @@
             </select>
           </div>
           <div>
+            <label>Soglia % Minima</label>
+            <select id="o-min-cert">
+              <option value="50">50% (Aggressivo)</option>
+              <option value="70" selected>70% (Segnale Certo)</option>
+              <option value="80">80% (Alta Certezza)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="row2">
+          <div>
             <label>Tipo Ordine</label>
             <select id="o-type">
               <option value="MARKET">MARKET</option>
               <option value="LIMIT">LIMIT</option>
             </select>
           </div>
+          <div><label>Quantità</label><input id="o-qty" type="number" step="any" value="0.001" /></div>
         </div>
 
-        <button class="calc-btn" onclick="refreshTfPlan()">CALCOLA SEGNALE, TP / SL & TEMPO STIMATO</button>
+        <button class="calc-btn" onclick="refreshTfPlan()">CALCOLA SEGNALE, % CERTEZZA & TP1/TP2/TP3</button>
 
         <div class="meta-box" id="tf-meta">
           Chiusura candela tra: <strong id="m-cd">--</strong><br/>
@@ -158,20 +195,17 @@
 
         <div id="p-wrap" style="display:none;"><label>Prezzo Limit</label><input id="o-price" type="number" step="any" /></div>
 
-        <div class="row2">
-          <div><label>Quantità</label><input id="o-qty" type="number" step="any" value="0.001" /></div>
+        <div class="row3">
           <div><label>Leva</label><input id="o-lev" type="number" value="20" /></div>
-        </div>
-
-        <div class="row2">
-          <div><label>Take Profit (Quant)</label><input id="o-tp" type="number" step="any" placeholder="Auto / Manuale" /></div>
-          <div><label>Stop Loss (Quant)</label><input id="o-sl" type="number" step="any" placeholder="Auto / Manuale" /></div>
+          <div><label>TP Ordine</label><input id="o-tp" type="number" step="any" placeholder="Auto" /></div>
+          <div><label>Stop Loss</label><input id="o-sl" type="number" step="any" placeholder="Auto" /></div>
         </div>
 
         <div class="chk-box">
           <label><input type="checkbox" id="chk-close-tf" checked /> Chiudi posizione a fine candela TF</label>
           <label><input type="checkbox" id="chk-fakeout" checked /> Blocco falsi segnali (filtro wick/corpo)</label>
           <label><input type="checkbox" id="chk-breakout" checked /> Anti-rotture (filtro spread & tenuta)</label>
+          <label><input type="checkbox" id="chk-override" /> Consenti ingresso manuale sotto soglia</label>
         </div>
 
         <div class="btns">
@@ -200,12 +234,45 @@
       return { "1m": "1", "5m": "5", "15m": "15", "1h": "60", "4h": "240" }[tf] || "5";
     }
 
+    function renderSignalLog(logs) {
+      const body = document.getElementById("sig-log-body");
+      if (!logs || !logs.length) {
+        body.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#787b86;">Nessun segnale registrato</td></tr>`;
+        return;
+      }
+      body.innerHTML = logs.slice(0, 10).map(item => {
+        const sCls = item.side === "BUY" ? "pos" : (item.side === "SELL" ? "neg" : "warn");
+        return `<tr>
+          <td>${item.ts || "--"}</td>
+          <td><strong>${item.symbol}</strong></td>
+          <td>${item.tf}</td>
+          <td class="${sCls}"><strong>${item.side}</strong> • ${item.certainty_label || "--"}</td>
+          <td>${item.tp1 ?? "-"} / ${item.tp2 ?? "-"} / <span class="neg">${item.sl ?? "-"}</span></td>
+          <td>${item.outcome || "--"}</td>
+        </tr>`;
+      }).join("");
+    }
+
     function renderQuant(q) {
       if (!q) return;
       const sc = Number(q.score || 0);
       const sig = q.signal || "NEUTRAL";
+      const certLabel = q.certainty_label || `${q.certainty_pct || 0}% • ATTESA`;
       const cls = sig === "BUY" ? "pos" : (sig === "SELL" ? "neg" : "warn");
-      const label = `${sc > 0 ? "+" : ""}${sc} • ${sig}`;
+
+      const topCert = document.getElementById("k-cert");
+      topCert.className = cls;
+      topCert.innerText = certLabel;
+
+      const banner = document.getElementById("certainty-banner");
+      banner.className = "certainty-banner " + (sig === "BUY" ? "banner-buy" : (sig === "SELL" ? "banner-sell" : "banner-wait"));
+      banner.innerText = certLabel;
+
+      document.getElementById("sig-status").innerText = q.setup_status || "--";
+      document.getElementById("sig-entry").innerText = `${q.entry_low ?? "--"} — ${q.entry_high ?? "--"}`;
+      document.getElementById("sig-tp1").innerText = q.tp1 ?? "--";
+      document.getElementById("sig-tp2").innerText = q.tp2 ?? "--";
+      document.getElementById("sig-tp3").innerText = q.tp3 ?? "--";
 
       const topEl = document.getElementById("k-score");
       topEl.className = cls;
@@ -213,7 +280,7 @@
 
       const badge = document.getElementById("sc-badge");
       badge.className = `score-val ${cls}`;
-      badge.innerText = label;
+      badge.innerText = `${sc > 0 ? "+" : ""}${sc} • ${sig}`;
 
       const expVal = Number(q.expectancy_r || 0);
       const expEl = document.getElementById("q-exp");
@@ -234,7 +301,7 @@
         document.getElementById("m-eta").innerText = etaStr;
       }
       if (q.tp_pct !== undefined && q.sl_pct !== undefined) {
-        document.getElementById("m-pct").innerText = `TP +${q.tp_pct}% / SL -${q.sl_pct}%`;
+        document.getElementById("m-pct").innerText = `TP2 +${q.tp_pct}% / SL -${q.sl_pct}%`;
       }
     }
 
@@ -297,6 +364,7 @@
         renderQuant(d.quant);
         if (d.quant?.tp) document.getElementById("o-tp").value = d.quant.tp;
         if (d.quant?.sl) document.getElementById("o-sl").value = d.quant.sl;
+        renderSignalLog(d.signals_log);
       }
     }
 
@@ -318,6 +386,9 @@
         if (d.quant) {
           renderQuant(d.quant);
         }
+        if (d.signals_log) {
+          renderSignalLog(d.signals_log);
+        }
         if (d.depth) {
           document.getElementById("ob-asks").innerHTML = (d.depth.asks || []).slice(0, 8).reverse().map(a =>
             `<div class="ob-row"><span class="neg">${a[0]}</span><span>${a[1]}</span></div>`).join("");
@@ -337,6 +408,7 @@
         document.getElementById("k-eq").innerText = Number(d.equity || 0).toFixed(2);
         document.getElementById("k-lev").innerText = (d.recommended_leverage || 20) + "x";
         document.getElementById("o-lev").value = d.recommended_leverage || 20;
+        if (d.signals_log) renderSignalLog(d.signals_log);
         const body = document.getElementById("pos-body");
         if (d.positions && d.positions.length) {
           body.innerHTML = d.positions.map(p => {
@@ -353,7 +425,7 @@
     async function placeOrder(side) {
       await refreshTfPlan(side);
       const st = document.getElementById("st-box");
-      st.innerText = `VERIFICA CERVELLO QUANT & INVIO ${side}...`;
+      st.innerText = `VERIFICA % CERTEZZA & FILTRI ${side}...`;
       const r = await fetch("/api/order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -366,12 +438,15 @@
           leverage: document.getElementById("o-lev").value,
           tp: document.getElementById("o-tp").value,
           sl: document.getElementById("o-sl").value,
+          min_certainty: document.getElementById("o-min-cert").value,
+          allow_override: document.getElementById("chk-override").checked,
           close_at_candle_end: document.getElementById("chk-close-tf").checked,
           anti_fakeout: document.getElementById("chk-fakeout").checked,
           anti_breakout: document.getElementById("chk-breakout").checked
         })
       });
       const res = await r.json();
+      if (res.signals_log) renderSignalLog(res.signals_log);
       st.innerText = res.code === 0 ? `ORDINE ${side} INVIATO` : `STATO: ${res.msg || "Bloccato / Errore"}`;
       loadAccount();
       setTimeout(() => st.innerText = "STATO: NEUTRAL", 5000);
