@@ -127,8 +127,58 @@ def calc_atr(candles: list, period: int = 14):
     return sum(use_trs) / len(use_trs) if use_trs else 0.0
 
 
-def compute_technical_score(symbol: str, tf: str):
-    """Calcola EMA 9/21/50/200, RSI 14, MACD, ATR e Score complessivo (-100..+100)."""
+def calc_adx_and_zscore(candles: list, closes: list, period: int = 14):
+    """Calcola ADX (forza del trend) e Z-Score statistico sul close."""
+    z_score = 0.0
+    if len(closes) >= 20:
+        win = closes[-20:]
+        mean_c = sum(win) / len(win)
+        var_c = sum((x - mean_c) ** 2 for x in win) / len(win)
+        std_c = math.sqrt(var_c)
+        if std_c > 1e-12:
+            z_score = (closes[-1] - mean_c) / std_c
+
+    if len(candles) < period + 2:
+        return 20.0, round(z_score, 2)
+
+    plus_dm_list = []
+    minus_dm_list = []
+    tr_list = []
+
+    for i in range(1, len(candles)):
+        h = float(candles[i].get("high", 0) or 0)
+        l = float(candles[i].get("low", 0) or 0)
+        prev_h = float(candles[i - 1].get("high", h) or h)
+        prev_l = float(candles[i - 1].get("low", l) or l)
+        prev_c = float(candles[i - 1].get("close", h) or h)
+
+        up_move = h - prev_h
+        down_move = prev_l - l
+        plus_dm = up_move if (up_move > down_move and up_move > 0) else 0.0
+        minus_dm = down_move if (down_move > up_move and down_move > 0) else 0.0
+        tr = max(h - l, abs(h - prev_c), abs(l - prev_c))
+
+        plus_dm_list.append(plus_dm)
+        minus_dm_list.append(minus_dm)
+        tr_list.append(tr)
+
+    dx_list = []
+    for idx in range(period - 1, len(tr_list)):
+        tr_sum = sum(tr_list[idx - period + 1:idx + 1])
+        if tr_sum <= 1e-12:
+            continue
+        p_di = 100.0 * (sum(plus_dm_list[idx - period + 1:idx + 1]) / tr_sum)
+        m_di = 100.0 * (sum(minus_dm_list[idx - period + 1:idx + 1]) / tr_sum)
+        di_sum = p_di + m_di
+        if di_sum > 1e-12:
+            dx_list.append(100.0 * abs(p_di - m_di) / di_sum)
+
+    adx_val = sum(dx_list[-period:]) / min(len(dx_list), period) if dx_list else 20.0
+    return round(adx_val, 2), round(z_score, 2)
+
+
+def compute_quant_brain(symbol: str, tf: str, side: str = "BUY"):
+    """Cervello matematico: Score quantitativo, TP/SL con R:R >= 1.8, Expectancy e tempo stimato al TP."""
     klines = bingx_req("GET", "/openApi/swap/v2/quote/klines", {
         "symbol": symbol,
         "interval": tf,
@@ -137,19 +187,13 @@ def compute_technical_score(symbol: str, tf: str):
     raw = klines.get("data") if klines.get("code") == 0 and isinstance(klines.get("data"), list) else []
 
     closes = []
-    highs = []
-    lows = []
     volumes = []
     for k in raw:
         try:
             c = float(k.get("close", 0) or 0)
-            h = float(k.get("high", c) or c)
-            l = float(k.get("low", c) or c)
             v = float(k.get("volume", 0) or 0)
             if c > 0:
                 closes.append(c)
-                highs.append(h)
-                lows.append(l)
                 volumes.append(v)
         except Exception:
             continue
@@ -158,18 +202,27 @@ def compute_technical_score(symbol: str, tf: str):
         return {
             "score": 0,
             "signal": "NEUTRAL",
+            "win_prob": 0.50,
+            "rr_ratio": 1.80,
+            "expectancy_r": 0.0,
+            "profit_ready": False,
             "price": 0.0,
+            "tp": 0.0,
+            "sl": 0.0,
+            "tp_pct": 0.0,
+            "sl_pct": 0.0,
+            "eta_tp_sec": 0,
+            "avg_range": 0.0,
+            "adx": 0.0,
+            "z_score": 0.0,
             "ema9": None,
             "ema21": None,
             "ema50": None,
             "ema200": None,
             "rsi14": 50.0,
-            "macd": 0.0,
-            "macd_signal": 0.0,
             "macd_hist": 0.0,
             "atr": 0.0,
-            "vol_ratio": 1.0,
-            "breakdown": {}
+            "vol_ratio": 1.0
         }
 
     price = closes[-1]
@@ -180,11 +233,17 @@ def compute_technical_score(symbol: str, tf: str):
     rsi14 = calc_rsi(closes, 14)
     macd_val, sig_val, hist_val = calc_macd(closes)
     atr_val = calc_atr(raw, 14)
+    adx_val, z_score = calc_adx_and_zscore(raw, closes, 14)
 
+    ranges = [
+        abs(float(k.get("high", price)) - float(k.get("low", price)))
+        for k in raw[-21:-1]
+    ]
+    avg_range = sum(ranges) / len(ranges) if ranges else (atr_val or price * 0.004)
     avg_vol = (sum(volumes[-21:-1]) / max(len(volumes[-21:-1]), 1)) if len(volumes) > 2 else (volumes[-1] or 1.0)
     vol_ratio = round(volumes[-1] / avg_vol, 2) if avg_vol > 0 else 1.0
 
-    # Punteggi parziali (-100 .. +100 su ciascun blocco, poi pesati)
+    # 1. Trend & EMA Score (-100..+100)
     ema_pts = 0.0
     if ema9 is not None and ema21 is not None:
         ema_pts += 35.0 if ema9 > ema21 else -35.0
@@ -195,13 +254,7 @@ def compute_technical_score(symbol: str, tf: str):
         ema_pts += 20.0 if price > ema200 else -20.0
     ema_pts = max(-100.0, min(100.0, ema_pts))
 
-    if rsi14 >= 65:
-        rsi_pts = 65.0 if rsi14 < 75 else 30.0  # ipercomprato estremo riduce spinta
-    elif rsi14 <= 35:
-        rsi_pts = -65.0 if rsi14 > 25 else -30.0  # ipervenduto estremo
-    else:
-        rsi_pts = (rsi14 - 50.0) * 2.0
-
+    # 2. Momentum Score (MACD + RSI)
     macd_pts = 0.0
     if macd_val > sig_val:
         macd_pts += 55.0
@@ -213,16 +266,54 @@ def compute_technical_score(symbol: str, tf: str):
         macd_pts -= 45.0
     macd_pts = max(-100.0, min(100.0, macd_pts))
 
-    # Peso totale: EMA 45%, MACD 30%, RSI 25%
-    raw_score = (ema_pts * 0.45) + (macd_pts * 0.30) + (rsi_pts * 0.25)
+    if rsi14 >= 65:
+        rsi_pts = 65.0 if rsi14 < 75 else 25.0
+    elif rsi14 <= 35:
+        rsi_pts = -65.0 if rsi14 > 25 else -25.0
+    else:
+        rsi_pts = (rsi14 - 50.0) * 2.0
+
+    # 3. Fattore statistico Z-Score + forza ADX
+    adx_mult = min(1.25, max(0.65, adx_val / 25.0))
+    z_penalty = -20.0 if abs(z_score) > 2.2 else 0.0
+
+    raw_score = ((ema_pts * 0.45) + (macd_pts * 0.30) + (rsi_pts * 0.25)) * adx_mult + z_penalty
     score = int(round(max(-100, min(100, raw_score))))
 
-    if score >= 25:
+    # Soglia alta precisione: richiede |score| >= 40 e ADX >= 18 per segnale direzionale
+    if score >= 40 and adx_val >= 18:
         signal = "BUY"
-    elif score <= -25:
+    elif score <= -40 and adx_val >= 18:
         signal = "SELL"
     else:
         signal = "NEUTRAL"
+
+    # Probabilita' stimata e R:R orientato al profitto (minimo 1.85R)
+    target_side = side.upper() if side.upper() in ("BUY", "SELL") else ("SELL" if score < 0 else "BUY")
+    aligned = (target_side == "BUY" and score > 0) or (target_side == "SELL" and score < 0)
+    conf_strength = min(0.95, max(0.0, abs(score) / 100.0))
+    win_prob = round(min(0.74, max(0.38, (0.48 + 0.22 * conf_strength) if aligned else (0.46 - 0.10 * conf_strength))), 2)
+
+    # SL basato su ATR (1.1 * ATR), TP basato su R:R >= 1.85 (2.05 * ATR)
+    unit_vol = atr_val if atr_val > 0 else max(avg_range, price * 0.002)
+    sl_dist = max(unit_vol * 1.10, price * 0.0012)
+    rr_ratio = 2.00 if abs(score) >= 55 else 1.85
+    tp_dist = sl_dist * rr_ratio
+
+    if target_side == "SELL":
+        tp_price = price - tp_dist
+        sl_price = price + sl_dist
+    else:
+        tp_price = price + tp_dist
+        sl_price = price - sl_dist
+
+    # Expectancy in unita' di rischio (R): E = p * RR - (1 - p) * 1
+    expectancy_r = round((win_prob * rr_ratio) - ((1.0 - win_prob) * 1.0), 2)
+    profit_ready = (expectancy_r > 0.15) and (adx_val >= 18) and (abs(z_score) <= 2.3)
+
+    tf_sec = TF_SECONDS.get(tf, 300)
+    speed_per_sec = max(avg_range / tf_sec, 1e-9)
+    eta_tp_sec = int(min(tp_dist / speed_per_sec, tf_sec * 5))
 
     def fmt_num(val):
         if val is None:
@@ -233,25 +324,33 @@ def compute_technical_score(symbol: str, tf: str):
             return round(val, 4)
         return round(val, 7)
 
+    tp_pct = round((tp_dist / price) * 100, 2) if price > 0 else 0.0
+    sl_pct = round((sl_dist / price) * 100, 2) if price > 0 else 0.0
+
     return {
         "score": score,
         "signal": signal,
+        "win_prob": win_prob,
+        "rr_ratio": rr_ratio,
+        "expectancy_r": expectancy_r,
+        "profit_ready": profit_ready,
         "price": fmt_num(price),
+        "tp": fmt_num(tp_price),
+        "sl": fmt_num(sl_price),
+        "tp_pct": tp_pct,
+        "sl_pct": sl_pct,
+        "eta_tp_sec": eta_tp_sec,
+        "avg_range": fmt_num(avg_range),
+        "adx": adx_val,
+        "z_score": z_score,
         "ema9": fmt_num(ema9),
         "ema21": fmt_num(ema21),
         "ema50": fmt_num(ema50),
         "ema200": fmt_num(ema200),
         "rsi14": rsi14,
-        "macd": fmt_num(macd_val),
-        "macd_signal": fmt_num(sig_val),
         "macd_hist": fmt_num(hist_val),
         "atr": fmt_num(atr_val),
-        "vol_ratio": vol_ratio,
-        "breakdown": {
-            "ema_score": int(round(ema_pts)),
-            "macd_score": int(round(macd_pts)),
-            "rsi_score": int(round(rsi_pts))
-        }
+        "vol_ratio": vol_ratio
     }
 
 
@@ -284,59 +383,10 @@ def candle_timing_info(tf: str) -> dict:
     }
 
 
-def compute_tf_levels_and_eta(symbol: str, tf: str, side: str):
-    klines = bingx_req("GET", "/openApi/swap/v2/quote/klines", {
-        "symbol": symbol,
-        "interval": tf,
-        "limit": 20
-    })
-    ticker = bingx_req("GET", "/openApi/swap/v2/quote/ticker", {"symbol": symbol})
-    price = float((ticker.get("data") or {}).get("lastPrice") or 0)
+def check_anti_fakeout_and_breakout(symbol: str, tf: str, side: str, anti_fakeout: bool, anti_breakout: bool, quant: dict = None):
+    if quant and not quant.get("profit_ready", True):
+        return False, f"CERVELLO QUANT: aspettativa non ottimale (Exp {quant.get('expectancy_r')}R, ADX {quant.get('adx')})"
 
-    ranges = []
-    bodies = []
-    if klines.get("code") == 0 and isinstance(klines.get("data"), list):
-        for k in klines["data"][:-1]:
-            try:
-                o = float(k.get("open", price))
-                h = float(k.get("high", price))
-                l = float(k.get("low", price))
-                c = float(k.get("close", price))
-                ranges.append(abs(h - l))
-                bodies.append(abs(c - o))
-            except Exception:
-                continue
-
-    avg_range = sum(ranges) / len(ranges) if ranges else (price * 0.004)
-    avg_body = sum(bodies) / len(bodies) if bodies else (avg_range * 0.5)
-
-    tp_dist = max(avg_range * 1.2, price * 0.0015)
-    sl_dist = max(avg_range * 0.65, price * 0.001)
-
-    if side == "SELL":
-        tp_price = round(price - tp_dist, 6)
-        sl_price = round(price + sl_dist, 6)
-    else:
-        tp_price = round(price + tp_dist, 6)
-        sl_price = round(price - sl_dist, 6)
-
-    tf_sec = TF_SECONDS.get(tf, 300)
-    speed_per_sec = max(avg_range / tf_sec, 1e-9)
-    eta_tp_sec = int(min(tp_dist / speed_per_sec, tf_sec * 4))
-
-    return {
-        "price": price,
-        "tp": tp_price,
-        "sl": sl_price,
-        "tp_dist": round(tp_dist, 6),
-        "sl_dist": round(sl_dist, 6),
-        "avg_range": round(avg_range, 6),
-        "avg_body": round(avg_body, 6),
-        "eta_tp_sec": eta_tp_sec
-    }
-
-
-def check_anti_fakeout_and_breakout(symbol: str, tf: str, side: str, anti_fakeout: bool, anti_breakout: bool):
     if not anti_fakeout and not anti_breakout:
         return True, "Filtri disattivati"
 
@@ -450,9 +500,8 @@ def api_tf_plan():
     tf = request.args.get("tf", "5m")
     side = request.args.get("side", "BUY").upper()
     timing = candle_timing_info(tf)
-    plan = compute_tf_levels_and_eta(symbol, tf, side)
-    tech = compute_technical_score(symbol, tf)
-    return jsonify({"code": 0, "timing": timing, "plan": plan, "technical": tech})
+    quant = compute_quant_brain(symbol, tf, side)
+    return jsonify({"code": 0, "timing": timing, "quant": quant})
 
 
 @app.route("/api/live-ticker")
@@ -464,13 +513,13 @@ def api_live_ticker():
     ticker = bingx_req("GET", "/openApi/swap/v2/quote/ticker", {"symbol": symbol})
     depth = bingx_req("GET", "/openApi/swap/v2/quote/depth", {"symbol": symbol, "limit": 10})
     funding = bingx_req("GET", "/openApi/swap/v2/quote/premiumIndex", {"symbol": symbol})
-    tech = compute_technical_score(symbol, tf)
+    quant = compute_quant_brain(symbol, tf)
 
     return jsonify({
         "ticker": ticker.get("data", {}),
         "depth": depth.get("data", {}),
         "funding": funding.get("data", {}),
-        "technical": tech,
+        "quant": quant,
         "timing": candle_timing_info(tf),
         "auto_closed": auto_closed,
         "active_auto_closes": list(AUTO_CLOSE_WATCHLIST.values())
@@ -520,7 +569,8 @@ def api_order():
     if qty <= 0:
         return jsonify({"code": -1, "msg": "Quantita' non valida"}), 400
 
-    ok_filter, reason = check_anti_fakeout_and_breakout(symbol, tf, side, anti_fakeout, anti_breakout)
+    quant = compute_quant_brain(symbol, tf, side)
+    ok_filter, reason = check_anti_fakeout_and_breakout(symbol, tf, side, anti_fakeout, anti_breakout, quant)
     if not ok_filter:
         return jsonify({"code": -10, "msg": reason, "status": "NEUTRAL"}), 400
 
