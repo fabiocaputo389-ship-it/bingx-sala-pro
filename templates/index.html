@@ -1,1493 +1,1287 @@
-import os
-import time
-import math
-import hmac
-import hashlib
-import json
-from datetime import datetime, timezone
-from urllib.parse import urlencode
-import requests
-from flask import Flask, render_template, request, jsonify
-from dotenv import load_dotenv
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>BingX Pro Desk</title>
+  <style>
+    :root {
+      --bg: #000000;
+      --panel: #0a0c10;
+      --surface: #12161f;
+      --border: #1e293b;
+      --text: #ffffff;
+      --muted: #cbd5e1;
+      --blue: #2563eb;
+      --blue-bright: #3b82f6;
+      --green: #16a34a;
+      --green-bright: #22c55e;
+      --red: #dc2626;
+      --red-bright: #ef4444;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; touch-action: manipulation; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, -apple-system, sans-serif;
+      font-size: 13px;
+    }
+    .top {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 8px 12px;
+      background: #000000;
+      border-bottom: 1px solid var(--border);
+    }
+    .brand { font-weight: 800; color: #ffffff; font-size: 15px; }
+    .brand span { color: var(--blue-bright); }
+    .kpis { display: flex; flex-wrap: wrap; gap: 14px; }
+    .kpi small { display: block; font-size: 10px; color: var(--muted); }
+    .kpi strong { color: #ffffff; }
+    .grid { display: grid; grid-template-columns: 265px 1fr 230px 335px; min-height: calc(100vh - 46px); }
+    @media (max-width: 1120px) { .grid { grid-template-columns: 1fr; } }
+    .panel {
+      background: var(--panel);
+      border-right: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+    }
+    .p-head {
+      padding: 8px 10px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #ffffff;
+      background: #000000;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .cats {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      padding: 6px;
+      background: #000000;
+      border-bottom: 1px solid var(--border);
+    }
+    .cat-btn {
+      padding: 4px 7px;
+      font-size: 11px;
+      border-radius: 4px;
+      background: var(--surface);
+      color: #ffffff;
+      border: 1px solid var(--border);
+      cursor: pointer;
+    }
+    .cat-btn.active {
+      background: var(--blue);
+      color: #ffffff;
+      font-weight: 700;
+      border-color: var(--blue-bright);
+    }
+    .search {
+      width: 100%;
+      padding: 8px;
+      background: var(--surface);
+      color: #ffffff;
+      border: none;
+      border-bottom: 1px solid var(--border);
+      outline: none;
+    }
+    .search::placeholder { color: var(--muted); }
+    .list { max-height: 70vh; overflow-y: auto; }
+    .row {
+      display: flex;
+      justify-content: space-between;
+      padding: 7px 10px;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      color: #ffffff;
+    }
+    .row small { color: var(--muted); }
+    .row:hover, .row.active { background: rgba(37, 99, 235, 0.25); }
+    .pos { color: var(--green-bright); }
+    .neg { color: var(--red-bright); }
+    .warn { color: var(--blue-bright); }
+    #chart { height: 340px; width: 100%; border-bottom: 1px solid var(--border); }
+    .pos-box { padding: 8px; overflow-y: auto; border-top: 1px solid var(--border); }
+    .perf-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 6px;
+    }
+    .perf-card {
+      background: #000000;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 8px;
+      font-size: 11px;
+      line-height: 1.55;
+      color: #ffffff;
+    }
+    .perf-card strong { color: #ffffff; }
+    .mini-close {
+      background: var(--red);
+      color: #ffffff;
+      border: none;
+      padding: 3px 6px;
+      border-radius: 3px;
+      font-size: 10px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 11px; }
+    th, td { padding: 5px 6px; border-bottom: 1px solid var(--border); text-align: left; color: #ffffff; }
+    th { color: var(--muted); font-weight: 600; }
+    .ob { padding: 6px 8px; font-family: monospace; color: #ffffff; }
+    .ob-row { display: flex; justify-content: space-between; padding: 2px 0; }
+    .mid {
+      text-align: center;
+      padding: 6px;
+      font-weight: 800;
+      color: #ffffff;
+      background: var(--blue);
+      margin: 4px 0;
+    }
+    .form { padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+    .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+    label { display: block; font-size: 11px; color: var(--muted); margin-bottom: 3px; }
+    input, select {
+      width: 100%;
+      padding: 7px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: #ffffff;
+      outline: none;
+    }
+    .mode-switch { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    .mode-btn {
+      padding: 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 800;
+      background: var(--surface);
+      color: #ffffff;
+      border: 1px solid var(--border);
+      cursor: pointer;
+    }
+    .mode-btn.active-manual {
+      background: var(--blue);
+      color: #ffffff;
+      border-color: var(--blue-bright);
+    }
+    .mode-btn.active-auto {
+      background: var(--green);
+      color: #ffffff;
+      border-color: var(--green-bright);
+    }
+    .voice-box {
+      background: #000000;
+      padding: 8px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .voice-btn {
+      padding: 7px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 700;
+      background: var(--surface);
+      color: #ffffff;
+      border: 1px solid var(--border);
+    }
+    .voice-btn.active {
+      background: var(--blue);
+      color: #ffffff;
+      border-color: var(--blue-bright);
+    }
+    .auto-box {
+      background: #000000;
+      padding: 8px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .auto-btn {
+      width: 100%;
+      padding: 9px;
+      border-radius: 4px;
+      font-weight: 800;
+      background: var(--surface);
+      color: #ffffff;
+      border: 1px solid var(--blue-bright);
+    }
+    .auto-btn.active {
+      background: var(--green);
+      color: #ffffff;
+      border-color: var(--green-bright);
+    }
+    .lock-box {
+      background: #000000;
+      padding: 8px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .lock-badge {
+      padding: 6px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 800;
+      text-align: center;
+      background: var(--surface);
+      color: #ffffff;
+      border: 1px solid var(--border);
+    }
+    .lock-badge.is-locked {
+      background: var(--blue);
+      color: #ffffff;
+      border-color: var(--blue-bright);
+    }
+    .lock-open-btn {
+      width: 100%;
+      padding: 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 800;
+      background: var(--green);
+      color: #ffffff;
+      border: 1px solid var(--green-bright);
+    }
+    .lock-open-btn:disabled {
+      background: var(--surface);
+      color: var(--muted);
+      border-color: var(--border);
+      cursor: not-allowed;
+    }
+    .unlock-btn {
+      width: 100%;
+      padding: 7px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 800;
+      background: var(--red);
+      color: #ffffff;
+      border: 1px solid var(--red-bright);
+    }
+    .certainty-banner {
+      padding: 8px 10px;
+      border-radius: 4px;
+      font-weight: 800;
+      font-size: 12px;
+      text-align: center;
+      border: 1px solid var(--border);
+      background: #000000;
+      color: #ffffff;
+    }
+    .banner-buy {
+      background: var(--green);
+      color: #ffffff;
+      border-color: var(--green-bright);
+    }
+    .banner-sell {
+      background: var(--red);
+      color: #ffffff;
+      border-color: var(--red-bright);
+    }
+    .banner-wait {
+      background: var(--blue);
+      color: #ffffff;
+      border-color: var(--blue-bright);
+    }
+    .score-card {
+      background: #000000;
+      padding: 8px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+    .score-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+    .score-val { font-size: 13px; font-weight: 800; }
+    .ind-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4px 10px;
+      font-size: 11px;
+      color: var(--muted);
+    }
+    .ind-grid span strong { color: #ffffff; float: right; }
+    .sig-box {
+      background: #000000;
+      padding: 8px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      font-size: 11px;
+      line-height: 1.55;
+      color: #ffffff;
+    }
+    .chk-box {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      background: #000000;
+      padding: 8px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      font-size: 12px;
+    }
+    .chk-box label { display: flex; align-items: center; gap: 6px; color: #ffffff; margin: 0; cursor: pointer; }
+    .chk-box input[type="checkbox"] { width: auto; accent-color: var(--blue-bright); }
+    .meta-box {
+      background: #000000;
+      padding: 8px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      font-size: 11px;
+      line-height: 1.5;
+      color: #ffffff;
+    }
+    .meta-box strong { color: #ffffff; }
+    .btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    button { padding: 10px; border: none; border-radius: 4px; font-weight: 700; color: #ffffff; cursor: pointer; }
+    .buy { background: var(--green); color: #ffffff; font-weight: 800; }
+    .sell { background: var(--red); color: #ffffff; font-weight: 800; }
+    .calc-btn {
+      background: var(--blue);
+      border: 1px solid var(--blue-bright);
+      color: #ffffff;
+      padding: 7px;
+      font-size: 11px;
+      width: 100%;
+    }
+    .panic {
+      width: 100%;
+      background: var(--red);
+      color: #ffffff;
+      border: 1px solid var(--red-bright);
+      margin-top: 4px;
+    }
+    .status {
+      text-align: center;
+      padding: 6px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      font-size: 11px;
+      color: #ffffff;
+    }
+  </style>
+</head>
+<body>
+  <div class="top">
+    <div class="brand">BINGX <span>PRO SIGNAL DESK</span></div>
+    <div class="kpis">
+      <div class="kpi"><small>BLOCCO SEGNALE</small><strong id="k-lock" class="warn">LIBERO</strong></div>
+      <div class="kpi"><small>MODALITÀ</small><strong id="k-mode" class="warn">MANUALE</strong></div>
+      <div class="kpi"><small>SIMBOLO</small><strong id="k-sym">BTC-USDT</strong></div>
+      <div class="kpi"><small>PREZZO</small><strong id="k-price">--</strong></div>
+      <div class="kpi"><small>PNL GIORNALIERO</small><strong id="k-pnl-day" class="warn">0.00% (0.00)</strong></div>
+      <div class="kpi"><small>PNL MENSILE</small><strong id="k-pnl-month" class="warn">0.00% (0.00)</strong></div>
+      <div class="kpi"><small>AFFIDABILITÀ SEGNALE</small><strong id="k-cert" class="warn">--% • ATTESA</strong></div>
+      <div class="kpi"><small>SCORE QUANT</small><strong id="k-score" class="warn">0 (NEUTRAL)</strong></div>
+      <div class="kpi"><small>CANDELA TF</small><strong id="k-cd" class="warn">--:--</strong></div>
+      <div class="kpi"><small>STIMA TP</small><strong id="k-eta" class="pos">--</strong></div>
+      <div class="kpi"><small>FUNDING</small><strong id="k-fund">--</strong></div>
+      <div class="kpi"><small>EQUITY</small><strong id="k-eq">0.00</strong></div>
+      <div class="kpi"><small>LEVA</small><strong id="k-lev" class="pos">20x</strong></div>
+    </div>
+  </div>
 
-load_dotenv()
+  <div class="grid">
+    <div class="panel">
+      <div class="p-head"><span>MERCATI (<span id="m-cnt">0</span>)</span><span id="scan-cat-badge" style="color:#3b82f6;">ALL</span></div>
+      <div class="cats" id="cat-bar">
+        <button class="cat-btn active" data-cat="ALL">Tutti</button>
+        <button class="cat-btn" data-cat="Crypto Major">Crypto</button>
+        <button class="cat-btn" data-cat="Meme & Altcoin">Meme/Alt</button>
+        <button class="cat-btn" data-cat="Azioni & Indici">Azioni</button>
+        <button class="cat-btn" data-cat="Materie Prime">Materie Prime</button>
+      </div>
+      <input id="m-search" class="search" placeholder="Categoria o coppia (es. Azioni, Crypto, XAUT, TSLA)..." />
+      <button class="calc-btn" style="border-radius:0;border-left:none;border-right:none;" onclick="scanActiveCategory(true)">SCANSIONA CATEGORIA ATTIVA</button>
+      <div id="m-list" class="list">Caricamento...</div>
+    </div>
 
-app = Flask(__name__)
+    <div class="panel">
+      <div id="chart"></div>
+      <div class="pos-box">
+        <div class="p-head"><span>PERFORMANCE GIORNALIERA & MENSILE</span><button onclick="loadAccount()" style="background:none;color:#3b82f6;padding:0;">Aggiorna</button></div>
+        <div class="perf-grid">
+          <div class="perf-card">
+            <div><strong>OGGI (GIORNALIERO UTC)</strong></div>
+            <div>Var. Conto: <strong id="perf-day-pct" class="warn">0.00%</strong> (<span id="perf-day-usdt">0.0000</span> USDT)</div>
+            <div>Realizzato / Fee: <strong id="perf-day-real">0.0000</strong> / <span id="perf-day-fee">0.0000</span></div>
+            <div>Win / Loss: <strong id="perf-day-wl" class="pos">W 0.0%</strong> / <strong id="perf-day-l" class="neg">L 0.0%</strong> (<span id="perf-day-cnt">0</span> op.)</div>
+          </div>
+          <div class="perf-card">
+            <div><strong>MESE CORRENTE (MENSILE UTC)</strong></div>
+            <div>Var. Conto: <strong id="perf-month-pct" class="warn">0.00%</strong> (<span id="perf-month-usdt">0.0000</span> USDT)</div>
+            <div>Realizzato / Fee: <strong id="perf-month-real">0.0000</strong> / <span id="perf-month-fee">0.0000</span></div>
+            <div>Win / Loss: <strong id="perf-month-wl" class="pos">W 0.0%</strong> / <strong id="perf-month-l" class="neg">L 0.0%</strong> (<span id="perf-month-cnt">0</span> op.)</div>
+          </div>
+        </div>
+      </div>
+      <div class="pos-box">
+        <div class="p-head"><span>POSIZIONI APERTE (<span id="pos-cnt">0</span>)</span><button onclick="loadAccount()" style="background:none;color:#3b82f6;padding:0;">Aggiorna</button></div>
+        <table>
+          <thead><tr><th>Simbolo</th><th>Lato</th><th>Size</th><th>Entry</th><th>PnL / %</th><th>Azioni</th></tr></thead>
+          <tbody id="pos-body"><tr><td colspan="6" style="text-align:center;color:#cbd5e1;">Nessuna posizione aperta</td></tr></tbody>
+        </table>
+      </div>
+      <div class="pos-box">
+        <div class="p-head"><span>REGISTRO SEGNALI & ESECUZIONI SALA</span></div>
+        <table>
+          <thead><tr><th>Ora</th><th>Coppia</th><th>TF</th><th>Segnale / %</th><th>TP1 / TP2 / SL</th><th>Esito</th></tr></thead>
+          <tbody id="sig-log-body"><tr><td colspan="6" style="text-align:center;color:#cbd5e1;">Nessun segnale registrato</td></tr></tbody>
+        </table>
+      </div>
+      <div class="pos-box">
+        <div class="p-head"><span>STORICO PNL CHIUSO (BINGX INCOME)</span></div>
+        <table>
+          <thead><tr><th>Tipo</th><th>Simbolo</th><th>Importo USDT</th></tr></thead>
+          <tbody id="inc-body"><tr><td colspan="3" style="text-align:center;color:#cbd5e1;">Nessun movimento</td></tr></tbody>
+        </table>
+      </div>
+    </div>
 
-API_KEY = os.getenv("BINGX_API_KEY", "").strip().strip('"').strip("'")
-API_SECRET = os.getenv("BINGX_SECRET_KEY", "").strip().strip('"').strip("'")
-BASE_URL = "https://open-api.bingx.com"
+    <div class="panel">
+      <div class="p-head"><span>ORDER BOOK</span><span>QTY</span></div>
+      <div id="ob-asks" class="ob"></div>
+      <div id="ob-mid" class="mid">--</div>
+      <div id="ob-bids" class="ob"></div>
+    </div>
 
-TF_SECONDS = {
-    "1m": 60,
-    "5m": 300,
-    "15m": 900,
-    "1h": 3600,
-    "4h": 14400,
-}
+    <div class="panel" style="border-right:none;">
+      <div class="p-head"><span>APERTURA MANUALE / AUTOMATICA</span></div>
+      <div class="form">
+        <div class="lock-box">
+          <div id="lock-badge" class="lock-badge">BLOCCO SEGNALE CERTO: IN ATTESA</div>
+          <button id="btn-open-locked" class="lock-open-btn" onclick="openLockedPosition()" disabled>APRI POSIZIONE BLOCCATA</button>
+          <button id="btn-unlock" class="unlock-btn" onclick="unlockSignal()">SBLOCCA SEGNALE</button>
+        </div>
 
-AUTO_CLOSE_WATCHLIST = {}
-SIGNAL_LOG = []
-LAST_AUTO_ORDER_TS = {}
-MARKET_CACHE = {"ts": 0.0, "markets": []}
-SIGNAL_LOCK = {
-    "locked": False,
-    "symbol": None,
-    "tf": None,
-    "side": None,
-    "certainty_pct": 0,
-    "certainty_label": "",
-    "locked_at": 0.0,
-    "expires_at": 0.0,
-    "quant": None
-}
+        <div class="auto-box">
+          <label>Modalità Apertura Posizioni BingX</label>
+          <div class="mode-switch">
+            <button id="btn-mode-manual" class="mode-btn active-manual" onclick="setTradeMode('MANUAL')">MANUALE</button>
+            <button id="btn-mode-auto" class="mode-btn" onclick="setTradeMode('AUTO')">AUTOMATICO</button>
+          </div>
+          <button id="btn-auto" class="auto-btn" onclick="toggleAutoTrade()">AUTO-TRADE: OFF</button>
+          <div class="row2">
+            <div>
+              <label>Soglia Score Alta</label>
+              <select id="o-auto-score">
+                <option value="55">±55</option>
+                <option value="60" selected>±60</option>
+                <option value="70">±70</option>
+                <option value="80">±80</option>
+              </select>
+            </div>
+            <div>
+              <label>Regola Profitto</label>
+              <input type="text" value="Scan Categoria + Exp > 0" readonly style="color:#ffffff;font-weight:700;" />
+            </div>
+          </div>
+          <div id="auto-st" style="font-size:11px;color:#cbd5e1;text-align:center;">Modalità MANUALE attiva</div>
+        </div>
 
+        <div class="voice-box">
+          <div class="row2">
+            <button id="btn-audio" class="voice-btn active" onclick="toggleAudio()">SUONO: ON</button>
+            <button id="btn-voice" class="voice-btn active" onclick="toggleVoice()">VOCALE IT: ON</button>
+          </div>
+          <button class="voice-btn" onclick="speakCurrentSignal(true)">TEST VOCE & AVVISO SEGNALE</button>
+        </div>
 
-def to_float(val, default=0.0):
-    if val is None or val == "":
-        return float(default)
-    if isinstance(val, (int, float)):
-        return float(val)
-    s = str(val).strip().replace(",", ".")
-    try:
-        return float(s)
-    except Exception:
-        return float(default)
+        <div id="certainty-banner" class="certainty-banner banner-wait">0% • ATTESA • NO TRADE CERTO</div>
+        <div id="st-box" class="status">STATO: NEUTRAL</div>
 
+        <div class="sig-box">
+          <div>Stato Setup: <strong id="sig-status">--</strong></div>
+          <div>Entry Zone: <strong id="sig-entry">--</strong></div>
+          <div class="row3" style="margin-top:4px;">
+            <div>TP1: <strong id="sig-tp1" class="pos">--</strong></div>
+            <div>TP2: <strong id="sig-tp2" class="pos">--</strong></div>
+            <div>TP3: <strong id="sig-tp3" class="pos">--</strong></div>
+          </div>
+        </div>
 
-def sign_params(params: dict) -> str:
-    clean_params = {k: v for k, v in params.items() if v is not None and v != ""}
-    query = urlencode(sorted(clean_params.items()))
-    return hmac.new(
-        API_SECRET.encode("utf-8"),
-        query.encode("utf-8"),
-        hashlib.sha256
-    ).hexdigest()
+        <div class="score-card">
+          <div class="score-top">
+            <span style="font-size:11px;font-weight:700;color:#3b82f6;">CERVELLO MATEMATICO</span>
+            <span id="sc-badge" class="score-val warn">0 • NEUTRAL</span>
+          </div>
+          <div class="ind-grid">
+            <span>Expectancy<strong id="q-exp">--</strong></span>
+            <span>R:R / Win%<strong id="q-rr">--</strong></span>
+            <span>ADX Trend<strong id="q-adx">--</strong></span>
+            <span>Z-Score<strong id="q-z">--</strong></span>
+            <span>EMA 9 / 21<strong id="ind-ema921">--</strong></span>
+            <span>EMA 50 / 200<strong id="ind-ema50200">--</strong></span>
+            <span>RSI / MACD<strong id="ind-rsi">--</strong></span>
+            <span>ATR / Vol<strong id="ind-atr">--</strong></span>
+          </div>
+        </div>
 
+        <div class="row2">
+          <div>
+            <label>Timeframe (TP/SL)</label>
+            <select id="o-tf">
+              <option value="1m">1m</option>
+              <option value="5m" selected>5m</option>
+              <option value="15m">15m</option>
+              <option value="1h">1h</option>
+              <option value="4h">4h</option>
+            </select>
+          </div>
+          <div>
+            <label>Soglia % Minima</label>
+            <select id="o-min-cert">
+              <option value="50">50% (Aggressivo)</option>
+              <option value="70" selected>70% (Segnale Certo)</option>
+              <option value="80">80% (Alta Certezza)</option>
+            </select>
+          </div>
+        </div>
 
-def bingx_req(method: str, path: str, params: dict = None, signed: bool = False):
-    clean_params = {k: v for k, v in (params or {}).items() if v is not None and v != ""}
-    headers = {"X-BX-APIKEY": API_KEY}
+        <div class="row2">
+          <div>
+            <label>Tipo Ordine</label>
+            <select id="o-type">
+              <option value="MARKET">MARKET</option>
+              <option value="LIMIT">LIMIT</option>
+            </select>
+          </div>
+          <div><label>Quantità</label><input id="o-qty" type="text" value="0.001" /></div>
+        </div>
 
-    if signed:
-        if not API_KEY or not API_SECRET:
-            return {"code": -2, "msg": "Chiavi API BingX mancanti nel file .env"}
-        clean_params["timestamp"] = int(time.time() * 1000)
-        sig = sign_params(clean_params)
-        query = urlencode(sorted(clean_params.items()))
-        url = f"{BASE_URL}{path}?{query}&signature={sig}"
-    else:
-        query = urlencode(sorted(clean_params.items()))
-        url = f"{BASE_URL}{path}" + (f"?{query}" if query else "")
+        <button class="calc-btn" onclick="refreshTfPlan()">CALCOLA SEGNALE, % CERTEZZA & TP1/TP2/TP3</button>
 
-    try:
-        r = requests.request(method, url, headers=headers, timeout=10)
-        return r.json()
-    except Exception as e:
-        return {"code": -1, "msg": str(e)}
+        <div class="meta-box" id="tf-meta">
+          Chiusura candela tra: <strong id="m-cd">--</strong><br/>
+          Tempo stimato al TP: <strong id="m-eta">--</strong><br/>
+          Target / Stop: <strong id="m-pct">--</strong>
+        </div>
 
+        <div id="p-wrap" style="display:none;"><label>Prezzo Limit</label><input id="o-price" type="text" /></div>
 
-def record_signal(entry: dict):
-    entry = dict(entry)
-    entry["ts"] = time.strftime("%H:%M:%S")
-    SIGNAL_LOG.insert(0, entry)
-    del SIGNAL_LOG[40:]
+        <div class="row3">
+          <div><label>Leva</label><input id="o-lev" type="text" value="20" /></div>
+          <div><label>TP Ordine</label><input id="o-tp" type="text" placeholder="Auto" /></div>
+          <div><label>Stop Loss</label><input id="o-sl" type="text" placeholder="Auto" /></div>
+        </div>
 
+        <div class="chk-box">
+          <label><input type="checkbox" id="chk-close-tf" checked /> Chiudi posizione a fine candela TF</label>
+          <label><input type="checkbox" id="chk-fakeout" checked /> Blocco falsi segnali (filtro wick/corpo)</label>
+          <label><input type="checkbox" id="chk-breakout" checked /> Anti-rotture (filtro spread & tenuta)</label>
+          <label><input type="checkbox" id="chk-override" /> Consenti ingresso manuale sotto soglia</label>
+        </div>
 
-def is_exact_certain_signal(quant: dict, min_certainty: int = 70) -> bool:
-    if not isinstance(quant, dict):
-        return False
-    sig = str(quant.get("signal", "NEUTRAL")).upper()
-    cert = int(quant.get("certainty_pct", 0) or 0)
-    label = str(quant.get("certainty_label", "")).upper()
-    profit_ready = bool(quant.get("profit_ready", False))
-    exp_r = to_float(quant.get("expectancy_r", 0.0), 0.0)
-    return (
-        sig in ("BUY", "SELL")
-        and cert >= max(70, int(min_certainty or 70))
-        and "SEGNALE CERTO" in label
-        and profit_ready
-        and exp_r > 0
-    )
+        <div class="btns">
+          <button class="buy" onclick="placeOrder('BUY')">BUY / LONG</button>
+          <button class="sell" onclick="placeOrder('SELL')">SELL / SHORT</button>
+        </div>
+        <button class="panic" onclick="closeAll()">CHIUDI TUTTO</button>
+      </div>
+    </div>
+  </div>
 
+  <script src="https://s3.tradingview.com/tv.js"></script>
+  <script>
+    let sym = "BTC-USDT", activeCat = "ALL", markets = [], remainingSec = 0;
+    let autoTradeOn = false, audioOn = true, voiceOn = true;
+    let lastSpokenKey = "", latestQuant = null, lastLockedKey = "", currentLockState = null;
 
-def get_active_signal_lock():
-    now = time.time()
-    if SIGNAL_LOCK.get("locked") and now >= to_float(SIGNAL_LOCK.get("expires_at", 0.0), 0.0):
-        SIGNAL_LOCK["locked"] = False
-    return {
-        **SIGNAL_LOCK,
-        "remaining_sec": max(0, int(to_float(SIGNAL_LOCK.get("expires_at", 0.0), 0.0) - now)) if SIGNAL_LOCK.get("locked") else 0
+    function parseNum(v, def = 0) {
+      if (v === null || v === undefined || v === "") return def;
+      const n = parseFloat(String(v).trim().replace(",", "."));
+      return Number.isFinite(n) ? n : def;
     }
 
+    function fmtSec(s) {
+      s = Math.max(0, Math.floor(s || 0));
+      const h = Math.floor(s / 3600);
+      const m = Math.floor((s % 3600) / 60);
+      const sec = s % 60;
+      if (h > 0) return `${h}h ${String(m).padStart(2, "0")}m ${String(sec).padStart(2, "0")}s`;
+      return `${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
+    }
 
-def engage_signal_lock(symbol: str, tf: str, quant: dict, ttl_sec: int = None):
-    if not is_exact_certain_signal(quant):
-        return get_active_signal_lock()
-    now = time.time()
-    duration = int(ttl_sec or TF_SECONDS.get(tf, 300))
-    same_setup = (
-        SIGNAL_LOCK.get("locked")
-        and SIGNAL_LOCK.get("symbol") == symbol
-        and SIGNAL_LOCK.get("tf") == tf
-        and SIGNAL_LOCK.get("side") == quant.get("signal")
-        and now < to_float(SIGNAL_LOCK.get("expires_at", 0.0), 0.0)
-    )
-    if not same_setup:
-        SIGNAL_LOCK.update({
-            "locked": True,
-            "symbol": symbol,
-            "tf": tf,
-            "side": quant.get("signal"),
-            "certainty_pct": int(quant.get("certainty_pct", 0) or 0),
-            "certainty_label": quant.get("certainty_label", ""),
-            "locked_at": now,
-            "expires_at": now + duration,
-            "quant": quant
+    function tvInterval(tf) {
+      return { "1m": "1", "5m": "5", "15m": "15", "1h": "60", "4h": "240" }[tf] || "5";
+    }
+
+    function effectiveCategoryFilter() {
+      const q = document.getElementById("m-search").value.trim().toUpperCase();
+      if (activeCat !== "ALL") return { cat: activeCat, query: q };
+      if (q.includes("AZION") || q.includes("STOCK") || q.includes("IND")) return { cat: "Azioni & Indici", query: "" };
+      if (q.includes("CRYPTO") || q.includes("CRIPTO")) return { cat: "Crypto Major", query: "" };
+      if (q.includes("MEME") || q.includes("ALT")) return { cat: "Meme & Altcoin", query: "" };
+      if (q.includes("MATER") || q.includes("XAUT") || q.includes("PAXG")) return { cat: "Materie Prime", query: "" };
+      return { cat: "ALL", query: q };
+    }
+
+    function renderSignalLock(lockInfo) {
+      currentLockState = lockInfo || null;
+      const badge = document.getElementById("lock-badge");
+      const kLock = document.getElementById("k-lock");
+      const btnOpen = document.getElementById("btn-open-locked");
+
+      if (lockInfo && lockInfo.locked && lockInfo.symbol) {
+        const rem = fmtSec(lockInfo.remaining_sec || 0);
+        const txt = `BLOCCATO: ${lockInfo.side} ${lockInfo.symbol} (${lockInfo.certainty_pct}% • ${rem})`;
+        badge.className = "lock-badge is-locked";
+        badge.innerText = txt;
+        kLock.className = "pos";
+        kLock.innerText = `${lockInfo.side} ${lockInfo.symbol}`;
+        btnOpen.disabled = false;
+        btnOpen.innerText = `APRI ${lockInfo.side} ${lockInfo.symbol} (BLOCCATO)`;
+
+        if (lockInfo.quant?.tp) document.getElementById("o-tp").value = lockInfo.quant.tp;
+        if (lockInfo.quant?.sl) document.getElementById("o-sl").value = lockInfo.quant.sl;
+
+        const lockKey = `${lockInfo.symbol}_${lockInfo.side}_${lockInfo.certainty_pct}`;
+        if (lockKey !== lastLockedKey) {
+          lastLockedKey = lockKey;
+          playBeep(lockInfo.side === "SELL" ? "sell" : "buy");
+          speakText(`Segnale certo rilevato e bloccato: ${lockInfo.side === "SELL" ? "short" : "long"} su ${lockInfo.symbol.replace("-", " ")}, affidabilità ${lockInfo.certainty_pct} percento.`);
+        }
+        if (lockInfo.symbol !== sym) {
+          sym = lockInfo.symbol;
+          document.getElementById("k-sym").innerText = sym;
+          renderChart(sym);
+          drawMarkets();
+        }
+      } else {
+        lastLockedKey = "";
+        badge.className = "lock-badge";
+        badge.innerText = "BLOCCO SEGNALE CERTO: IN ATTESA";
+        kLock.className = "warn";
+        kLock.innerText = "LIBERO";
+        btnOpen.disabled = true;
+        btnOpen.innerText = "APRI POSIZIONE BLOCCATA";
+      }
+    }
+
+    async function unlockSignal() {
+      const r = await fetch("/api/signal-lock", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "UNLOCK" })
+      });
+      const d = await r.json();
+      renderSignalLock(d.signal_lock);
+      speakText("Blocco segnale rimosso");
+    }
+
+    async function openLockedPosition() {
+      if (!currentLockState || !currentLockState.locked || !currentLockState.side) {
+        document.getElementById("st-box").innerText = "STATO: NESSUN SEGNALE BLOCCATO";
+        return;
+      }
+      const targetSym = currentLockState.symbol || sym;
+      const targetSide = currentLockState.side;
+      const targetTf = currentLockState.tf || document.getElementById("o-tf").value;
+      const tpVal = parseNum(document.getElementById("o-tp").value, parseNum(currentLockState.quant?.tp, 0));
+      const slVal = parseNum(document.getElementById("o-sl").value, parseNum(currentLockState.quant?.sl, 0));
+
+      const st = document.getElementById("st-box");
+      st.innerText = `INVIO ORDINE BLOCCATO ${targetSide} ${targetSym}...`;
+
+      const r = await fetch("/api/order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          symbol: targetSym,
+          side: targetSide,
+          tf: targetTf,
+          type: document.getElementById("o-type").value,
+          quantity: parseNum(document.getElementById("o-qty").value, 0.001),
+          price: parseNum(document.getElementById("o-price").value, 0),
+          leverage: parseNum(document.getElementById("o-lev").value, 20),
+          tp: tpVal || "",
+          sl: slVal || "",
+          from_lock: true,
+          allow_override: true,
+          close_at_candle_end: document.getElementById("chk-close-tf").checked,
+          anti_fakeout: false,
+          anti_breakout: false
         })
-        record_signal({
-            "symbol": symbol,
-            "side": quant.get("signal"),
-            "tf": tf,
-            "certainty_label": f"BLOCCATO • {quant.get('certainty_label')}",
-            "tp1": quant.get("tp1"),
-            "tp2": quant.get("tp2"),
-            "tp3": quant.get("tp3"),
-            "sl": quant.get("sl"),
-            "outcome": "SEGNALE BLOCCATO"
+      });
+      const res = await r.json();
+      if (res.signal_lock) renderSignalLock(res.signal_lock);
+      if (res.signals_log) renderSignalLog(res.signals_log);
+      if (res.code === 0) {
+        playBeep(targetSide === "SELL" ? "sell" : "buy");
+        speakText(`Posizione ${targetSide === "SELL" ? "short" : "long"} aperta da segnale bloccato su ${targetSym.replace("-", " ")}`);
+        st.innerText = `ORDINE ${targetSide} BLOCCATO INVIATO`;
+      } else {
+        st.innerText = `STATO: ${res.msg || "Errore firma / ordine"}`;
+      }
+      loadAccount();
+      setTimeout(() => st.innerText = "STATO: NEUTRAL", 6000);
+    }
+
+    function syncModeUI() {
+      const mBtn = document.getElementById("btn-mode-manual");
+      const aBtn = document.getElementById("btn-mode-auto");
+      const autoBtn = document.getElementById("btn-auto");
+      const kMode = document.getElementById("k-mode");
+      const st = document.getElementById("auto-st");
+      const eff = effectiveCategoryFilter();
+
+      if (autoTradeOn) {
+        mBtn.classList.remove("active-manual");
+        aBtn.classList.add("active-auto");
+        autoBtn.classList.add("active");
+        autoBtn.innerText = "AUTO-TRADE: ON (ATTIVO)";
+        kMode.innerText = "AUTOMATICO";
+        kMode.className = "pos";
+        st.innerText = `AUTO attivo su ${eff.cat}${eff.query ? " (" + eff.query + ")" : ""}`;
+      } else {
+        aBtn.classList.remove("active-auto");
+        mBtn.classList.add("active-manual");
+        autoBtn.classList.remove("active");
+        autoBtn.innerText = "AUTO-TRADE: OFF";
+        kMode.innerText = "MANUALE";
+        kMode.className = "warn";
+        st.innerText = "Modalità MANUALE attiva: apertura solo tramite pulsanti BUY / SELL";
+      }
+    }
+
+    function setTradeMode(mode) {
+      const wantAuto = (mode === "AUTO");
+      if (wantAuto === autoTradeOn) return;
+      autoTradeOn = wantAuto;
+      syncModeUI();
+      speakText(autoTradeOn ? "Modalità apertura automatica attivata" : "Modalità apertura manuale attivata");
+      if (autoTradeOn) runAutoTradeTick();
+    }
+
+    function toggleAutoTrade() {
+      autoTradeOn = !autoTradeOn;
+      syncModeUI();
+      speakText(autoTradeOn ? "Auto trade attivato" : "Auto trade disattivato");
+      if (autoTradeOn) runAutoTradeTick();
+    }
+
+    function playBeep(kind = "buy") {
+      if (!audioOn) return;
+      try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        const ctx = new AudioCtx();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = kind === "sell" ? "sawtooth" : "triangle";
+        osc.frequency.value = kind === "sell" ? 440 : 784;
+        gain.gain.value = 0.08;
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.22);
+      } catch (e) {}
+    }
+
+    function speakText(txt) {
+      if (!voiceOn || !("speechSynthesis" in window)) return;
+      try {
+        window.speechSynthesis.cancel();
+        const u = new SpeechSynthesisUtterance(txt);
+        u.lang = "it-IT";
+        u.rate = 1.02;
+        window.speechSynthesis.speak(u);
+      } catch (e) {}
+    }
+
+    function speakCurrentSignal(force = false) {
+      const q = latestQuant;
+      if (!q) {
+        speakText(`Sala segnali attiva su ${sym}. Nessun dato ancora disponibile.`);
+        return;
+      }
+      const sig = q.signal || "NEUTRAL";
+      const cert = q.certainty_pct || 0;
+      const key = `${sym}_${sig}_${cert}`;
+      if (!force && (sig === "NEUTRAL" || cert < 70 || key === lastSpokenKey)) return;
+      lastSpokenKey = key;
+
+      const pairSpoken = sym.replace("-", " ");
+      if (sig === "BUY") {
+        playBeep("buy");
+        speakText(`Attenzione. Segnale certo long su ${pairSpoken}, affidabilità ${cert} percento. Take profit 2 a ${q.tp2}, stop loss a ${q.sl}.`);
+      } else if (sig === "SELL") {
+        playBeep("sell");
+        speakText(`Attenzione. Segnale certo short su ${pairSpoken}, affidabilità ${cert} percento. Take profit 2 a ${q.tp2}, stop loss a ${q.sl}.`);
+      } else {
+        speakText(`Su ${pairSpoken}, affidabilità ${cert} percento. Mercato in attesa.`);
+      }
+    }
+
+    function toggleAudio() {
+      audioOn = !audioOn;
+      const b = document.getElementById("btn-audio");
+      b.innerText = audioOn ? "SUONO: ON" : "SUONO: OFF";
+      b.classList.toggle("active", audioOn);
+      if (audioOn) playBeep("buy");
+    }
+
+    function toggleVoice() {
+      voiceOn = !voiceOn;
+      const b = document.getElementById("btn-voice");
+      b.innerText = voiceOn ? "VOCALE IT: ON" : "VOCALE IT: OFF";
+      b.classList.toggle("active", voiceOn);
+      if (voiceOn) speakText("Avviso vocale attivato");
+    }
+
+    async function scanActiveCategory(switchToBest = false) {
+      const eff = effectiveCategoryFilter();
+      document.getElementById("scan-cat-badge").innerText = eff.cat;
+      const tf = document.getElementById("o-tf").value;
+      try {
+        const r = await fetch(`/api/scan-category?category=${encodeURIComponent(eff.cat)}&query=${encodeURIComponent(eff.query)}&tf=${encodeURIComponent(tf)}&symbol=${encodeURIComponent(sym)}`);
+        const d = await r.json();
+        if (d.signal_lock) renderSignalLock(d.signal_lock);
+        if (d.code === 0 && d.scan && d.scan.best) {
+          const best = d.scan.best;
+          if (switchToBest && best.symbol && best.symbol !== sym) {
+            sym = best.symbol;
+            document.getElementById("k-sym").innerText = sym;
+            renderChart(sym);
+            drawMarkets();
+            pollLive();
+          }
+          if (best.quant) {
+            renderQuant(best.quant);
+            if (best.quant.tp) document.getElementById("o-tp").value = best.quant.tp;
+            if (best.quant.sl) document.getElementById("o-sl").value = best.quant.sl;
+          }
+          document.getElementById("st-box").innerText = `SCAN ${eff.cat}: MIGLIOR SETUP ${best.symbol} (${best.score > 0 ? "+" : ""}${best.score})`;
+        }
+      } catch (e) {}
+    }
+
+    async function runAutoTradeTick() {
+      if (!autoTradeOn) return;
+      const eff = effectiveCategoryFilter();
+      try {
+        const r = await fetch("/api/auto-trade", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            category: eff.cat,
+            query: eff.query,
+            scan_category: true,
+            symbol: sym,
+            tf: document.getElementById("o-tf").value,
+            quantity: parseNum(document.getElementById("o-qty").value, 0.001),
+            leverage: parseNum(document.getElementById("o-lev").value, 20),
+            score_threshold: parseNum(document.getElementById("o-auto-score").value, 60),
+            close_at_candle_end: document.getElementById("chk-close-tf").checked,
+            anti_fakeout: document.getElementById("chk-fakeout").checked,
+            anti_breakout: document.getElementById("chk-breakout").checked
+          })
+        });
+        const d = await r.json();
+        if (d.signal_lock) renderSignalLock(d.signal_lock);
+        document.getElementById("auto-st").innerText = d.msg || "In attesa...";
+        if (d.selected_symbol && d.selected_symbol !== sym) {
+          sym = d.selected_symbol;
+          document.getElementById("k-sym").innerText = sym;
+          renderChart(sym);
+          drawMarkets();
+        }
+        if (d.quant) renderQuant(d.quant);
+        if (d.signals_log) renderSignalLog(d.signals_log);
+        if (d.triggered) {
+          playBeep(d.side === "SELL" ? "sell" : "buy");
+          speakText(`Auto trade eseguito ${d.side === "SELL" ? "short" : "long"} su ${sym.replace("-", " ")}`);
+          loadAccount();
+        }
+      } catch (e) {}
+    }
+
+    function renderSignalLog(logs) {
+      const body = document.getElementById("sig-log-body");
+      if (!logs || !logs.length) {
+        body.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#cbd5e1;">Nessun segnale registrato</td></tr>`;
+        return;
+      }
+      body.innerHTML = logs.slice(0, 10).map(item => {
+        const sCls = item.side === "BUY" ? "pos" : (item.side === "SELL" ? "neg" : "warn");
+        return `<tr>
+          <td>${item.ts || "--"}</td>
+          <td><strong>${item.symbol}</strong></td>
+          <td>${item.tf}</td>
+          <td class="${sCls}"><strong>${item.side}</strong> • ${item.certainty_label || "--"}</td>
+          <td>${item.tp1 ?? "-"} / ${item.tp2 ?? "-"} / <span class="neg">${item.sl ?? "-"}</span></td>
+          <td>${item.outcome || "--"}</td>
+        </tr>`;
+      }).join("");
+    }
+
+    function renderIncomeHistory(rows) {
+      const body = document.getElementById("inc-body");
+      if (!rows || !rows.length) {
+        body.innerHTML = `<tr><td colspan="3" style="text-align:center;color:#cbd5e1;">Nessun movimento</td></tr>`;
+        return;
+      }
+      body.innerHTML = rows.slice(0, 8).map(r => {
+        const val = parseFloat(r.income || 0);
+        return `<tr>
+          <td>${r.incomeType || "--"}</td>
+          <td><strong>${r.symbol || "--"}</strong></td>
+          <td class="${val >= 0 ? "pos" : "neg"}">${val.toFixed(4)}</td>
+        </tr>`;
+      }).join("");
+    }
+
+    function renderPnlStats(stats) {
+      if (!stats) return;
+      const dPct = Number(stats.daily_pnl_pct || 0);
+      const dUsdt = Number(stats.daily_pnl || 0);
+      const dReal = Number(stats.daily_realized_pnl || 0);
+      const dFee = Number(stats.daily_fees_funding || 0);
+
+      const mPct = Number(stats.monthly_pnl_pct || 0);
+      const mUsdt = Number(stats.monthly_pnl || 0);
+      const mReal = Number(stats.monthly_realized_pnl || 0);
+      const mFee = Number(stats.monthly_fees_funding || 0);
+
+      const dCls = dPct >= 0 ? "pos" : "neg";
+      const mCls = mPct >= 0 ? "pos" : "neg";
+
+      const kDay = document.getElementById("k-pnl-day");
+      kDay.className = dCls;
+      kDay.innerText = `${dPct > 0 ? "+" : ""}${dPct}% (${dUsdt >= 0 ? "+" : ""}${dUsdt.toFixed(2)})`;
+
+      const kMonth = document.getElementById("k-pnl-month");
+      kMonth.className = mCls;
+      kMonth.innerText = `${mPct > 0 ? "+" : ""}${mPct}% (${mUsdt >= 0 ? "+" : ""}${mUsdt.toFixed(2)})`;
+
+      const pDayPct = document.getElementById("perf-day-pct");
+      pDayPct.className = dCls;
+      pDayPct.innerText = `${dPct > 0 ? "+" : ""}${dPct}%`;
+      document.getElementById("perf-day-usdt").innerText = `${dUsdt >= 0 ? "+" : ""}${dUsdt.toFixed(4)}`;
+      document.getElementById("perf-day-real").innerText = `${dReal >= 0 ? "+" : ""}${dReal.toFixed(4)}`;
+      document.getElementById("perf-day-fee").innerText = `${dFee >= 0 ? "+" : ""}${dFee.toFixed(4)}`;
+      document.getElementById("perf-day-wl").innerText = `W ${Number(stats.daily_win_pct || 0).toFixed(1)}%`;
+      document.getElementById("perf-day-l").innerText = `L ${Number(stats.daily_loss_pct || 0).toFixed(1)}%`;
+      document.getElementById("perf-day-cnt").innerText = stats.daily_trades || 0;
+
+      const pMonthPct = document.getElementById("perf-month-pct");
+      pMonthPct.className = mCls;
+      pMonthPct.innerText = `${mPct > 0 ? "+" : ""}${mPct}%`;
+      document.getElementById("perf-month-usdt").innerText = `${mUsdt >= 0 ? "+" : ""}${mUsdt.toFixed(4)}`;
+      document.getElementById("perf-month-real").innerText = `${mReal >= 0 ? "+" : ""}${mReal.toFixed(4)}`;
+      document.getElementById("perf-month-fee").innerText = `${mFee >= 0 ? "+" : ""}${mFee.toFixed(4)}`;
+      document.getElementById("perf-month-wl").innerText = `W ${Number(stats.monthly_win_pct || 0).toFixed(1)}%`;
+      document.getElementById("perf-month-l").innerText = `L ${Number(stats.monthly_loss_pct || 0).toFixed(1)}%`;
+      document.getElementById("perf-month-cnt").innerText = stats.monthly_trades || 0;
+    }
+
+    function renderQuant(q) {
+      if (!q) return;
+      latestQuant = q;
+      const sc = Number(q.score || 0);
+      const sig = q.signal || "NEUTRAL";
+      const certLabel = q.certainty_label || `${q.certainty_pct || 0}% • ATTESA`;
+      const cls = sig === "BUY" ? "pos" : (sig === "SELL" ? "neg" : "warn");
+
+      const topCert = document.getElementById("k-cert");
+      topCert.className = cls;
+      topCert.innerText = certLabel;
+
+      const banner = document.getElementById("certainty-banner");
+      banner.className = "certainty-banner " + (sig === "BUY" ? "banner-buy" : (sig === "SELL" ? "banner-sell" : "banner-wait"));
+      banner.innerText = certLabel;
+
+      document.getElementById("sig-status").innerText = q.setup_status || "--";
+      document.getElementById("sig-entry").innerText = `${q.entry_low ?? "--"} — ${q.entry_high ?? "--"}`;
+      document.getElementById("sig-tp1").innerText = q.tp1 ?? "--";
+      document.getElementById("sig-tp2").innerText = q.tp2 ?? "--";
+      document.getElementById("sig-tp3").innerText = q.tp3 ?? "--";
+
+      const topEl = document.getElementById("k-score");
+      topEl.className = cls;
+      topEl.innerText = `${sc > 0 ? "+" : ""}${sc} (${sig})`;
+
+      const badge = document.getElementById("sc-badge");
+      badge.className = `score-val ${cls}`;
+      badge.innerText = `${sc > 0 ? "+" : ""}${sc} • ${sig}`;
+
+      const expVal = Number(q.expectancy_r || 0);
+      const expEl = document.getElementById("q-exp");
+      expEl.innerText = `${expVal > 0 ? "+" : ""}${expVal}R`;
+      expEl.className = expVal > 0 ? "pos" : "neg";
+
+      document.getElementById("q-rr").innerText = `${q.rr_ratio}R / ${Math.round((q.win_prob || 0.5) * 100)}%`;
+      document.getElementById("q-adx").innerText = q.adx ?? "--";
+      document.getElementById("q-z").innerText = q.z_score ?? "--";
+      document.getElementById("ind-ema921").innerText = `${q.ema9 ?? "--"} / ${q.ema21 ?? "--"}`;
+      document.getElementById("ind-ema50200").innerText = `${q.ema50 ?? "--"} / ${q.ema200 ?? "--"}`;
+      document.getElementById("ind-rsi").innerText = `${q.rsi14 ?? "--"} / ${q.macd_hist ?? "--"}`;
+      document.getElementById("ind-atr").innerText = `${q.atr ?? "--"} / ${q.vol_ratio ?? "--"}x`;
+
+      if (q.eta_tp_sec !== undefined) {
+        const etaStr = fmtSec(q.eta_tp_sec);
+        document.getElementById("k-eta").innerText = etaStr;
+        document.getElementById("m-eta").innerText = etaStr;
+      }
+      if (q.tp_pct !== undefined && q.sl_pct !== undefined) {
+        document.getElementById("m-pct").innerText = `TP2 ${q.tp_pct}% / SL ${q.sl_pct}%`;
+      }
+
+      speakCurrentSignal(false);
+    }
+
+    function renderChart(s) {
+      const tf = document.getElementById("o-tf").value;
+      document.getElementById("chart").innerHTML = "";
+      new TradingView.widget({
+        autosize: true, symbol: "BINGX:" + s.replace("-", "") + ".P",
+        interval: tvInterval(tf), timezone: "Europe/Rome", theme: "dark",
+        style: "1", locale: "it", container_id: "chart"
+      });
+    }
+
+    function filteredMarkets() {
+      const eff = effectiveCategoryFilter();
+      document.getElementById("scan-cat-badge").innerText = eff.cat;
+      return markets.filter(m => {
+        const matchCat = eff.cat === "ALL" || m.category === eff.cat;
+        const matchQ = !eff.query || m.symbol.includes(eff.query) || m.category.toUpperCase().includes(eff.query);
+        return matchCat && matchQ;
+      });
+    }
+
+    function drawMarkets() {
+      const list = filteredMarkets();
+      document.getElementById("m-cnt").innerText = list.length;
+      const el = document.getElementById("m-list");
+      el.innerHTML = list.map(m => {
+        const cls = m.priceChangePercent >= 0 ? "pos" : "neg";
+        return `<div class="row ${m.symbol === sym ? "active" : ""}" onclick="pickSym('${m.symbol}')">
+          <div><strong>${m.symbol}</strong> <small>${m.category}</small></div>
+          <span class="${cls}">${m.lastPrice} (${m.priceChangePercent.toFixed(2)}%)</span>
+        </div>`;
+      }).join("");
+    }
+
+    function pickSym(s) {
+      sym = s;
+      document.getElementById("k-sym").innerText = s;
+      renderChart(s);
+      drawMarkets();
+      pollLive();
+      refreshTfPlan();
+    }
+
+    async function loadMarkets() {
+      const r = await fetch("/api/markets");
+      const d = await r.json();
+      if (d.code === 0) {
+        markets = d.markets;
+        drawMarkets();
+      }
+    }
+
+    async function refreshTfPlan(side = "BUY") {
+      const tf = document.getElementById("o-tf").value;
+      const r = await fetch(`/api/tf-plan?symbol=${encodeURIComponent(sym)}&tf=${encodeURIComponent(tf)}&side=${encodeURIComponent(side)}`);
+      const d = await r.json();
+      if (d.code === 0) {
+        remainingSec = d.timing.remaining_sec;
+        if (d.signal_lock) renderSignalLock(d.signal_lock);
+        renderQuant(d.quant);
+        if (d.quant?.tp) document.getElementById("o-tp").value = d.quant.tp;
+        if (d.quant?.sl) document.getElementById("o-sl").value = d.quant.sl;
+        renderSignalLog(d.signals_log);
+      }
+    }
+
+    async function pollLive() {
+      try {
+        const tf = document.getElementById("o-tf").value;
+        const r = await fetch(`/api/live-ticker?symbol=${encodeURIComponent(sym)}&tf=${encodeURIComponent(tf)}`);
+        const d = await r.json();
+        if (d.signal_lock) renderSignalLock(d.signal_lock);
+        if (d.timing && typeof d.timing.remaining_sec === "number") {
+          remainingSec = d.timing.remaining_sec;
+        }
+        if (d.ticker?.lastPrice) {
+          document.getElementById("k-price").innerText = d.ticker.lastPrice;
+          document.getElementById("ob-mid").innerText = d.ticker.lastPrice;
+        }
+        if (d.funding?.lastFundingRate) {
+          document.getElementById("k-fund").innerText = (parseFloat(d.funding.lastFundingRate) * 100).toFixed(4) + "%";
+        }
+        if (d.quant) {
+          renderQuant(d.quant);
+        }
+        if (d.signals_log) {
+          renderSignalLog(d.signals_log);
+        }
+        if (d.depth) {
+          document.getElementById("ob-asks").innerHTML = (d.depth.asks || []).slice(0, 8).reverse().map(a =>
+            `<div class="ob-row"><span class="neg">${a[0]}</span><span>${a[1]}</span></div>`).join("");
+          document.getElementById("ob-bids").innerHTML = (d.depth.bids || []).slice(0, 8).map(b =>
+            `<div class="ob-row"><span class="pos">${b[0]}</span><span>${b[1]}</span></div>`).join("");
+        }
+        if (d.auto_closed && d.auto_closed.length > 0) {
+          speakText(`Chiusura automatica a fine candela su ${sym.replace("-", " ")}`);
+          loadAccount();
+        }
+      } catch (e) {}
+    }
+
+    async function closeSinglePosition(symbol) {
+      if (!confirm(`Chiudere la posizione su ${symbol}?`)) return;
+      await fetch("/api/close-all", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ symbol })
+      });
+      speakText(`Posizione ${symbol.replace("-", " ")} chiusa`);
+      loadAccount();
+    }
+
+    async function loadAccount() {
+      try {
+        const r = await fetch("/api/account");
+        const d = await r.json();
+        if (d.signal_lock) renderSignalLock(d.signal_lock);
+        document.getElementById("k-eq").innerText = Number(d.equity || 0).toFixed(2);
+        document.getElementById("k-lev").innerText = (d.recommended_leverage || 20) + "x";
+        document.getElementById("o-lev").value = d.recommended_leverage || 20;
+        renderPnlStats(d.pnl_stats);
+        if (d.signals_log) renderSignalLog(d.signals_log);
+        if (d.income_history) renderIncomeHistory(d.income_history);
+        const body = document.getElementById("pos-body");
+        const list = d.positions || [];
+        document.getElementById("pos-cnt").innerText = list.length;
+        if (list.length) {
+          body.innerHTML = list.map(p => {
+            const pnl = parseFloat(p.unrealizedProfit || 0);
+            const pnlPct = parseFloat(p.pnlPct || 0);
+            const pCls = pnl >= 0 ? "pos" : "neg";
+            return `<tr>
+              <td><strong>${p.symbol}</strong></td>
+              <td class="${p.positionSide === "LONG" ? "pos" : "neg"}">${p.positionSide}</td>
+              <td>${p.positionAmt}</td>
+              <td>${p.avgPrice}</td>
+              <td class="${pCls}">${pnl >= 0 ? "+" : ""}${pnl.toFixed(4)} (${pnlPct >= 0 ? "+" : ""}${pnlPct.toFixed(2)}%)</td>
+              <td><button class="mini-close" onclick="closeSinglePosition('${p.symbol}')">Chiudi</button></td>
+            </tr>`;
+          }).join("");
+        } else {
+          body.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#cbd5e1;">Nessuna posizione aperta</td></tr>`;
+        }
+      } catch (e) {}
+    }
+
+    async function placeOrder(side) {
+      await refreshTfPlan(side);
+      const st = document.getElementById("st-box");
+      st.innerText = `VERIFICA % CERTEZZA & FILTRI ${side}...`;
+      const r = await fetch("/api/order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          symbol: sym, side,
+          tf: document.getElementById("o-tf").value,
+          type: document.getElementById("o-type").value,
+          quantity: parseNum(document.getElementById("o-qty").value, 0.001),
+          price: parseNum(document.getElementById("o-price").value, 0),
+          leverage: parseNum(document.getElementById("o-lev").value, 20),
+          tp: parseNum(document.getElementById("o-tp").value, 0) || "",
+          sl: parseNum(document.getElementById("o-sl").value, 0) || "",
+          min_certainty: parseNum(document.getElementById("o-min-cert").value, 70),
+          allow_override: document.getElementById("chk-override").checked,
+          close_at_candle_end: document.getElementById("chk-close-tf").checked,
+          anti_fakeout: document.getElementById("chk-fakeout").checked,
+          anti_breakout: document.getElementById("chk-breakout").checked
         })
-    else:
-        SIGNAL_LOCK["quant"] = quant
-        SIGNAL_LOCK["certainty_pct"] = int(quant.get("certainty_pct", 0) or 0)
-        SIGNAL_LOCK["certainty_label"] = quant.get("certainty_label", "")
-    return get_active_signal_lock()
-
-
-def release_signal_lock():
-    SIGNAL_LOCK.update({
-        "locked": False,
-        "symbol": None,
-        "tf": None,
-        "side": None,
-        "certainty_pct": 0,
-        "certainty_label": "",
-        "locked_at": 0.0,
-        "expires_at": 0.0,
-        "quant": None
-    })
-    return get_active_signal_lock()
-
-
-def calc_ema(values: list, period: int):
-    if not values or len(values) < period:
-        return None
-    k = 2.0 / (period + 1)
-    ema = sum(values[:period]) / period
-    for v in values[period:]:
-        ema = (v * k) + (ema * (1 - k))
-    return ema
-
-
-def calc_ema_series(values: list, period: int):
-    if not values or len(values) < period:
-        return []
-    k = 2.0 / (period + 1)
-    ema = sum(values[:period]) / period
-    series = [ema]
-    for v in values[period:]:
-        ema = (v * k) + (ema * (1 - k))
-        series.append(ema)
-    return series
-
-
-def calc_rsi(closes: list, period: int = 14):
-    if len(closes) <= period:
-        return 50.0
-    gains = []
-    losses = []
-    for i in range(1, len(closes)):
-        diff = closes[i] - closes[i - 1]
-        gains.append(max(diff, 0.0))
-        losses.append(max(-diff, 0.0))
-
-    avg_gain = sum(gains[:period]) / period
-    avg_loss = sum(losses[:period]) / period
-    for i in range(period, len(gains)):
-        avg_gain = ((avg_gain * (period - 1)) + gains[i]) / period
-        avg_loss = ((avg_loss * (period - 1)) + losses[i]) / period
-
-    if avg_loss == 0:
-        return 100.0
-    rs = avg_gain / avg_loss
-    return round(100.0 - (100.0 / (1.0 + rs)), 2)
-
-
-def calc_macd(closes: list):
-    if len(closes) < 26:
-        return 0.0, 0.0, 0.0
-    ema12_s = calc_ema_series(closes, 12)
-    ema26_s = calc_ema_series(closes, 26)
-    min_len = min(len(ema12_s), len(ema26_s))
-    macd_line = [ema12_s[-min_len + i] - ema26_s[-min_len + i] for i in range(min_len)]
-    signal_s = calc_ema_series(macd_line, 9)
-    macd_val = macd_line[-1] if macd_line else 0.0
-    signal_val = signal_s[-1] if signal_s else 0.0
-    hist_val = macd_val - signal_val
-    return macd_val, signal_val, hist_val
-
-
-def calc_atr(candles: list, period: int = 14):
-    if len(candles) < 2:
-        return 0.0
-    trs = []
-    for i in range(1, len(candles)):
-        h = to_float(candles[i].get("high", 0), 0.0)
-        l = to_float(candles[i].get("low", 0), 0.0)
-        prev_c = to_float(candles[i - 1].get("close", h), h)
-        tr = max(h - l, abs(h - prev_c), abs(l - prev_c))
-        trs.append(tr)
-    use_trs = trs[-period:] if len(trs) >= period else trs
-    return sum(use_trs) / len(use_trs) if use_trs else 0.0
-
-
-def calc_adx_and_zscore(candles: list, closes: list, period: int = 14):
-    z_score = 0.0
-    if len(closes) >= 20:
-        win = closes[-20:]
-        mean_c = sum(win) / len(win)
-        var_c = sum((x - mean_c) ** 2 for x in win) / len(win)
-        std_c = math.sqrt(var_c)
-        if std_c > 1e-12:
-            z_score = (closes[-1] - mean_c) / std_c
-
-    if len(candles) < period + 2:
-        return 20.0, round(z_score, 2)
-
-    plus_dm_list = []
-    minus_dm_list = []
-    tr_list = []
-
-    for i in range(1, len(candles)):
-        h = to_float(candles[i].get("high", 0), 0.0)
-        l = to_float(candles[i].get("low", 0), 0.0)
-        prev_h = to_float(candles[i - 1].get("high", h), h)
-        prev_l = to_float(candles[i - 1].get("low", l), l)
-        prev_c = to_float(candles[i - 1].get("close", h), h)
-
-        up_move = h - prev_h
-        down_move = prev_l - l
-        plus_dm = up_move if (up_move > down_move and up_move > 0) else 0.0
-        minus_dm = down_move if (down_move > up_move and down_move > 0) else 0.0
-        tr = max(h - l, abs(h - prev_c), abs(l - prev_c))
-
-        plus_dm_list.append(plus_dm)
-        minus_dm_list.append(minus_dm)
-        tr_list.append(tr)
-
-    dx_list = []
-    for idx in range(period - 1, len(tr_list)):
-        tr_sum = sum(tr_list[idx - period + 1:idx + 1])
-        if tr_sum <= 1e-12:
-            continue
-        p_di = 100.0 * (sum(plus_dm_list[idx - period + 1:idx + 1]) / tr_sum)
-        m_di = 100.0 * (sum(minus_dm_list[idx - period + 1:idx + 1]) / tr_sum)
-        di_sum = p_di + m_di
-        if di_sum > 1e-12:
-            dx_list.append(100.0 * abs(p_di - m_di) / di_sum)
-
-    adx_val = sum(dx_list[-period:]) / min(len(dx_list), period) if dx_list else 20.0
-    return round(adx_val, 2), round(z_score, 2)
-
-
-def format_price_smart(val, ref_price=None):
-    if val is None:
-        return None
-    v = float(val)
-    ref = abs(float(ref_price)) if ref_price not in (None, 0) else abs(v)
-    if ref >= 1000:
-        return round(v, 2)
-    if ref >= 10:
-        return round(v, 3)
-    if ref >= 0.1:
-        return round(v, 5)
-    if ref >= 0.001:
-        return round(v, 6)
-    return round(v, 8)
-
-
-def compute_quant_brain(symbol: str, tf: str, side: str = None):
-    klines = bingx_req("GET", "/openApi/swap/v2/quote/klines", {
-        "symbol": symbol,
-        "interval": tf,
-        "limit": 220
-    })
-    raw = klines.get("data") if klines.get("code") == 0 and isinstance(klines.get("data"), list) else []
-
-    closes = []
-    volumes = []
-    for k in raw:
-        try:
-            c = to_float(k.get("close", 0), 0.0)
-            v = to_float(k.get("volume", 0), 0.0)
-            if c > 0:
-                closes.append(c)
-                volumes.append(v)
-        except Exception:
-            continue
-
-    if not closes:
-        return {
-            "score": 0,
-            "signal": "NEUTRAL",
-            "certainty_pct": 0,
-            "certainty_label": "ATTESA / NESSUN SEGNALE CERTO",
-            "setup_status": "IN ATTESA DATI",
-            "win_prob": 0.50,
-            "rr_ratio": 2.0,
-            "expectancy_r": 0.0,
-            "profit_ready": False,
-            "price": 0.0,
-            "entry_low": 0.0,
-            "entry_high": 0.0,
-            "tp": 0.0,
-            "tp1": 0.0,
-            "tp2": 0.0,
-            "tp3": 0.0,
-            "sl": 0.0,
-            "tp_pct": 0.0,
-            "sl_pct": 0.0,
-            "eta_tp_sec": 0,
-            "avg_range": 0.0,
-            "adx": 0.0,
-            "z_score": 0.0,
-            "ema9": None,
-            "ema21": None,
-            "ema50": None,
-            "ema200": None,
-            "rsi14": 50.0,
-            "macd_hist": 0.0,
-            "atr": 0.0,
-            "vol_ratio": 1.0
-        }
-
-    price = closes[-1]
-    ema9 = calc_ema(closes, 9)
-    ema21 = calc_ema(closes, 21)
-    ema50 = calc_ema(closes, 50)
-    ema200 = calc_ema(closes, 200)
-    rsi14 = calc_rsi(closes, 14)
-    macd_val, sig_val, hist_val = calc_macd(closes)
-    atr_val = calc_atr(raw, 14)
-    adx_val, z_score = calc_adx_and_zscore(raw, closes, 14)
-
-    ranges = [
-        abs(to_float(k.get("high", price), price) - to_float(k.get("low", price), price))
-        for k in raw[-21:-1]
-    ]
-    avg_range = sum(ranges) / len(ranges) if ranges else (atr_val or price * 0.004)
-    avg_vol = (sum(volumes[-21:-1]) / max(len(volumes[-21:-1]), 1)) if len(volumes) > 2 else (volumes[-1] or 1.0)
-    vol_ratio = round(volumes[-1] / avg_vol, 2) if avg_vol > 0 else 1.0
-
-    ema_pts = 0.0
-    if ema9 is not None and ema21 is not None:
-        ema_pts += 35.0 if ema9 > ema21 else -35.0
-        ema_pts += 20.0 if price > ema9 else -20.0
-    if ema50 is not None:
-        ema_pts += 25.0 if price > ema50 else -25.0
-    if ema200 is not None:
-        ema_pts += 20.0 if price > ema200 else -20.0
-    ema_pts = max(-100.0, min(100.0, ema_pts))
-
-    macd_pts = 0.0
-    if macd_val > sig_val:
-        macd_pts += 55.0
-    elif macd_val < sig_val:
-        macd_pts -= 55.0
-    if hist_val > 0:
-        macd_pts += 45.0
-    elif hist_val < 0:
-        macd_pts -= 45.0
-    macd_pts = max(-100.0, min(100.0, macd_pts))
-
-    if rsi14 >= 65:
-        rsi_pts = 65.0 if rsi14 < 75 else 25.0
-    elif rsi14 <= 35:
-        rsi_pts = -65.0 if rsi14 > 25 else -25.0
-    else:
-        rsi_pts = (rsi14 - 50.0) * 2.0
-
-    adx_mult = min(1.25, max(0.65, adx_val / 25.0))
-    z_penalty = -20.0 if abs(z_score) > 2.2 else 0.0
-
-    raw_score = ((ema_pts * 0.45) + (macd_pts * 0.30) + (rsi_pts * 0.25)) * adx_mult + z_penalty
-    score = int(round(max(-100, min(100, raw_score))))
-
-    if score >= 40 and adx_val >= 18:
-        signal = "BUY"
-    elif score <= -40 and adx_val >= 18:
-        signal = "SELL"
-    else:
-        signal = "NEUTRAL"
-
-    strength_component = min(45.0, (abs(score) / 100.0) * 45.0)
-    adx_component = min(20.0, max(0.0, (adx_val / 40.0) * 20.0))
-    vol_component = min(15.0, max(0.0, (vol_ratio / 2.0) * 15.0))
-    z_bonus = 10.0 if abs(z_score) <= 1.8 else (-10.0 if abs(z_score) > 2.2 else 0.0)
-    base_certainty = 15.0 + strength_component + adx_component + vol_component + z_bonus
-    certainty_pct = int(round(max(5, min(95, base_certainty))))
-
-    if signal == "BUY" and certainty_pct >= 70:
-        certainty_label = f"{certainty_pct}% SEGNALE CERTO LONG"
-        setup_status = "ZONA INGRESSO VALIDA • LONG"
-    elif signal == "SELL" and certainty_pct >= 70:
-        certainty_label = f"{certainty_pct}% SEGNALE CERTO SHORT"
-        setup_status = "ZONA INGRESSO VALIDA • SHORT"
-    elif signal in ("BUY", "SELL"):
-        dir_txt = "LONG" if signal == "BUY" else "SHORT"
-        certainty_label = f"{certainty_pct}% SEGNALE {dir_txt} MODERATO"
-        setup_status = f"CONFERMA PARZIALE • {dir_txt}"
-    else:
-        certainty_label = f"{certainty_pct}% ATTESA • NO TRADE CERTO"
-        setup_status = "MERCATO LATERALE / FILTRI ATTIVI"
-
-    if side and str(side).upper() in ("BUY", "SELL"):
-        target_side = str(side).upper()
-    elif signal in ("BUY", "SELL"):
-        target_side = signal
-    else:
-        target_side = "SELL" if score < 0 else "BUY"
-
-    aligned = (target_side == "BUY" and score > 0) or (target_side == "SELL" and score < 0)
-    win_prob = round(min(0.76, max(0.38, (0.48 + 0.24 * (abs(score) / 100.0)) if aligned else 0.42)), 2)
-
-    unit_vol = atr_val if atr_val > 0 else max(avg_range, price * 0.0025)
-    sl_dist = max(unit_vol * 1.15, price * 0.0015)
-    rr_ratio = 2.20 if abs(score) >= 55 else 1.85
-    tp2_dist = sl_dist * rr_ratio
-    tp1_dist = tp2_dist * 0.55
-    tp3_dist = tp2_dist * 1.45
-
-    zone_half = max(unit_vol * 0.18, price * 0.0005)
-    entry_low = price - zone_half
-    entry_high = price + zone_half
-
-    # Per LONG (BUY): TP sopra il prezzo (+), SL sotto il prezzo (-)
-    # Per SHORT (SELL): TP sotto il prezzo (-), SL sopra il prezzo (+)
-    if target_side == "SELL":
-        sl_raw = price + sl_dist
-        tp1_raw = max(price * 0.000001, price - tp1_dist)
-        tp2_raw = max(price * 0.000001, price - tp2_dist)
-        tp3_raw = max(price * 0.000001, price - tp3_dist)
-    else:
-        sl_raw = max(price * 0.000001, price - sl_dist)
-        tp1_raw = price + tp1_dist
-        tp2_raw = price + tp2_dist
-        tp3_raw = price + tp3_dist
-
-    tp2_clean = format_price_smart(tp2_raw, price)
-    sl_clean = format_price_smart(sl_raw, price)
-
-    tp_pct = round(abs(tp2_clean - price) / price * 100, 2) if price > 0 else 0.0
-    sl_pct = round(abs(sl_clean - price) / price * 100, 2) if price > 0 else 0.0
-
-    expectancy_r = round((win_prob * rr_ratio) - ((1.0 - win_prob) * 1.0), 2)
-    profit_ready = (expectancy_r > 0.15) and (adx_val >= 18) and (abs(z_score) <= 2.3)
-
-    tf_sec = TF_SECONDS.get(tf, 300)
-    speed_per_sec = max(avg_range / tf_sec, 1e-9)
-    eta_tp_sec = int(min(tp2_dist / speed_per_sec, tf_sec * 5))
-
-    return {
-        "score": score,
-        "signal": signal,
-        "target_side": target_side,
-        "certainty_pct": certainty_pct,
-        "certainty_label": certainty_label,
-        "setup_status": setup_status,
-        "win_prob": win_prob,
-        "rr_ratio": rr_ratio,
-        "expectancy_r": expectancy_r,
-        "profit_ready": profit_ready,
-        "price": format_price_smart(price, price),
-        "entry_low": format_price_smart(entry_low, price),
-        "entry_high": format_price_smart(entry_high, price),
-        "tp": tp2_clean,
-        "tp1": format_price_smart(tp1_raw, price),
-        "tp2": tp2_clean,
-        "tp3": format_price_smart(tp3_raw, price),
-        "sl": sl_clean,
-        "tp_pct": tp_pct,
-        "sl_pct": sl_pct,
-        "eta_tp_sec": eta_tp_sec,
-        "avg_range": format_price_smart(avg_range, price),
-        "adx": adx_val,
-        "z_score": z_score,
-        "ema9": format_price_smart(ema9, price),
-        "ema21": format_price_smart(ema21, price),
-        "ema50": format_price_smart(ema50, price),
-        "ema200": format_price_smart(ema200, price),
-        "rsi14": rsi14,
-        "macd_hist": format_price_smart(hist_val, price),
-        "atr": format_price_smart(atr_val, price),
-        "vol_ratio": vol_ratio
+      });
+      const res = await r.json();
+      if (res.signal_lock) renderSignalLock(res.signal_lock);
+      if (res.signals_log) renderSignalLog(res.signals_log);
+      if (res.code === 0) {
+        playBeep(side === "SELL" ? "sell" : "buy");
+        speakText(`Ordine ${side === "SELL" ? "short" : "long"} inviato su ${sym.replace("-", " ")}`);
+        st.innerText = `ORDINE ${side} INVIATO`;
+      } else {
+        st.innerText = `STATO: ${res.msg || "Bloccato / Errore"}`;
+      }
+      loadAccount();
+      setTimeout(() => st.innerText = "STATO: NEUTRAL", 6000);
     }
 
-
-def sanitize_tp_sl_for_side(side: str, mark_price: float, tp_val, sl_val):
-    if mark_price <= 0:
-        return None, None
-    clean_tp = None
-    clean_sl = None
-    min_gap = max(mark_price * 0.002, 1e-8)
-
-    if tp_val not in (None, ""):
-        t = to_float(tp_val, 0.0)
-        if t > 0:
-            if side == "BUY":
-                clean_tp = format_price_smart(max(t, mark_price + min_gap), mark_price)
-            else:
-                clean_tp = format_price_smart(max(1e-8, min(t, mark_price - min_gap)), mark_price)
-
-    if sl_val not in (None, ""):
-        s = to_float(sl_val, 0.0)
-        if s > 0:
-            if side == "BUY":
-                clean_sl = format_price_smart(max(1e-8, min(s, mark_price - min_gap)), mark_price)
-            else:
-                clean_sl = format_price_smart(max(s, mark_price + min_gap), mark_price)
-
-    return clean_tp, clean_sl
-
-
-def categorize_symbol(symbol: str) -> str:
-    s = symbol.upper()
-    commodities = (
-        "XAUT-USDT", "PAXG-USDT", "XAG-USDT", "WTI-USDT", "BRENT-USDT", "XAU-USDT"
-    )
-    stocks = (
-        "NCSK", "AAPL", "TSLA", "NVDA", "MSFT", "AMZN", "META",
-        "GOOGL", "GOOG", "COIN", "MSTR"
-    )
-    memes = (
-        "PEPE", "SHIB", "DOGE", "FLOKI", "BONK", "WIF", "MEME",
-        "BOME", "TURBO", "1000PEPE", "1000BONK", "1000SATS",
-        "FARTCOIN", "HMSTR", "POPCAT", "PNUT", "MOODENG", "GOAT", "ACT"
-    )
-
-    if s in commodities or any(s.startswith(p) for p in ("XAUT", "PAXG", "XAG", "XAU")):
-        return "Materie Prime"
-    if any(k in s for k in stocks):
-        return "Azioni & Indici"
-    if any(k in s for k in memes):
-        return "Meme & Altcoin"
-    return "Crypto Major"
-
-
-def get_cached_markets(force_refresh: bool = False):
-    now = time.time()
-    if not force_refresh and MARKET_CACHE["markets"] and (now - MARKET_CACHE["ts"] < 15.0):
-        return MARKET_CACHE["markets"]
-
-    contracts = bingx_req("GET", "/openApi/swap/v2/quote/contracts")
-    tickers = bingx_req("GET", "/openApi/swap/v2/quote/ticker")
-
-    t_map = {}
-    if tickers.get("code") == 0:
-        for item in tickers.get("data", []):
-            t_map[item.get("symbol")] = item
-
-    out = []
-    if contracts.get("code") == 0:
-        for c in contracts.get("data", []):
-            sym = c.get("symbol")
-            if not sym:
-                continue
-            tk = t_map.get(sym, {})
-            out.append({
-                "symbol": sym,
-                "category": categorize_symbol(sym),
-                "maxLeverage": c.get("maxLeverage", 20),
-                "lastPrice": to_float(tk.get("lastPrice", 0), 0.0),
-                "priceChangePercent": to_float(tk.get("priceChangePercent", 0), 0.0),
-                "volume": to_float(tk.get("volume", 0), 0.0),
-            })
-
-    out.sort(key=lambda x: x["volume"], reverse=True)
-    if out:
-        MARKET_CACHE["ts"] = now
-        MARKET_CACHE["markets"] = out
-    return out
-
-
-def select_category_candidates(category: str = "ALL", query: str = "", current_symbol: str = "BTC-USDT", max_items: int = 8):
-    all_mkts = get_cached_markets(force_refresh=False)
-    q = (query or "").strip().upper()
-    cat = (category or "ALL").strip()
-
-    filtered = []
-    for m in all_mkts:
-        m_cat = m.get("category", "Crypto Major")
-        m_sym = m.get("symbol", "")
-        cat_match = (
-            cat == "ALL"
-            or m_cat.upper() == cat.upper()
-            or (cat.upper() in ("CRYPTO", "CRYPTO MAJOR") and m_cat == "Crypto Major")
-            or (cat.upper() in ("MEME", "MEME/ALT", "MEME & ALTCOIN") and m_cat == "Meme & Altcoin")
-            or (cat.upper() in ("AZIONI", "AZIONI & INDICI") and m_cat == "Azioni & Indici")
-            or (cat.upper() in ("MATERIE PRIME", "COMMODITIES") and m_cat == "Materie Prime")
-        )
-        q_match = (not q) or (q in m_sym.upper()) or (q in m_cat.upper())
-        if cat_match and q_match:
-            filtered.append(m)
-
-    if not filtered and q:
-        filtered = [m for m in all_mkts if q in m.get("symbol", "").upper()]
-    if not filtered:
-        filtered = all_mkts
-
-    ordered = []
-    seen = set()
-    for m in filtered:
-        s = m["symbol"]
-        if s != current_symbol and s not in seen:
-            ordered.append(m)
-            seen.add(s)
-        if len(ordered) >= max_items - 1:
-            break
-    for m in filtered:
-        s = m["symbol"]
-        if s not in seen:
-            ordered.append(m)
-            seen.add(s)
-        if len(ordered) >= max_items:
-            break
-
-    return ordered
-
-
-def scan_category_markets(category: str = "ALL", query: str = "", tf: str = "5m", current_symbol: str = "BTC-USDT", max_items: int = 8):
-    lock_info = get_active_signal_lock()
-    if lock_info.get("locked") and lock_info.get("symbol"):
-        l_sym = lock_info["symbol"]
-        l_tf = lock_info.get("tf") or tf
-        l_side = lock_info.get("side") or "BUY"
-        q_locked = compute_quant_brain(l_sym, l_tf, l_side)
-        engage_signal_lock(l_sym, l_tf, q_locked)
-        best_locked = {
-            "symbol": l_sym,
-            "category": categorize_symbol(l_sym),
-            "score": int(q_locked.get("score", 0) or 0),
-            "abs_score": abs(int(q_locked.get("score", 0) or 0)),
-            "signal": q_locked.get("signal", l_side),
-            "certainty_pct": q_locked.get("certainty_pct", 0),
-            "certainty_label": q_locked.get("certainty_label", ""),
-            "expectancy_r": to_float(q_locked.get("expectancy_r", 0.0), 0.0),
-            "profit_ready": q_locked.get("profit_ready", False),
-            "tp": q_locked.get("tp"),
-            "tp1": q_locked.get("tp1"),
-            "tp2": q_locked.get("tp2"),
-            "tp3": q_locked.get("tp3"),
-            "sl": q_locked.get("sl"),
-            "quant": q_locked
-        }
-        return {
-            "category": category,
-            "query": query,
-            "scanned_count": 1,
-            "best": best_locked,
-            "results": [best_locked],
-            "signal_lock": get_active_signal_lock()
-        }
-
-    candidates = select_category_candidates(category, query, current_symbol, max_items)
-    results = []
-    best = None
-    best_abs_score = -1
-
-    for m in candidates:
-        s = m["symbol"]
-        q_data = compute_quant_brain(s, tf)
-        sc = int(q_data.get("score", 0) or 0)
-        exp_r = to_float(q_data.get("expectancy_r", 0.0), 0.0)
-        item = {
-            "symbol": s,
-            "category": m.get("category", "Crypto Major"),
-            "score": sc,
-            "abs_score": abs(sc),
-            "signal": q_data.get("signal", "NEUTRAL"),
-            "certainty_pct": q_data.get("certainty_pct", 0),
-            "certainty_label": q_data.get("certainty_label", ""),
-            "expectancy_r": exp_r,
-            "profit_ready": q_data.get("profit_ready", False),
-            "tp": q_data.get("tp"),
-            "tp1": q_data.get("tp1"),
-            "tp2": q_data.get("tp2"),
-            "tp3": q_data.get("tp3"),
-            "sl": q_data.get("sl"),
-            "quant": q_data
-        }
-        results.append(item)
-
-        if is_exact_certain_signal(q_data):
-            engage_signal_lock(s, tf, q_data)
-            best = item
-            break
-
-        rank_val = abs(sc) + (15 if exp_r > 0 else -20)
-        if rank_val > best_abs_score:
-            best_abs_score = rank_val
-            best = item
-
-    results.sort(key=lambda x: (x["expectancy_r"] > 0, x["abs_score"], x["certainty_pct"]), reverse=True)
-    return {
-        "category": category,
-        "query": query,
-        "scanned_count": len(results),
-        "best": best,
-        "results": results,
-        "signal_lock": get_active_signal_lock()
+    async function closeAll() {
+      if (!confirm("Chiudere tutte le posizioni?")) return;
+      await fetch("/api/close-all", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+      speakText("Chiusura di tutte le posizioni inviata");
+      loadAccount();
     }
 
-
-def candle_timing_info(tf: str) -> dict:
-    sec = TF_SECONDS.get(tf, 300)
-    now = time.time()
-    elapsed = now % sec
-    remaining = max(0, int(sec - elapsed))
-    return {
-        "timeframe": tf,
-        "duration_sec": sec,
-        "elapsed_sec": int(elapsed),
-        "remaining_sec": remaining,
-        "candle_end_ts": int(now + remaining)
-    }
-
-
-def check_anti_fakeout_and_breakout(symbol: str, tf: str, side: str, anti_fakeout: bool, anti_breakout: bool, quant: dict = None, min_certainty: int = 70, allow_override: bool = False):
-    if allow_override:
-        return True, "OVERRIDE ATTIVO"
-
-    if quant:
-        cert = int(quant.get("certainty_pct", 0) or 0)
-        if cert < min_certainty:
-            return False, f"BLOCCATO: {quant.get('certainty_label')} sotto soglia minima ({min_certainty}%)"
-        if not quant.get("profit_ready", True):
-            return False, f"CERVELLO QUANT: aspettativa non ottimale (Exp {quant.get('expectancy_r')}R, ADX {quant.get('adx')})"
-
-    if not anti_fakeout and not anti_breakout:
-        return True, "Filtri disattivati"
-
-    klines = bingx_req("GET", "/openApi/swap/v2/quote/klines", {
-        "symbol": symbol,
-        "interval": tf,
-        "limit": 5
-    })
-    depth = bingx_req("GET", "/openApi/swap/v2/quote/depth", {
-        "symbol": symbol,
-        "limit": 5
-    })
-
-    if klines.get("code") != 0 or not klines.get("data"):
-        return False, "BLOCCATO: dati candela non disponibili per verifica anti-falso segnale"
-
-    candles = klines["data"]
-    last_closed = candles[-2] if len(candles) >= 2 else candles[-1]
-    o = to_float(last_closed.get("open", 0), 0.0)
-    h = to_float(last_closed.get("high", 0), 0.0)
-    l = to_float(last_closed.get("low", 0), 0.0)
-    c = to_float(last_closed.get("close", 0), 0.0)
-    total_range = max(h - l, 1e-9)
-    body = abs(c - o)
-
-    if anti_fakeout:
-        body_ratio = body / total_range
-        if body_ratio < 0.35:
-            return False, f"BLOCCATO FALSO SEGNALE: corpo candela debole ({body_ratio*100:.0f}% del range)"
-        if side == "BUY" and c < o:
-            return False, "BLOCCATO FALSO SEGNALE: ultima candela chiusa ribassista per ingresso BUY"
-        if side == "SELL" and c > o:
-            return False, "BLOCCATO FALSO SEGNALE: ultima candela chiusa rialzista per ingresso SELL"
-
-    if anti_breakout and depth.get("code") == 0:
-        d = depth.get("data") or {}
-        asks = d.get("asks") or []
-        bids = d.get("bids") or []
-        if asks and bids:
-            best_ask = to_float(asks[0][0], 0.0)
-            best_bid = to_float(bids[0][0], 0.0)
-            mid = (best_ask + best_bid) / 2 if (best_ask + best_bid) > 0 else 1
-            spread_pct = ((best_ask - best_bid) / mid) * 100
-            if spread_pct > 0.15:
-                return False, f"ANTI-ROTTURA ATTIVO: spread elevato ({spread_pct:.3f}%), rischio falsa rottura"
-
-    return True, "VALIDATO"
-
-
-def process_auto_close_expired():
-    now = time.time()
-    expired_keys = [k for k, v in AUTO_CLOSE_WATCHLIST.items() if now >= v["close_at"]]
-    closed_log = []
-    for k in expired_keys:
-        item = AUTO_CLOSE_WATCHLIST.pop(k)
-        res = bingx_req("POST", "/openApi/swap/v2/trade/closeAllPositions", {
-            "symbol": item["symbol"]
-        }, signed=True)
-        closed_log.append({"symbol": item["symbol"], "result": res})
-        record_signal({
-            "symbol": item["symbol"],
-            "side": "CLOSE_TF",
-            "tf": item.get("tf", "5m"),
-            "certainty_label": "CHIUSURA AUTOMATICA FINE CANDELA",
-            "tp1": "-",
-            "tp2": "-",
-            "sl": "-",
-            "outcome": "CHIUSO" if res.get("code") == 0 else "ERRORE"
-        })
-    return closed_log
-
-
-def calc_dynamic_leverage(equity: float) -> int:
-    if equity <= 2.00:
-        return 20
-    if equity <= 50.00:
-        return 15
-    if equity <= 500.00:
-        return 10
-    return 5
-
-
-def fetch_income_window(start_ms: int, end_ms: int = None, max_windows: int = 8) -> list:
-    all_rows = []
-    seen_ids = set()
-    cursor_end = int(end_ms or (time.time() * 1000))
-    window_ms = 7 * 24 * 60 * 60 * 1000
-
-    for _ in range(max_windows):
-        if cursor_end < start_ms:
-            break
-        cursor_start = max(int(start_ms), cursor_end - window_ms + 1)
-
-        resp = bingx_req("GET", "/openApi/swap/v2/user/income", {
-            "startTime": cursor_start,
-            "endTime": cursor_end,
-            "limit": 1000
-        }, signed=True)
-
-        if resp.get("code") == 0 and isinstance(resp.get("data"), list):
-            for item in resp.get("data") or []:
-                ts_raw = item.get("time") or item.get("timestamp") or item.get("updateTime") or 0
-                ts_ms = int(to_float(ts_raw, 0.0))
-                if 0 < ts_ms < 10**11:
-                    ts_ms *= 1000
-                uniq = "|".join([
-                    str(item.get("tranId") or item.get("id") or item.get("orderId") or ""),
-                    str(ts_ms),
-                    str(item.get("incomeType") or ""),
-                    str(item.get("symbol") or ""),
-                    str(item.get("income") or ""),
-                ])
-                if uniq not in seen_ids:
-                    seen_ids.add(uniq)
-                    all_rows.append({**item, "_ts_ms": ts_ms})
-
-        if cursor_start <= start_ms:
-            break
-        cursor_end = cursor_start - 1
-
-    all_rows.sort(key=lambda x: x.get("_ts_ms", 0), reverse=True)
-    return all_rows
-
-
-def compute_pnl_stats(month_rows: list, day_rows: list, equity: float, unrealized_pnl: float = 0.0):
-    now_dt = datetime.now(timezone.utc)
-    day_start_ms = int(datetime(now_dt.year, now_dt.month, now_dt.day, 0, 0, 0, tzinfo=timezone.utc).timestamp() * 1000)
-    month_start_ms = int(datetime(now_dt.year, now_dt.month, 1, 0, 0, 0, tzinfo=timezone.utc).timestamp() * 1000)
-
-    def summarize(rows: list, start_ms: int):
-        realized_pnl = 0.0
-        fees_funding = 0.0
-        wins = 0
-        losses = 0
-
-        for item in rows:
-            ts_ms = int(item.get("_ts_ms") or 0)
-            if ts_ms < start_ms:
-                continue
-
-            itype = str(item.get("incomeType", "")).upper().strip()
-            val = to_float(item.get("income", 0), 0.0)
-
-            if "PNL" in itype or itype in ("REALIZED_PNL", "SETTLEMENT", "TRADE_PNL", "CLOSE_PNL"):
-                realized_pnl += val
-                if val > 0:
-                    wins += 1
-                elif val < 0:
-                    losses += 1
-            elif any(k in itype for k in ("FEE", "COMMISSION", "FUNDING")):
-                fees_funding += val
-
-        net_realized = realized_pnl + fees_funding
-        total_trades = wins + losses
-        win_pct = round((wins / total_trades) * 100, 1) if total_trades > 0 else 0.0
-        loss_pct = round((losses / total_trades) * 100, 1) if total_trades > 0 else 0.0
-
-        base_eq = equity - net_realized - unrealized_pnl
-        if base_eq > 0.0001:
-            pnl_pct = round((net_realized / base_eq) * 100, 2)
-        else:
-            pnl_pct = 0.0
-
-        return {
-            "pnl": round(net_realized, 4),
-            "realized_pnl": round(realized_pnl, 4),
-            "fees_funding": round(fees_funding, 4),
-            "pnl_pct": pnl_pct,
-            "win_pct": win_pct,
-            "loss_pct": loss_pct,
-            "trades": total_trades
-        }
-
-    merged_map = {}
-    for r in (month_rows or []) + (day_rows or []):
-        k = "|".join([
-            str(r.get("tranId") or r.get("id") or r.get("orderId") or ""),
-            str(r.get("_ts_ms") or 0),
-            str(r.get("incomeType") or ""),
-            str(r.get("symbol") or ""),
-            str(r.get("income") or ""),
-        ])
-        merged_map[k] = r
-    merged_rows = sorted(merged_map.values(), key=lambda x: x.get("_ts_ms", 0), reverse=True)
-
-    d_stat = summarize(merged_rows, day_start_ms)
-    m_stat = summarize(merged_rows, month_start_ms)
-
-    return {
-        "daily_pnl": d_stat["pnl"],
-        "daily_realized_pnl": d_stat["realized_pnl"],
-        "daily_fees_funding": d_stat["fees_funding"],
-        "daily_pnl_pct": d_stat["pnl_pct"],
-        "daily_win_pct": d_stat["win_pct"],
-        "daily_loss_pct": d_stat["loss_pct"],
-        "daily_trades": d_stat["trades"],
-        "monthly_pnl": m_stat["pnl"],
-        "monthly_realized_pnl": m_stat["realized_pnl"],
-        "monthly_fees_funding": m_stat["fees_funding"],
-        "monthly_pnl_pct": m_stat["pnl_pct"],
-        "monthly_win_pct": m_stat["win_pct"],
-        "monthly_loss_pct": m_stat["loss_pct"],
-        "monthly_trades": m_stat["trades"],
-        "unrealized_pnl": round(unrealized_pnl, 4)
-    }
-
-
-@app.route("/")
-def home():
-    return render_template("index.html")
-
-
-@app.route("/api/markets")
-def api_markets():
-    out = get_cached_markets(force_refresh=False)
-    return jsonify({"code": 0, "count": len(out), "markets": out})
-
-
-@app.route("/api/signal-lock", methods=["GET", "POST"])
-def api_signal_lock():
-    if request.method == "POST":
-        data = request.get_json(silent=True) or {}
-        action = str(data.get("action", "")).upper()
-        if action in ("UNLOCK", "RELEASE", "CLEAR"):
-            return jsonify({"code": 0, "signal_lock": release_signal_lock()})
-        sym_req = data.get("symbol", "BTC-USDT")
-        tf_req = data.get("tf", "5m")
-        q_req = compute_quant_brain(sym_req, tf_req)
-        if is_exact_certain_signal(q_req):
-            return jsonify({"code": 0, "locked": True, "signal_lock": engage_signal_lock(sym_req, tf_req, q_req)})
-        return jsonify({"code": -1, "locked": False, "msg": "Segnale non ancora certo", "signal_lock": get_active_signal_lock()})
-    return jsonify({"code": 0, "signal_lock": get_active_signal_lock()})
-
-
-@app.route("/api/scan-category")
-def api_scan_category():
-    category = request.args.get("category", "ALL")
-    query = request.args.get("query", "")
-    tf = request.args.get("tf", "5m")
-    current_symbol = request.args.get("symbol", "BTC-USDT")
-    scan = scan_category_markets(category, query, tf, current_symbol, max_items=8)
-    best = scan.get("best") or {}
-    return jsonify({
-        "code": 0,
-        "scan": scan,
-        "best_symbol": best.get("symbol", current_symbol),
-        "quant": best.get("quant"),
-        "signal_lock": get_active_signal_lock(),
-        "timing": candle_timing_info(tf),
-        "signals_log": SIGNAL_LOG
-    })
-
-
-@app.route("/api/tf-plan")
-def api_tf_plan():
-    symbol = request.args.get("symbol", "BTC-USDT")
-    tf = request.args.get("tf", "5m")
-    side = str(request.args.get("side", "BUY")).upper()
-    if side not in ("BUY", "SELL"):
-        side = "BUY"
-    timing = candle_timing_info(tf)
-    quant = compute_quant_brain(symbol, tf, side)
-    if is_exact_certain_signal(quant):
-        engage_signal_lock(symbol, tf, quant)
-    record_signal({
-        "symbol": symbol,
-        "side": side,
-        "tf": tf,
-        "certainty_label": quant.get("certainty_label"),
-        "tp1": quant.get("tp1"),
-        "tp2": quant.get("tp2"),
-        "tp3": quant.get("tp3"),
-        "sl": quant.get("sl"),
-        "outcome": "CALCOLATO"
-    })
-    return jsonify({"code": 0, "timing": timing, "quant": quant, "signal_lock": get_active_signal_lock(), "signals_log": SIGNAL_LOG})
-
-
-@app.route("/api/live-ticker")
-def api_live_ticker():
-    symbol = request.args.get("symbol", "BTC-USDT")
-    tf = request.args.get("tf", "5m")
-    auto_closed = process_auto_close_expired()
-
-    ticker = bingx_req("GET", "/openApi/swap/v2/quote/ticker", {"symbol": symbol})
-    depth = bingx_req("GET", "/openApi/swap/v2/quote/depth", {"symbol": symbol, "limit": 10})
-    funding = bingx_req("GET", "/openApi/swap/v2/quote/premiumIndex", {"symbol": symbol})
-    quant = compute_quant_brain(symbol, tf)
-    if is_exact_certain_signal(quant):
-        engage_signal_lock(symbol, tf, quant)
-
-    return jsonify({
-        "ticker": ticker.get("data", {}),
-        "depth": depth.get("data", {}),
-        "funding": funding.get("data", {}),
-        "quant": quant,
-        "signal_lock": get_active_signal_lock(),
-        "timing": candle_timing_info(tf),
-        "auto_closed": auto_closed,
-        "active_auto_closes": list(AUTO_CLOSE_WATCHLIST.values()),
-        "signals_log": SIGNAL_LOG
-    })
-
-
-@app.route("/api/account")
-def api_account():
-    now_dt = datetime.now(timezone.utc)
-    now_ms = int(time.time() * 1000)
-    day_start_ms = int(datetime(now_dt.year, now_dt.month, now_dt.day, 0, 0, 0, tzinfo=timezone.utc).timestamp() * 1000)
-    month_start_ms = int(datetime(now_dt.year, now_dt.month, 1, 0, 0, 0, tzinfo=timezone.utc).timestamp() * 1000)
-
-    balance = bingx_req("GET", "/openApi/swap/v2/user/balance", signed=True)
-    positions = bingx_req("GET", "/openApi/swap/v2/user/positions", signed=True)
-    day_income = fetch_income_window(day_start_ms, now_ms, max_windows=2)
-    month_income = fetch_income_window(month_start_ms, now_ms, max_windows=6)
-
-    equity = 0.0
-    available = 0.0
-    if balance.get("code") == 0 and isinstance(balance.get("data"), dict):
-        b = balance["data"].get("balance", {})
-        equity = to_float(b.get("equity", 0), 0.0)
-        available = to_float(b.get("availableMargin", 0), 0.0)
-
-    raw_pos = positions.get("data", []) if positions.get("code") == 0 and isinstance(positions.get("data"), list) else []
-
-    active_positions = []
-    total_unrealized = 0.0
-    for p in raw_pos:
-        amt = abs(to_float(p.get("positionAmt", 0), 0.0))
-        if amt <= 0:
-            continue
-        entry = to_float(p.get("avgPrice", 0), 0.0)
-        mark = to_float(p.get("markPrice", entry), entry)
-        pnl = to_float(p.get("unrealizedProfit", 0), 0.0)
-        total_unrealized += pnl
-        lev = to_float(p.get("leverage", calc_dynamic_leverage(equity)), 1.0)
-        notional = amt * entry
-        margin_used = notional / lev if lev > 0 else notional
-        pnl_pct = round((pnl / margin_used) * 100, 2) if margin_used > 0 else 0.0
-        active_positions.append({
-            **p,
-            "positionAmt": amt,
-            "avgPrice": entry,
-            "markPrice": mark,
-            "unrealizedProfit": pnl,
-            "pnlPct": pnl_pct
-        })
-
-    stats = compute_pnl_stats(month_income, day_income, equity, total_unrealized)
-
-    return jsonify({
-        "equity": equity,
-        "available": available,
-        "recommended_leverage": calc_dynamic_leverage(equity),
-        "positions": active_positions,
-        "income_history": month_income,
-        "pnl_stats": stats,
-        "signal_lock": get_active_signal_lock(),
-        "signals_log": SIGNAL_LOG
-    })
-
-
-def submit_bingx_order(symbol: str, side: str, order_type: str, tf: str, qty: float, leverage: int, price=None, tp=None, sl=None, close_at_candle_end: bool = False):
-    pos_side = "LONG" if side == "BUY" else "SHORT"
-    qty_val = to_float(qty, 0.0)
-    lev_val = int(to_float(leverage, 20))
-
-    bingx_req("POST", "/openApi/swap/v2/trade/leverage", {
-        "symbol": symbol,
-        "side": pos_side,
-        "leverage": lev_val
-    }, signed=True)
-
-    ticker = bingx_req("GET", "/openApi/swap/v2/quote/ticker", {"symbol": symbol})
-    t_data = ticker.get("data") if isinstance(ticker.get("data"), dict) else {}
-    mark_ref = to_float(t_data.get("lastPrice", 0), 0.0)
-    if mark_ref <= 0:
-        q_tmp = compute_quant_brain(symbol, tf, side)
-        mark_ref = to_float(q_tmp.get("price", 0), 0.0)
-
-    clean_tp, clean_sl = sanitize_tp_sl_for_side(side, mark_ref, tp, sl)
-
-    order_params = {
-        "symbol": symbol,
-        "side": side,
-        "positionSide": pos_side,
-        "type": order_type,
-        "quantity": qty_val
-    }
-    if order_type == "LIMIT" and price not in (None, ""):
-        order_params["price"] = format_price_smart(to_float(price, mark_ref), mark_ref)
-    if clean_tp not in (None, 0, 0.0):
-        order_params["takeProfit"] = json.dumps({
-            "type": "TAKE_PROFIT_MARKET",
-            "stopPrice": float(clean_tp),
-            "workingType": "MARK_PRICE"
-        }, separators=(",", ":"))
-    if clean_sl not in (None, 0, 0.0):
-        order_params["stopLoss"] = json.dumps({
-            "type": "STOP_MARKET",
-            "stopPrice": float(clean_sl),
-            "workingType": "MARK_PRICE"
-        }, separators=(",", ":"))
-
-    res = bingx_req("POST", "/openApi/swap/v2/trade/order", order_params, signed=True)
-
-    # Se BingX rifiuta l'ordine per parametri TP/SL, riprova con l'ordine base e imposta TP/SL separatamente
-    if res.get("code") != 0 and ("takeProfit" in order_params or "stopLoss" in order_params):
-        base_params = {
-            "symbol": symbol,
-            "side": side,
-            "positionSide": pos_side,
-            "type": order_type,
-            "quantity": qty_val
-        }
-        if "price" in order_params:
-            base_params["price"] = order_params["price"]
-        base_res = bingx_req("POST", "/openApi/swap/v2/trade/order", base_params, signed=True)
-        if base_res.get("code") == 0:
-            order_id = ((base_res.get("data") or {}).get("order") or {}).get("orderId")
-            if clean_tp:
-                bingx_req("POST", "/openApi/swap/v2/trade/order", {
-                    "symbol": symbol,
-                    "side": "SELL" if side == "BUY" else "BUY",
-                    "positionSide": pos_side,
-                    "type": "TAKE_PROFIT_MARKET",
-                    "stopPrice": float(clean_tp),
-                    "quantity": qty_val,
-                    "workingType": "MARK_PRICE"
-                }, signed=True)
-            if clean_sl:
-                bingx_req("POST", "/openApi/swap/v2/trade/order", {
-                    "symbol": symbol,
-                    "side": "SELL" if side == "BUY" else "BUY",
-                    "positionSide": pos_side,
-                    "type": "STOP_MARKET",
-                    "stopPrice": float(clean_sl),
-                    "quantity": qty_val,
-                    "workingType": "MARK_PRICE"
-                }, signed=True)
-            res = {**base_res, "orderId": order_id, "tp_applied": clean_tp, "sl_applied": clean_sl}
-
-    if res.get("code") == 0 and close_at_candle_end:
-        timing = candle_timing_info(tf)
-        watch_key = f"{symbol}_{pos_side}_{timing['candle_end_ts']}"
-        AUTO_CLOSE_WATCHLIST[watch_key] = {
-            "symbol": symbol,
-            "side": pos_side,
-            "qty": qty_val,
-            "tf": tf,
-            "close_at": timing["candle_end_ts"]
-        }
-
-    return res
-
-
-@app.route("/api/order", methods=["POST"])
-def api_order():
-    data = request.get_json(force=True) or {}
-    lock_info = get_active_signal_lock()
-    from_lock = bool(data.get("from_lock", False))
-
-    symbol = lock_info.get("symbol") if (lock_info.get("locked") and lock_info.get("symbol")) else data.get("symbol", "BTC-USDT")
-    side = str(data.get("side") or (lock_info.get("side") if lock_info.get("locked") else "NEUTRAL")).upper()
-    order_type = str(data.get("type", "MARKET")).upper()
-    tf = lock_info.get("tf") if (lock_info.get("locked") and lock_info.get("tf")) else str(data.get("tf", "5m"))
-    qty = to_float(data.get("quantity", 0), 0.0)
-    leverage = int(to_float(data.get("leverage", 20), 20))
-    price = data.get("price")
-    tp = data.get("tp")
-    sl = data.get("sl")
-    close_at_candle_end = bool(data.get("close_at_candle_end", False))
-    anti_fakeout = bool(data.get("anti_fakeout", True))
-    anti_breakout = bool(data.get("anti_breakout", True))
-    min_certainty = int(to_float(data.get("min_certainty", 70), 70))
-    allow_override = bool(data.get("allow_override", False))
-
-    if side not in ("BUY", "SELL"):
-        return jsonify({"code": -1, "msg": "Stato NEUTRAL: nessun ordine inviato"}), 400
-    if qty <= 0:
-        return jsonify({"code": -1, "msg": "Quantita' non valida"}), 400
-
-    quant = compute_quant_brain(symbol, tf, side)
-    if is_exact_certain_signal(quant):
-        engage_signal_lock(symbol, tf, quant)
-
-    if tp in (None, "") and quant.get("tp"):
-        tp = quant.get("tp")
-    if sl in (None, "") and quant.get("sl"):
-        sl = quant.get("sl")
-
-    effective_override = allow_override or from_lock
-    ok_filter, reason = check_anti_fakeout_and_breakout(
-        symbol, tf, side, anti_fakeout, anti_breakout, quant, min_certainty, effective_override
-    )
-    if not ok_filter:
-        record_signal({
-            "symbol": symbol,
-            "side": side,
-            "tf": tf,
-            "certainty_label": quant.get("certainty_label"),
-            "tp1": quant.get("tp1"),
-            "tp2": quant.get("tp2"),
-            "tp3": quant.get("tp3"),
-            "sl": quant.get("sl"),
-            "outcome": "BLOCCATO"
-        })
-        return jsonify({"code": -10, "msg": reason, "status": "NEUTRAL", "signal_lock": get_active_signal_lock(), "signals_log": SIGNAL_LOG}), 400
-
-    res = submit_bingx_order(symbol, side, order_type, tf, qty, leverage, price, tp, sl, close_at_candle_end)
-
-    record_signal({
-        "symbol": symbol,
-        "side": side,
-        "tf": tf,
-        "certainty_label": quant.get("certainty_label"),
-        "tp1": quant.get("tp1"),
-        "tp2": tp or quant.get("tp2"),
-        "tp3": quant.get("tp3"),
-        "sl": sl or quant.get("sl"),
-        "outcome": "INVIATO" if res.get("code") == 0 else (res.get("msg") or "ERRORE_API")
-    })
-
-    return jsonify({**res, "signal_lock": get_active_signal_lock(), "signals_log": SIGNAL_LOG})
-
-
-@app.route("/api/auto-trade", methods=["POST"])
-def api_auto_trade():
-    data = request.get_json(force=True) or {}
-    category = str(data.get("category", "ALL"))
-    query = str(data.get("query", ""))
-    scan_all_cat = bool(data.get("scan_category", True))
-    current_symbol = data.get("symbol", "BTC-USDT")
-    tf = str(data.get("tf", "5m"))
-    qty = to_float(data.get("quantity", 0), 0.0)
-    leverage = int(to_float(data.get("leverage", 20), 20))
-    score_threshold = int(to_float(data.get("score_threshold", 60), 60))
-    close_at_candle_end = bool(data.get("close_at_candle_end", True))
-    anti_fakeout = bool(data.get("anti_fakeout", True))
-    anti_breakout = bool(data.get("anti_breakout", True))
-
-    if qty <= 0:
-        return jsonify({"code": -1, "triggered": False, "msg": "AUTO-TRADE: quantita' non valida", "signal_lock": get_active_signal_lock(), "signals_log": SIGNAL_LOG})
-
-    lock_info = get_active_signal_lock()
-    if lock_info.get("locked") and lock_info.get("symbol") and lock_info.get("side"):
-        c_sym = lock_info["symbol"]
-        side = lock_info["side"]
-        tf_use = lock_info.get("tf") or tf
-        quant_side = compute_quant_brain(c_sym, tf_use, side)
-        engage_signal_lock(c_sym, tf_use, quant_side)
-
-        cooldown_key = f"{c_sym}_{tf_use}_{side}"
-        now_ts = time.time()
-        tf_sec = TF_SECONDS.get(tf_use, 300)
-        if now_ts - LAST_AUTO_ORDER_TS.get(cooldown_key, 0) < tf_sec:
-            return jsonify({
-                "code": 0,
-                "triggered": False,
-                "selected_symbol": c_sym,
-                "msg": f"SEGNALE CERTO BLOCCATO {side} {c_sym} ({lock_info.get('remaining_sec')}s residui)",
-                "quant": quant_side,
-                "signal_lock": get_active_signal_lock(),
-                "signals_log": SIGNAL_LOG
-            })
-
-        res = submit_bingx_order(
-            symbol=c_sym,
-            side=side,
-            order_type="MARKET",
-            tf=tf_use,
-            qty=qty,
-            leverage=leverage,
-            tp=quant_side.get("tp"),
-            sl=quant_side.get("sl"),
-            close_at_candle_end=close_at_candle_end
-        )
-        if res.get("code") == 0:
-            LAST_AUTO_ORDER_TS[cooldown_key] = now_ts
-            record_signal({
-                "symbol": c_sym,
-                "side": side,
-                "tf": tf_use,
-                "certainty_label": f"AUTO-TRADE BLOCCATO • {quant_side.get('certainty_label')}",
-                "tp1": quant_side.get("tp1"),
-                "tp2": quant_side.get("tp2"),
-                "tp3": quant_side.get("tp3"),
-                "sl": quant_side.get("sl"),
-                "outcome": "AUTO-INVIATO"
-            })
-            return jsonify({
-                "code": 0,
-                "triggered": True,
-                "side": side,
-                "selected_symbol": c_sym,
-                "msg": f"AUTO-TRADE ESEGUITO {side} {c_sym} (SEGNALE CERTO BLOCCATO)",
-                "quant": quant_side,
-                "order_res": res,
-                "signal_lock": get_active_signal_lock(),
-                "signals_log": SIGNAL_LOG
-            })
-
-    if scan_all_cat:
-        scan = scan_category_markets(category, query, tf, current_symbol, max_items=8)
-        candidates = scan.get("results") or []
-    else:
-        q0 = compute_quant_brain(current_symbol, tf)
-        candidates = [{"symbol": current_symbol, "category": categorize_symbol(current_symbol), "quant": q0}]
-
-    last_status_msg = f"AUTO-TRADE IN ATTESA ({category}): nessun setup sopra ±{score_threshold}"
-    display_quant = candidates[0].get("quant") if candidates else compute_quant_brain(current_symbol, tf)
-    display_symbol = candidates[0].get("symbol") if candidates else current_symbol
-
-    for cand in candidates:
-        c_sym = cand["symbol"]
-        q_base = cand.get("quant") or compute_quant_brain(c_sym, tf)
-        score = int(q_base.get("score", 0) or 0)
-        exp_r = to_float(q_base.get("expectancy_r", 0.0), 0.0)
-        profit_ready = bool(q_base.get("profit_ready", False))
-
-        if abs(score) >= abs(display_quant.get("score", 0)):
-            display_quant = q_base
-            display_symbol = c_sym
-
-        if is_exact_certain_signal(q_base):
-            engage_signal_lock(c_sym, tf, q_base)
-            side = q_base["signal"]
-        elif score >= score_threshold:
-            side = "BUY"
-        elif score <= -abs(score_threshold):
-            side = "SELL"
-        else:
-            last_status_msg = f"SCAN {category} ({c_sym}): Score {score} < ±{score_threshold}"
-            continue
-
-        if exp_r <= 0 or not profit_ready:
-            last_status_msg = f"SCAN {category} ({c_sym}): Exp {exp_r}R non positiva"
-            continue
-
-        quant_side = compute_quant_brain(c_sym, tf, side)
-        if is_exact_certain_signal(quant_side):
-            engage_signal_lock(c_sym, tf, quant_side)
-
-        ok_filter, reason = check_anti_fakeout_and_breakout(
-            c_sym, tf, side, anti_fakeout, anti_breakout, quant_side, min_certainty=50, allow_override=False
-        )
-        if not ok_filter:
-            last_status_msg = f"SCAN {category} ({c_sym}): {reason}"
-            continue
-
-        cooldown_key = f"{c_sym}_{tf}_{side}"
-        now_ts = time.time()
-        tf_sec = TF_SECONDS.get(tf, 300)
-        if now_ts - LAST_AUTO_ORDER_TS.get(cooldown_key, 0) < tf_sec:
-            last_status_msg = f"COOLDOWN {c_sym} ({tf}): ordine gia' inviato in questa candela"
-            continue
-
-        res = submit_bingx_order(
-            symbol=c_sym,
-            side=side,
-            order_type="MARKET",
-            tf=tf,
-            qty=qty,
-            leverage=leverage,
-            tp=quant_side.get("tp"),
-            sl=quant_side.get("sl"),
-            close_at_candle_end=close_at_candle_end
-        )
-
-        if res.get("code") == 0:
-            LAST_AUTO_ORDER_TS[cooldown_key] = now_ts
-            record_signal({
-                "symbol": c_sym,
-                "side": side,
-                "tf": tf,
-                "certainty_label": f"AUTO-TRADE [{category}] • {quant_side.get('certainty_label')}",
-                "tp1": quant_side.get("tp1"),
-                "tp2": quant_side.get("tp2"),
-                "tp3": quant_side.get("tp3"),
-                "sl": quant_side.get("sl"),
-                "outcome": "AUTO-INVIATO"
-            })
-            return jsonify({
-                "code": 0,
-                "triggered": True,
-                "side": side,
-                "selected_symbol": c_sym,
-                "msg": f"AUTO-TRADE ESEGUITO {side} {c_sym} [{category}] (Score {score}, Exp +{exp_r}R)",
-                "quant": quant_side,
-                "order_res": res,
-                "signal_lock": get_active_signal_lock(),
-                "signals_log": SIGNAL_LOG
-            })
-
-        last_status_msg = f"AUTO-TRADE ERRORE {c_sym}: {res.get('msg', 'Errore ordine')}"
-
-    return jsonify({
-        "code": 0,
-        "triggered": False,
-        "selected_symbol": display_symbol,
-        "msg": last_status_msg,
-        "quant": display_quant,
-        "signal_lock": get_active_signal_lock(),
-        "signals_log": SIGNAL_LOG
-    })
-
-
-@app.route("/api/close-all", methods=["POST"])
-def api_close_all():
-    data = request.get_json(silent=True) or {}
-    params = {"symbol": data["symbol"]} if data.get("symbol") else {}
-    res = bingx_req("POST", "/openApi/swap/v2/trade/closeAllPositions", params, signed=True)
-    return jsonify(res)
-
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=False)
+    document.querySelectorAll(".cat-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".cat-btn").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        activeCat = btn.dataset.cat;
+        drawMarkets();
+        syncModeUI();
+        scanActiveCategory(true);
+      });
+    });
+
+    document.getElementById("m-search").addEventListener("input", () => {
+      drawMarkets();
+      syncModeUI();
+    });
+    document.getElementById("o-type").addEventListener("change", e => {
+      document.getElementById("p-wrap").style.display = e.target.value === "LIMIT" ? "block" : "none";
+    });
+    document.getElementById("o-tf").addEventListener("change", () => {
+      renderChart(sym);
+      refreshTfPlan();
+      scanActiveCategory(false);
+    });
+
+    setInterval(() => {
+      if (remainingSec > 0) remainingSec -= 1;
+      const txt = fmtSec(remainingSec);
+      document.getElementById("k-cd").innerText = txt;
+      document.getElementById("m-cd").innerText = txt;
+    }, 1000);
+
+    syncModeUI();
+    renderChart(sym);
+    loadMarkets();
+    pollLive();
+    refreshTfPlan();
+    loadAccount();
+    setInterval(pollLive, 1500);
+    setInterval(loadAccount, 5000);
+    setInterval(runAutoTradeTick, 4000);
+  </script>
+</body>
+</html>
