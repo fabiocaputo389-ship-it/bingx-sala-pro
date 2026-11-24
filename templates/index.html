@@ -3,25 +3,25 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>BingX Pro Desk • Cyber Gold Scanner</title>
+  <title>BingX Pro Desk</title>
   <style>
     :root {
-      --bg: #050608;
-      --panel: #0c0e13;
-      --surface: #12151d;
-      --border: rgba(212, 175, 55, 0.24);
-      --border-strong: rgba(255, 213, 79, 0.55);
-      --text: #f3ecd2;
-      --muted: #9e9167;
-      --gold: #d4af37;
-      --gold-bright: #ffd54f;
-      --green: #00e676;
-      --red: #ff3d57;
-      --warn: #ffbe2e;
+      --bg: #000000;
+      --panel: #0a0c10;
+      --surface: #12161f;
+      --border: #1e293b;
+      --text: #ffffff;
+      --muted: #cbd5e1;
+      --blue: #2563eb;
+      --blue-bright: #3b82f6;
+      --green: #16a34a;
+      --green-bright: #22c55e;
+      --red: #dc2626;
+      --red-bright: #ef4444;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; touch-action: manipulation; }
     body {
-      background: radial-gradient(circle at top, rgba(212, 175, 55, 0.08), transparent 42%), var(--bg);
+      background: var(--bg);
       color: var(--text);
       font-family: system-ui, -apple-system, sans-serif;
       font-size: 13px;
@@ -32,21 +32,14 @@
       justify-content: space-between;
       gap: 10px;
       padding: 8px 12px;
-      background: linear-gradient(90deg, #07080b 0%, #11131a 50%, #07080b 100%);
-      border-bottom: 1px solid var(--border-strong);
-      box-shadow: 0 2px 18px rgba(212, 175, 55, 0.09);
+      background: #000000;
+      border-bottom: 1px solid var(--border);
     }
-    .brand {
-      font-weight: 800;
-      color: var(--gold-bright);
-      font-size: 15px;
-      letter-spacing: 0.08em;
-      text-shadow: 0 0 12px rgba(255, 213, 79, 0.28);
-    }
-    .brand span { color: #fff4c2; }
+    .brand { font-weight: 800; color: #ffffff; font-size: 15px; }
+    .brand span { color: var(--blue-bright); }
     .kpis { display: flex; flex-wrap: wrap; gap: 14px; }
-    .kpi small { display: block; font-size: 10px; color: var(--muted); letter-spacing: 0.05em; }
-    .kpi strong { color: var(--gold-bright); }
+    .kpi small { display: block; font-size: 10px; color: var(--muted); }
+    .kpi strong { color: #ffffff; }
     .grid { display: grid; grid-template-columns: 265px 1fr 230px 335px; min-height: calc(100vh - 46px); }
     @media (max-width: 1120px) { .grid { grid-template-columns: 1fr; } }
     .panel {
@@ -60,9 +53,8 @@
       padding: 8px 10px;
       font-size: 11px;
       font-weight: 700;
-      color: var(--gold);
-      letter-spacing: 0.06em;
-      background: #090b0f;
+      color: #ffffff;
+      background: #000000;
       border-bottom: 1px solid var(--border);
       display: flex;
       justify-content: space-between;
@@ -73,7 +65,7 @@
       flex-wrap: wrap;
       gap: 4px;
       padding: 6px;
-      background: #080a0e;
+      background: #000000;
       border-bottom: 1px solid var(--border);
     }
     .cat-btn {
@@ -81,22 +73,21 @@
       font-size: 11px;
       border-radius: 4px;
       background: var(--surface);
-      color: var(--muted);
+      color: #ffffff;
       border: 1px solid var(--border);
       cursor: pointer;
     }
     .cat-btn.active {
-      background: linear-gradient(135deg, #b88b1e, #ffd54f);
-      color: #050608;
-      font-weight: 800;
-      border-color: var(--gold-bright);
-      box-shadow: 0 0 10px rgba(255, 213, 79, 0.25);
+      background: var(--blue);
+      color: #ffffff;
+      font-weight: 700;
+      border-color: var(--blue-bright);
     }
     .search {
       width: 100%;
       padding: 8px;
       background: var(--surface);
-      color: var(--gold-bright);
+      color: #ffffff;
       border: none;
       border-bottom: 1px solid var(--border);
       outline: none;
@@ -107,17 +98,15 @@
       display: flex;
       justify-content: space-between;
       padding: 7px 10px;
-      border-bottom: 1px solid rgba(212, 175, 55, 0.1);
+      border-bottom: 1px solid var(--border);
       cursor: pointer;
+      color: #ffffff;
     }
     .row small { color: var(--muted); }
-    .row:hover, .row.active {
-      background: linear-gradient(90deg, rgba(212, 175, 55, 0.16), rgba(212, 175, 55, 0.04));
-      border-left: 2px solid var(--gold-bright);
-    }
-    .pos { color: var(--green); }
-    .neg { color: var(--red); }
-    .warn { color: var(--warn); }
+    .row:hover, .row.active { background: rgba(37, 99, 235, 0.25); }
+    .pos { color: var(--green-bright); }
+    .neg { color: var(--red-bright); }
+    .warn { color: var(--blue-bright); }
     #chart { height: 340px; width: 100%; border-bottom: 1px solid var(--border); }
     .pos-box { padding: 8px; overflow-y: auto; border-top: 1px solid var(--border); }
     .perf-grid {
@@ -127,18 +116,19 @@
       margin-top: 6px;
     }
     .perf-card {
-      background: #080a0e;
+      background: #000000;
       border: 1px solid var(--border);
-      border-radius: 5px;
+      border-radius: 4px;
       padding: 8px;
       font-size: 11px;
       line-height: 1.55;
+      color: #ffffff;
     }
-    .perf-card strong { color: var(--gold-bright); }
+    .perf-card strong { color: #ffffff; }
     .mini-close {
-      background: rgba(255, 61, 87, 0.16);
-      color: var(--red);
-      border: 1px solid rgba(255, 61, 87, 0.45);
+      background: var(--red);
+      color: #ffffff;
+      border: none;
       padding: 3px 6px;
       border-radius: 3px;
       font-size: 10px;
@@ -146,18 +136,16 @@
       cursor: pointer;
     }
     table { width: 100%; border-collapse: collapse; font-size: 11px; }
-    th, td { padding: 5px 6px; border-bottom: 1px solid rgba(212, 175, 55, 0.12); text-align: left; }
+    th, td { padding: 5px 6px; border-bottom: 1px solid var(--border); text-align: left; color: #ffffff; }
     th { color: var(--muted); font-weight: 600; }
-    .ob { padding: 6px 8px; font-family: monospace; }
+    .ob { padding: 6px 8px; font-family: monospace; color: #ffffff; }
     .ob-row { display: flex; justify-content: space-between; padding: 2px 0; }
     .mid {
       text-align: center;
       padding: 6px;
       font-weight: 800;
-      color: var(--gold-bright);
-      background: rgba(212, 175, 55, 0.08);
-      border-top: 1px solid var(--border-strong);
-      border-bottom: 1px solid var(--border-strong);
+      color: #ffffff;
+      background: var(--blue);
       margin: 4px 0;
     }
     .form { padding: 10px; display: flex; flex-direction: column; gap: 8px; }
@@ -170,12 +158,8 @@
       border-radius: 4px;
       border: 1px solid var(--border);
       background: var(--surface);
-      color: #fff8dc;
+      color: #ffffff;
       outline: none;
-    }
-    input:focus, select:focus {
-      border-color: var(--gold-bright);
-      box-shadow: 0 0 8px rgba(255, 213, 79, 0.2);
     }
     .mode-switch { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
     .mode-btn {
@@ -184,24 +168,24 @@
       font-size: 11px;
       font-weight: 800;
       background: var(--surface);
-      color: var(--muted);
+      color: #ffffff;
       border: 1px solid var(--border);
       cursor: pointer;
     }
     .mode-btn.active-manual {
-      background: linear-gradient(135deg, #a67c16, #f5c842);
-      color: #050608;
-      border-color: var(--gold-bright);
+      background: var(--blue);
+      color: #ffffff;
+      border-color: var(--blue-bright);
     }
     .mode-btn.active-auto {
       background: var(--green);
-      color: #050608;
-      border-color: var(--green);
+      color: #ffffff;
+      border-color: var(--green-bright);
     }
     .voice-box {
-      background: #080a0e;
+      background: #000000;
       padding: 8px;
-      border-radius: 5px;
+      border-radius: 4px;
       border: 1px solid var(--border);
       display: flex;
       flex-direction: column;
@@ -213,18 +197,18 @@
       font-size: 11px;
       font-weight: 700;
       background: var(--surface);
-      color: var(--gold);
+      color: #ffffff;
       border: 1px solid var(--border);
     }
     .voice-btn.active {
-      background: rgba(212, 175, 55, 0.16);
-      color: var(--gold-bright);
-      border-color: var(--gold-bright);
+      background: var(--blue);
+      color: #ffffff;
+      border-color: var(--blue-bright);
     }
     .auto-box {
-      background: #080a0e;
+      background: #000000;
       padding: 8px;
-      border-radius: 5px;
+      border-radius: 4px;
       border: 1px solid var(--border);
       display: flex;
       flex-direction: column;
@@ -236,41 +220,41 @@
       border-radius: 4px;
       font-weight: 800;
       background: var(--surface);
-      color: var(--gold-bright);
-      border: 1px solid var(--border-strong);
+      color: #ffffff;
+      border: 1px solid var(--blue-bright);
     }
     .auto-btn.active {
-      background: linear-gradient(135deg, #c99a24, #ffe07d);
-      color: #050608;
-      border-color: var(--gold-bright);
-      box-shadow: 0 0 12px rgba(255, 213, 79, 0.28);
+      background: var(--green);
+      color: #ffffff;
+      border-color: var(--green-bright);
     }
     .certainty-banner {
       padding: 8px 10px;
-      border-radius: 5px;
+      border-radius: 4px;
       font-weight: 800;
       font-size: 12px;
       text-align: center;
       border: 1px solid var(--border);
-      background: #080a0e;
+      background: #000000;
+      color: #ffffff;
     }
     .banner-buy {
-      color: var(--green);
-      border-color: rgba(0, 230, 118, 0.55);
-      background: rgba(0, 230, 118, 0.1);
+      background: var(--green);
+      color: #ffffff;
+      border-color: var(--green-bright);
     }
     .banner-sell {
-      color: var(--red);
-      border-color: rgba(255, 61, 87, 0.55);
-      background: rgba(255, 61, 87, 0.1);
+      background: var(--red);
+      color: #ffffff;
+      border-color: var(--red-bright);
     }
     .banner-wait {
-      color: var(--gold-bright);
-      border-color: var(--border-strong);
-      background: rgba(212, 175, 55, 0.1);
+      background: var(--blue);
+      color: #ffffff;
+      border-color: var(--blue-bright);
     }
     .score-card {
-      background: #080a0e;
+      background: #000000;
       padding: 8px;
       border-radius: 4px;
       border: 1px solid var(--border);
@@ -289,53 +273,55 @@
       font-size: 11px;
       color: var(--muted);
     }
-    .ind-grid span strong { color: var(--text); float: right; }
+    .ind-grid span strong { color: #ffffff; float: right; }
     .sig-box {
-      background: #080a0e;
+      background: #000000;
       padding: 8px;
       border-radius: 4px;
       border: 1px solid var(--border);
       font-size: 11px;
       line-height: 1.55;
+      color: #ffffff;
     }
     .chk-box {
       display: flex;
       flex-direction: column;
       gap: 5px;
-      background: #080a0e;
+      background: #000000;
       padding: 8px;
       border-radius: 4px;
       border: 1px solid var(--border);
       font-size: 12px;
     }
-    .chk-box label { display: flex; align-items: center; gap: 6px; color: var(--text); margin: 0; cursor: pointer; }
-    .chk-box input[type="checkbox"] { width: auto; accent-color: var(--gold-bright); }
+    .chk-box label { display: flex; align-items: center; gap: 6px; color: #ffffff; margin: 0; cursor: pointer; }
+    .chk-box input[type="checkbox"] { width: auto; accent-color: var(--blue-bright); }
     .meta-box {
-      background: #080a0e;
+      background: #000000;
       padding: 8px;
       border-radius: 4px;
       border: 1px solid var(--border);
       font-size: 11px;
       line-height: 1.5;
+      color: #ffffff;
     }
-    .meta-box strong { color: var(--gold-bright); }
+    .meta-box strong { color: #ffffff; }
     .btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-    button { padding: 10px; border: none; border-radius: 4px; font-weight: 700; color: #fff; cursor: pointer; }
-    .buy { background: var(--green); color: #050608; font-weight: 800; }
-    .sell { background: var(--red); color: #fff; font-weight: 800; }
+    button { padding: 10px; border: none; border-radius: 4px; font-weight: 700; color: #ffffff; cursor: pointer; }
+    .buy { background: var(--green); color: #ffffff; font-weight: 800; }
+    .sell { background: var(--red); color: #ffffff; font-weight: 800; }
     .calc-btn {
-      background: linear-gradient(135deg, rgba(212, 175, 55, 0.2), rgba(212, 175, 55, 0.06));
-      border: 1px solid var(--border-strong);
-      color: var(--gold-bright);
+      background: var(--blue);
+      border: 1px solid var(--blue-bright);
+      color: #ffffff;
       padding: 7px;
       font-size: 11px;
       width: 100%;
     }
     .panic {
       width: 100%;
-      background: #080a0e;
-      color: var(--gold-bright);
-      border: 1px solid var(--border-strong);
+      background: var(--red);
+      color: #ffffff;
+      border: 1px solid var(--red-bright);
       margin-top: 4px;
     }
     .status {
@@ -345,7 +331,7 @@
       border: 1px solid var(--border);
       border-radius: 4px;
       font-size: 11px;
-      color: var(--gold);
+      color: #ffffff;
     }
   </style>
 </head>
@@ -370,7 +356,7 @@
 
   <div class="grid">
     <div class="panel">
-      <div class="p-head"><span>MERCATI (<span id="m-cnt">0</span>)</span><span id="scan-cat-badge" style="color:#ffd54f;">ALL</span></div>
+      <div class="p-head"><span>MERCATI (<span id="m-cnt">0</span>)</span><span id="scan-cat-badge" style="color:#3b82f6;">ALL</span></div>
       <div class="cats" id="cat-bar">
         <button class="cat-btn active" data-cat="ALL">Tutti</button>
         <button class="cat-btn" data-cat="Crypto Major">Crypto</button>
@@ -386,7 +372,7 @@
     <div class="panel">
       <div id="chart"></div>
       <div class="pos-box">
-        <div class="p-head"><span>PERFORMANCE GIORNALIERA & MENSILE</span><button onclick="loadAccount()" style="background:none;color:#ffd54f;padding:0;">Aggiorna</button></div>
+        <div class="p-head"><span>PERFORMANCE GIORNALIERA & MENSILE</span><button onclick="loadAccount()" style="background:none;color:#3b82f6;padding:0;">Aggiorna</button></div>
         <div class="perf-grid">
           <div class="perf-card">
             <div><strong>OGGI (GIORNALIERO)</strong></div>
@@ -401,24 +387,24 @@
         </div>
       </div>
       <div class="pos-box">
-        <div class="p-head"><span>POSIZIONI APERTE (<span id="pos-cnt">0</span>)</span><button onclick="loadAccount()" style="background:none;color:#ffd54f;padding:0;">Aggiorna</button></div>
+        <div class="p-head"><span>POSIZIONI APERTE (<span id="pos-cnt">0</span>)</span><button onclick="loadAccount()" style="background:none;color:#3b82f6;padding:0;">Aggiorna</button></div>
         <table>
           <thead><tr><th>Simbolo</th><th>Lato</th><th>Size</th><th>Entry</th><th>PnL / %</th><th>Azioni</th></tr></thead>
-          <tbody id="pos-body"><tr><td colspan="6" style="text-align:center;color:#9e9167;">Nessuna posizione aperta</td></tr></tbody>
+          <tbody id="pos-body"><tr><td colspan="6" style="text-align:center;color:#cbd5e1;">Nessuna posizione aperta</td></tr></tbody>
         </table>
       </div>
       <div class="pos-box">
         <div class="p-head"><span>REGISTRO SEGNALI & ESECUZIONI SALA</span></div>
         <table>
           <thead><tr><th>Ora</th><th>Coppia</th><th>TF</th><th>Segnale / %</th><th>TP1 / TP2 / SL</th><th>Esito</th></tr></thead>
-          <tbody id="sig-log-body"><tr><td colspan="6" style="text-align:center;color:#9e9167;">Nessun segnale registrato</td></tr></tbody>
+          <tbody id="sig-log-body"><tr><td colspan="6" style="text-align:center;color:#cbd5e1;">Nessun segnale registrato</td></tr></tbody>
         </table>
       </div>
       <div class="pos-box">
         <div class="p-head"><span>STORICO PNL CHIUSO (BINGX INCOME)</span></div>
         <table>
           <thead><tr><th>Tipo</th><th>Simbolo</th><th>Importo USDT</th></tr></thead>
-          <tbody id="inc-body"><tr><td colspan="3" style="text-align:center;color:#9e9167;">Nessun movimento</td></tr></tbody>
+          <tbody id="inc-body"><tr><td colspan="3" style="text-align:center;color:#cbd5e1;">Nessun movimento</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -452,10 +438,10 @@
             </div>
             <div>
               <label>Regola Profitto</label>
-              <input type="text" value="Scan Categoria + Exp > 0" readonly style="color:#ffd54f;font-weight:700;" />
+              <input type="text" value="Scan Categoria + Exp > 0" readonly style="color:#ffffff;font-weight:700;" />
             </div>
           </div>
-          <div id="auto-st" style="font-size:11px;color:#9e9167;text-align:center;">Modalità MANUALE attiva</div>
+          <div id="auto-st" style="font-size:11px;color:#cbd5e1;text-align:center;">Modalità MANUALE attiva</div>
         </div>
 
         <div class="voice-box">
@@ -481,7 +467,7 @@
 
         <div class="score-card">
           <div class="score-top">
-            <span style="font-size:11px;font-weight:700;color:#ffd54f;">CERVELLO MATEMATICO</span>
+            <span style="font-size:11px;font-weight:700;color:#3b82f6;">CERVELLO MATEMATICO</span>
             <span id="sc-badge" class="score-val warn">0 • NEUTRAL</span>
           </div>
           <div class="ind-grid">
@@ -768,7 +754,7 @@
     function renderSignalLog(logs) {
       const body = document.getElementById("sig-log-body");
       if (!logs || !logs.length) {
-        body.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#9e9167;">Nessun segnale registrato</td></tr>`;
+        body.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#cbd5e1;">Nessun segnale registrato</td></tr>`;
         return;
       }
       body.innerHTML = logs.slice(0, 10).map(item => {
@@ -787,7 +773,7 @@
     function renderIncomeHistory(rows) {
       const body = document.getElementById("inc-body");
       if (!rows || !rows.length) {
-        body.innerHTML = `<tr><td colspan="3" style="text-align:center;color:#9e9167;">Nessun movimento</td></tr>`;
+        body.innerHTML = `<tr><td colspan="3" style="text-align:center;color:#cbd5e1;">Nessun movimento</td></tr>`;
         return;
       }
       body.innerHTML = rows.slice(0, 8).map(r => {
@@ -1027,7 +1013,7 @@
             </tr>`;
           }).join("");
         } else {
-          body.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#9e9167;">Nessuna posizione aperta</td></tr>`;
+          body.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#cbd5e1;">Nessuna posizione aperta</td></tr>`;
         }
       } catch (e) {}
     }
