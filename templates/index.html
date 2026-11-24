@@ -135,7 +135,7 @@
         </div>
         <div class="kpi">
           <div class="kpi-label">Simbolo</div>
-          <div class="kpi-val" id="sym-txt">XAUT-USDT</div>
+          <div class="kpi-val" id="sym-txt">BTC-USDT</div>
         </div>
         <div class="kpi">
           <div class="kpi-label">Prezzo</div>
@@ -177,18 +177,18 @@
     <div class="card">
       <div style="display:flex; justify-content:space-between; align-items:center;">
         <strong id="mkt-title">MERCATI (0)</strong>
-        <span class="sub" id="mkt-cat-label">Tutti</span>
+        <span class="sub" id="mkt-cat-label">Materie Prime</span>
       </div>
 
       <div class="cat-bar" id="cat-bar">
-        <button type="button" class="cat-btn active" data-cat="Tutti">Tutti</button>
-        <button type="button" class="cat-btn" data-cat="Crypto Major">Crypto Major</button>
-        <button type="button" class="cat-btn" data-cat="Materie Prime">Materie Prime</button>
+        <button type="button" class="cat-btn" data-cat="Tutti">Tutti</button>
+        <button type="button" class="cat-btn" data-cat="Crypto Major">Crypto</button>
+        <button type="button" class="cat-btn" data-cat="Meme/Alt">Meme/Alt</button>
         <button type="button" class="cat-btn" data-cat="Azioni">Azioni</button>
-        <button type="button" class="cat-btn" data-cat="Forex">EUR-USDT</button>
+        <button type="button" class="cat-btn active" data-cat="Materie Prime">Materie Prime</button>
       </div>
 
-      <input id="mkt-search" placeholder="Cerca coppia o categoria (es. BTC, SOL, XAUT, TSLA, EUR-USDT)..." style="margin-bottom:8px;" />
+      <input id="mkt-search" placeholder="Categoria o coppia (es. Azioni, Crypto, XAUT, TSLA)..." style="margin-bottom:8px;" />
       <button type="button" class="btn-primary" id="btn-scan-cat" style="width:100%;">SCANSIONA CATEGORIA ATTIVA</button>
 
       <div class="table-wrap" style="margin-top:8px;">
@@ -285,7 +285,7 @@
       <div class="grid-2" style="margin-top:10px;">
         <div>
           <label for="symbol-input">Simbolo</label>
-          <input id="symbol-input" value="XAUT-USDT" />
+          <input id="symbol-input" value="BTC-USDT" />
         </div>
         <div>
           <label for="tf-select">Timeframe (TF / SL)</label>
@@ -330,7 +330,7 @@
   </div>
 
   <script>
-    let activeCategory = "Tutti";
+    let activeCategory = "Materie Prime";
     let autoEnabled = true;
     let forceScanNext = false;
     let reqCounter = 0;
@@ -345,7 +345,7 @@
 
     function getFormValues() {
       return {
-        symbol: (document.getElementById("symbol-input").value || "XAUT-USDT").trim().toUpperCase(),
+        symbol: (document.getElementById("symbol-input").value || "BTC-USDT").trim().toUpperCase(),
         tf: (document.getElementById("tf-select").value || "1m").toLowerCase(),
         qty: parseFloat(document.getElementById("qty-input").value || "0.0005"),
         leverage: parseInt(document.getElementById("lev-input").value || "20", 10),
@@ -412,7 +412,7 @@
       const at = data.auto_trade || {};
       const mkt = data.markets || {};
 
-      const activeSym = q.symbol || at.symbol || "XAUT-USDT";
+      const activeSym = q.symbol || at.symbol || "BTC-USDT";
       const symInput = document.getElementById("symbol-input");
       if (document.activeElement !== symInput) {
         symInput.value = activeSym;
@@ -571,7 +571,7 @@
       btn.addEventListener("click", async () => {
         document.querySelectorAll("#cat-bar .cat-btn").forEach(b => b.classList.remove("active"));
         btn.classList.add("active");
-        activeCategory = btn.getAttribute("data-cat") || "Tutti";
+        activeCategory = btn.getAttribute("data-cat") || "Materie Prime";
         forceScanNext = true;
         await fetch("/api/auto-trade", {
           method: "POST",
