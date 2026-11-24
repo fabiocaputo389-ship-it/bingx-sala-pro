@@ -25,6 +25,7 @@ TF_SECONDS = {
 }
 
 AUTO_CLOSE_WATCHLIST = {}
+SIGNAL_LOG = []
 
 
 def sign_params(params: dict) -> str:
@@ -53,6 +54,13 @@ def bingx_req(method: str, path: str, params: dict = None, signed: bool = False)
         return r.json()
     except Exception as e:
         return {"code": -1, "msg": str(e)}
+
+
+def record_signal(entry: dict):
+    entry = dict(entry)
+    entry["ts"] = time.strftime("%H:%M:%S")
+    SIGNAL_LOG.insert(0, entry)
+    del SIGNAL_LOG[30:]
 
 
 def calc_ema(values: list, period: int):
@@ -128,7 +136,6 @@ def calc_atr(candles: list, period: int = 14):
 
 
 def calc_adx_and_zscore(candles: list, closes: list, period: int = 14):
-    """Calcola ADX (forza del trend) e Z-Score statistico sul close."""
     z_score = 0.0
     if len(closes) >= 20:
         win = closes[-20:]
@@ -178,7 +185,7 @@ def calc_adx_and_zscore(candles: list, closes: list, period: int = 14):
 
 
 def compute_quant_brain(symbol: str, tf: str, side: str = "BUY"):
-    """Cervello matematico: Score quantitativo, TP/SL con R:R >= 1.8, Expectancy e tempo stimato al TP."""
+    """Cervello matematico da sala segnali: Score, % Certezza con scritta, Entry Zone, TP1/TP2/TP3, SL e Tempo al TP."""
     klines = bingx_req("GET", "/openApi/swap/v2/quote/klines", {
         "symbol": symbol,
         "interval": tf,
@@ -198,16 +205,33 @@ def compute_quant_brain(symbol: str, tf: str, side: str = "BUY"):
         except Exception:
             continue
 
+    def fmt_num(val):
+        if val is None:
+            return None
+        if abs(val) >= 100:
+            return round(val, 2)
+        if abs(val) >= 1:
+            return round(val, 4)
+        return round(val, 7)
+
     if not closes:
         return {
             "score": 0,
             "signal": "NEUTRAL",
+            "certainty_pct": 0,
+            "certainty_label": "ATTESA / NESSUN SEGNALE CERTO",
+            "setup_status": "IN ATTESA DATI",
             "win_prob": 0.50,
-            "rr_ratio": 1.80,
+            "rr_ratio": 2.0,
             "expectancy_r": 0.0,
             "profit_ready": False,
             "price": 0.0,
+            "entry_low": 0.0,
+            "entry_high": 0.0,
             "tp": 0.0,
+            "tp1": 0.0,
+            "tp2": 0.0,
+            "tp3": 0.0,
             "sl": 0.0,
             "tp_pct": 0.0,
             "sl_pct": 0.0,
@@ -273,14 +297,12 @@ def compute_quant_brain(symbol: str, tf: str, side: str = "BUY"):
     else:
         rsi_pts = (rsi14 - 50.0) * 2.0
 
-    # 3. Fattore statistico Z-Score + forza ADX
     adx_mult = min(1.25, max(0.65, adx_val / 25.0))
     z_penalty = -20.0 if abs(z_score) > 2.2 else 0.0
 
     raw_score = ((ema_pts * 0.45) + (macd_pts * 0.30) + (rsi_pts * 0.25)) * adx_mult + z_penalty
     score = int(round(max(-100, min(100, raw_score))))
 
-    # Soglia alta precisione: richiede |score| >= 40 e ADX >= 18 per segnale direzionale
     if score >= 40 and adx_val >= 18:
         signal = "BUY"
     elif score <= -40 and adx_val >= 18:
@@ -288,54 +310,81 @@ def compute_quant_brain(symbol: str, tf: str, side: str = "BUY"):
     else:
         signal = "NEUTRAL"
 
-    # Probabilita' stimata e R:R orientato al profitto (minimo 1.85R)
+    # Calcolo percentuale di certezza / affidabilita' del segnale (0% - 95%) + scritta esplicita
+    strength_component = min(45.0, (abs(score) / 100.0) * 45.0)
+    adx_component = min(20.0, max(0.0, (adx_val / 40.0) * 20.0))
+    vol_component = min(15.0, max(0.0, (vol_ratio / 2.0) * 15.0))
+    z_bonus = 10.0 if abs(z_score) <= 1.8 else (-10.0 if abs(z_score) > 2.2 else 0.0)
+    base_certainty = 15.0 + strength_component + adx_component + vol_component + z_bonus
+    certainty_pct = int(round(max(5, min(95, base_certainty))))
+
+    if signal == "BUY" and certainty_pct >= 70:
+        certainty_label = f"{certainty_pct}% SEGNALE CERTO LONG"
+        setup_status = "ZONA INGRESSO VALIDA • LONG"
+    elif signal == "SELL" and certainty_pct >= 70:
+        certainty_label = f"{certainty_pct}% SEGNALE CERTO SHORT"
+        setup_status = "ZONA INGRESSO VALIDA • SHORT"
+    elif signal in ("BUY", "SELL"):
+        dir_txt = "LONG" if signal == "BUY" else "SHORT"
+        certainty_label = f"{certainty_pct}% SEGNALE {dir_txt} MODERATO"
+        setup_status = f"CONFERMA PARZIALE • {dir_txt}"
+    else:
+        certainty_label = f"{certainty_pct}% ATTESA • NO TRADE CERTO"
+        setup_status = "MERCATO LATERALE / FILTRI ATTIVI"
+
     target_side = side.upper() if side.upper() in ("BUY", "SELL") else ("SELL" if score < 0 else "BUY")
     aligned = (target_side == "BUY" and score > 0) or (target_side == "SELL" and score < 0)
-    conf_strength = min(0.95, max(0.0, abs(score) / 100.0))
-    win_prob = round(min(0.74, max(0.38, (0.48 + 0.22 * conf_strength) if aligned else (0.46 - 0.10 * conf_strength))), 2)
+    win_prob = round(min(0.76, max(0.38, (0.48 + 0.24 * (abs(score) / 100.0)) if aligned else 0.42)), 2)
 
-    # SL basato su ATR (1.1 * ATR), TP basato su R:R >= 1.85 (2.05 * ATR)
     unit_vol = atr_val if atr_val > 0 else max(avg_range, price * 0.002)
     sl_dist = max(unit_vol * 1.10, price * 0.0012)
-    rr_ratio = 2.00 if abs(score) >= 55 else 1.85
-    tp_dist = sl_dist * rr_ratio
+    rr_ratio = 2.20 if abs(score) >= 55 else 1.85
+    tp2_dist = sl_dist * rr_ratio
+    tp1_dist = tp2_dist * 0.55
+    tp3_dist = tp2_dist * 1.45
+
+    zone_half = max(unit_vol * 0.18, price * 0.0004)
+    entry_low = price - zone_half
+    entry_high = price + zone_half
 
     if target_side == "SELL":
-        tp_price = price - tp_dist
         sl_price = price + sl_dist
+        tp1_price = price - tp1_dist
+        tp2_price = price - tp2_dist
+        tp3_price = price - tp3_dist
     else:
-        tp_price = price + tp_dist
         sl_price = price - sl_dist
+        tp1_price = price + tp1_dist
+        tp2_price = price + tp2_dist
+        tp3_price = price + tp3_dist
 
-    # Expectancy in unita' di rischio (R): E = p * RR - (1 - p) * 1
     expectancy_r = round((win_prob * rr_ratio) - ((1.0 - win_prob) * 1.0), 2)
     profit_ready = (expectancy_r > 0.15) and (adx_val >= 18) and (abs(z_score) <= 2.3)
 
     tf_sec = TF_SECONDS.get(tf, 300)
     speed_per_sec = max(avg_range / tf_sec, 1e-9)
-    eta_tp_sec = int(min(tp_dist / speed_per_sec, tf_sec * 5))
+    eta_tp_sec = int(min(tp2_dist / speed_per_sec, tf_sec * 5))
 
-    def fmt_num(val):
-        if val is None:
-            return None
-        if abs(val) >= 100:
-            return round(val, 2)
-        if abs(val) >= 1:
-            return round(val, 4)
-        return round(val, 7)
-
-    tp_pct = round((tp_dist / price) * 100, 2) if price > 0 else 0.0
+    tp_pct = round((tp2_dist / price) * 100, 2) if price > 0 else 0.0
     sl_pct = round((sl_dist / price) * 100, 2) if price > 0 else 0.0
 
     return {
         "score": score,
         "signal": signal,
+        "certainty_pct": certainty_pct,
+        "certainty_label": certainty_label,
+        "setup_status": setup_status,
         "win_prob": win_prob,
         "rr_ratio": rr_ratio,
         "expectancy_r": expectancy_r,
         "profit_ready": profit_ready,
         "price": fmt_num(price),
-        "tp": fmt_num(tp_price),
+        "entry_low": fmt_num(entry_low),
+        "entry_high": fmt_num(entry_high),
+        "tp": fmt_num(tp2_price),
+        "tp1": fmt_num(tp1_price),
+        "tp2": fmt_num(tp2_price),
+        "tp3": fmt_num(tp3_price),
         "sl": fmt_num(sl_price),
         "tp_pct": tp_pct,
         "sl_pct": sl_pct,
@@ -383,9 +432,16 @@ def candle_timing_info(tf: str) -> dict:
     }
 
 
-def check_anti_fakeout_and_breakout(symbol: str, tf: str, side: str, anti_fakeout: bool, anti_breakout: bool, quant: dict = None):
-    if quant and not quant.get("profit_ready", True):
-        return False, f"CERVELLO QUANT: aspettativa non ottimale (Exp {quant.get('expectancy_r')}R, ADX {quant.get('adx')})"
+def check_anti_fakeout_and_breakout(symbol: str, tf: str, side: str, anti_fakeout: bool, anti_breakout: bool, quant: dict = None, min_certainty: int = 70, allow_override: bool = False):
+    if allow_override:
+        return True, "OVERRIDE MANUALE ATTIVO"
+
+    if quant:
+        cert = int(quant.get("certainty_pct", 0) or 0)
+        if cert < min_certainty:
+            return False, f"BLOCCATO: {quant.get('certainty_label')} sotto soglia minima ({min_certainty}%)"
+        if not quant.get("profit_ready", True):
+            return False, f"CERVELLO QUANT: aspettativa non ottimale (Exp {quant.get('expectancy_r')}R, ADX {quant.get('adx')})"
 
     if not anti_fakeout and not anti_breakout:
         return True, "Filtri disattivati"
@@ -446,6 +502,16 @@ def process_auto_close_expired():
             "symbol": item["symbol"]
         }, signed=True)
         closed_log.append({"symbol": item["symbol"], "result": res})
+        record_signal({
+            "symbol": item["symbol"],
+            "side": "CLOSE_TF",
+            "tf": item.get("tf", "5m"),
+            "certainty_label": "CHIUSURA AUTOMATICA FINE CANDELA",
+            "tp1": "-",
+            "tp2": "-",
+            "sl": "-",
+            "outcome": "CHIUSO" if res.get("code") == 0 else "ERRORE"
+        })
     return closed_log
 
 
@@ -501,7 +567,18 @@ def api_tf_plan():
     side = request.args.get("side", "BUY").upper()
     timing = candle_timing_info(tf)
     quant = compute_quant_brain(symbol, tf, side)
-    return jsonify({"code": 0, "timing": timing, "quant": quant})
+    record_signal({
+        "symbol": symbol,
+        "side": side,
+        "tf": tf,
+        "certainty_label": quant.get("certainty_label"),
+        "tp1": quant.get("tp1"),
+        "tp2": quant.get("tp2"),
+        "tp3": quant.get("tp3"),
+        "sl": quant.get("sl"),
+        "outcome": "CALCOLATO"
+    })
+    return jsonify({"code": 0, "timing": timing, "quant": quant, "signals_log": SIGNAL_LOG})
 
 
 @app.route("/api/live-ticker")
@@ -522,7 +599,8 @@ def api_live_ticker():
         "quant": quant,
         "timing": candle_timing_info(tf),
         "auto_closed": auto_closed,
-        "active_auto_closes": list(AUTO_CLOSE_WATCHLIST.values())
+        "active_auto_closes": list(AUTO_CLOSE_WATCHLIST.values()),
+        "signals_log": SIGNAL_LOG
     })
 
 
@@ -544,7 +622,8 @@ def api_account():
         "available": available,
         "recommended_leverage": calc_dynamic_leverage(equity),
         "positions": positions.get("data", []) if positions.get("code") == 0 else [],
-        "income_history": income.get("data", []) if income.get("code") == 0 else []
+        "income_history": income.get("data", []) if income.get("code") == 0 else [],
+        "signals_log": SIGNAL_LOG
     })
 
 
@@ -563,6 +642,8 @@ def api_order():
     close_at_candle_end = bool(data.get("close_at_candle_end", False))
     anti_fakeout = bool(data.get("anti_fakeout", True))
     anti_breakout = bool(data.get("anti_breakout", True))
+    min_certainty = int(data.get("min_certainty", 70) or 70)
+    allow_override = bool(data.get("allow_override", False))
 
     if side not in ("BUY", "SELL"):
         return jsonify({"code": -1, "msg": "Stato NEUTRAL: nessun ordine inviato"}), 400
@@ -570,9 +651,22 @@ def api_order():
         return jsonify({"code": -1, "msg": "Quantita' non valida"}), 400
 
     quant = compute_quant_brain(symbol, tf, side)
-    ok_filter, reason = check_anti_fakeout_and_breakout(symbol, tf, side, anti_fakeout, anti_breakout, quant)
+    ok_filter, reason = check_anti_fakeout_and_breakout(
+        symbol, tf, side, anti_fakeout, anti_breakout, quant, min_certainty, allow_override
+    )
     if not ok_filter:
-        return jsonify({"code": -10, "msg": reason, "status": "NEUTRAL"}), 400
+        record_signal({
+            "symbol": symbol,
+            "side": side,
+            "tf": tf,
+            "certainty_label": quant.get("certainty_label"),
+            "tp1": quant.get("tp1"),
+            "tp2": quant.get("tp2"),
+            "tp3": quant.get("tp3"),
+            "sl": quant.get("sl"),
+            "outcome": "BLOCCATO"
+        })
+        return jsonify({"code": -10, "msg": reason, "status": "NEUTRAL", "signals_log": SIGNAL_LOG}), 400
 
     pos_side = "LONG" if side == "BUY" else "SHORT"
 
@@ -609,7 +703,19 @@ def api_order():
             "close_at": timing["candle_end_ts"]
         }
 
-    return jsonify(res)
+    record_signal({
+        "symbol": symbol,
+        "side": side,
+        "tf": tf,
+        "certainty_label": quant.get("certainty_label"),
+        "tp1": quant.get("tp1"),
+        "tp2": tp or quant.get("tp2"),
+        "tp3": quant.get("tp3"),
+        "sl": sl or quant.get("sl"),
+        "outcome": "INVIATO" if res.get("code") == 0 else "ERRORE_API"
+    })
+
+    return jsonify({**res, "signals_log": SIGNAL_LOG})
 
 
 @app.route("/api/close-all", methods=["POST"])
