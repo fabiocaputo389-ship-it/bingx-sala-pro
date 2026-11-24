@@ -103,29 +103,30 @@ SIGNAL_LOCK = {
 }
 
 
-def sign_params(params: dict) -> str:
-    clean_params = {k: v for k, v in params.items() if v is not None and v != ""}
-    query = urlencode(sorted(clean_params.items()))
-    return hmac.new(
+def build_signed_query(params: dict) -> tuple:
+    clean_params = {k: str(v) for k, v in (params or {}).items() if v is not None and str(v) != ""}
+    clean_params["timestamp"] = str(int(time.time() * 1000))
+    sorted_items = sorted(clean_params.items(), key=lambda x: x[0])
+    query = urlencode(sorted_items)
+    sig = hmac.new(
         API_SECRET.encode("utf-8"),
         query.encode("utf-8"),
         hashlib.sha256
     ).hexdigest()
+    return query, sig
 
 
 def bingx_req(method: str, path: str, params: dict = None, signed: bool = False):
-    clean_params = {k: v for k, v in (params or {}).items() if v is not None and v != ""}
+    clean_params = {k: str(v) for k, v in (params or {}).items() if v is not None and str(v) != ""}
     headers = {"X-BX-APIKEY": API_KEY}
 
     if signed:
         if not API_KEY or not API_SECRET:
             return {"code": -2, "msg": "Chiavi API BingX non impostate"}
-        clean_params["timestamp"] = int(time.time() * 1000)
-        sig = sign_params(clean_params)
-        query = urlencode(sorted(clean_params.items()))
+        query, sig = build_signed_query(clean_params)
         url = f"{BASE_URL}{path}?{query}&signature={sig}"
     else:
-        query = urlencode(sorted(clean_params.items()))
+        query = urlencode(sorted(clean_params.items(), key=lambda x: x[0])) if clean_params else ""
         url = f"{BASE_URL}{path}" + (f"?{query}" if query else "")
 
     try:
