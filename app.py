@@ -26,6 +26,7 @@ TF_SECONDS = {
 
 AUTO_CLOSE_WATCHLIST = {}
 SIGNAL_LOG = []
+LAST_AUTO_ORDER_TS = {}
 
 
 def sign_params(params: dict) -> str:
@@ -60,7 +61,7 @@ def record_signal(entry: dict):
     entry = dict(entry)
     entry["ts"] = time.strftime("%H:%M:%S")
     SIGNAL_LOG.insert(0, entry)
-    del SIGNAL_LOG[30:]
+    del SIGNAL_LOG[40:]
 
 
 def calc_ema(values: list, period: int):
@@ -185,7 +186,6 @@ def calc_adx_and_zscore(candles: list, closes: list, period: int = 14):
 
 
 def compute_quant_brain(symbol: str, tf: str, side: str = "BUY"):
-    """Cervello matematico da sala segnali: Score, % Certezza con scritta, Entry Zone, TP1/TP2/TP3, SL e Tempo al TP."""
     klines = bingx_req("GET", "/openApi/swap/v2/quote/klines", {
         "symbol": symbol,
         "interval": tf,
@@ -267,7 +267,6 @@ def compute_quant_brain(symbol: str, tf: str, side: str = "BUY"):
     avg_vol = (sum(volumes[-21:-1]) / max(len(volumes[-21:-1]), 1)) if len(volumes) > 2 else (volumes[-1] or 1.0)
     vol_ratio = round(volumes[-1] / avg_vol, 2) if avg_vol > 0 else 1.0
 
-    # 1. Trend & EMA Score (-100..+100)
     ema_pts = 0.0
     if ema9 is not None and ema21 is not None:
         ema_pts += 35.0 if ema9 > ema21 else -35.0
@@ -278,7 +277,6 @@ def compute_quant_brain(symbol: str, tf: str, side: str = "BUY"):
         ema_pts += 20.0 if price > ema200 else -20.0
     ema_pts = max(-100.0, min(100.0, ema_pts))
 
-    # 2. Momentum Score (MACD + RSI)
     macd_pts = 0.0
     if macd_val > sig_val:
         macd_pts += 55.0
@@ -310,7 +308,6 @@ def compute_quant_brain(symbol: str, tf: str, side: str = "BUY"):
     else:
         signal = "NEUTRAL"
 
-    # Calcolo percentuale di certezza / affidabilita' del segnale (0% - 95%) + scritta esplicita
     strength_component = min(45.0, (abs(score) / 100.0) * 45.0)
     adx_component = min(20.0, max(0.0, (adx_val / 40.0) * 20.0))
     vol_component = min(15.0, max(0.0, (vol_ratio / 2.0) * 15.0))
@@ -617,14 +614,55 @@ def api_account():
         equity = float(b.get("equity", 0) or 0)
         available = float(b.get("availableMargin", 0) or 0)
 
+    inc_list = income.get("data", []) if income.get("code") == 0 and isinstance(income.get("data"), list) else []
+
     return jsonify({
         "equity": equity,
         "available": available,
         "recommended_leverage": calc_dynamic_leverage(equity),
         "positions": positions.get("data", []) if positions.get("code") == 0 else [],
-        "income_history": income.get("data", []) if income.get("code") == 0 else [],
+        "income_history": inc_list,
         "signals_log": SIGNAL_LOG
     })
+
+
+def submit_bingx_order(symbol: str, side: str, order_type: str, tf: str, qty: float, leverage: int, price=None, tp=None, sl=None, close_at_candle_end: bool = False):
+    pos_side = "LONG" if side == "BUY" else "SHORT"
+
+    bingx_req("POST", "/openApi/swap/v2/trade/leverage", {
+        "symbol": symbol,
+        "side": pos_side,
+        "leverage": leverage
+    }, signed=True)
+
+    order_params = {
+        "symbol": symbol,
+        "side": side,
+        "positionSide": pos_side,
+        "type": order_type,
+        "quantity": qty
+    }
+    if order_type == "LIMIT" and price:
+        order_params["price"] = float(price)
+    if tp:
+        order_params["takeProfit"] = f'{{"type":"TAKE_PROFIT_MARKET","stopPrice":{float(tp)},"price":{float(tp)},"workingType":"MARK_PRICE"}}'
+    if sl:
+        order_params["stopLoss"] = f'{{"type":"STOP_MARKET","stopPrice":{float(sl)},"price":{float(sl)},"workingType":"MARK_PRICE"}}'
+
+    res = bingx_req("POST", "/openApi/swap/v2/trade/order", order_params, signed=True)
+
+    if res.get("code") == 0 and close_at_candle_end:
+        timing = candle_timing_info(tf)
+        watch_key = f"{symbol}_{pos_side}_{timing['candle_end_ts']}"
+        AUTO_CLOSE_WATCHLIST[watch_key] = {
+            "symbol": symbol,
+            "side": pos_side,
+            "qty": qty,
+            "tf": tf,
+            "close_at": timing["candle_end_ts"]
+        }
+
+    return res
 
 
 @app.route("/api/order", methods=["POST"])
@@ -668,40 +706,7 @@ def api_order():
         })
         return jsonify({"code": -10, "msg": reason, "status": "NEUTRAL", "signals_log": SIGNAL_LOG}), 400
 
-    pos_side = "LONG" if side == "BUY" else "SHORT"
-
-    bingx_req("POST", "/openApi/swap/v2/trade/leverage", {
-        "symbol": symbol,
-        "side": pos_side,
-        "leverage": leverage
-    }, signed=True)
-
-    order_params = {
-        "symbol": symbol,
-        "side": side,
-        "positionSide": pos_side,
-        "type": order_type,
-        "quantity": qty
-    }
-    if order_type == "LIMIT" and price:
-        order_params["price"] = float(price)
-    if tp:
-        order_params["takeProfit"] = f'{{"type":"TAKE_PROFIT_MARKET","stopPrice":{float(tp)},"price":{float(tp)},"workingType":"MARK_PRICE"}}'
-    if sl:
-        order_params["stopLoss"] = f'{{"type":"STOP_MARKET","stopPrice":{float(sl)},"price":{float(sl)},"workingType":"MARK_PRICE"}}'
-
-    res = bingx_req("POST", "/openApi/swap/v2/trade/order", order_params, signed=True)
-
-    if res.get("code") == 0 and close_at_candle_end:
-        timing = candle_timing_info(tf)
-        watch_key = f"{symbol}_{pos_side}_{timing['candle_end_ts']}"
-        AUTO_CLOSE_WATCHLIST[watch_key] = {
-            "symbol": symbol,
-            "side": pos_side,
-            "qty": qty,
-            "tf": tf,
-            "close_at": timing["candle_end_ts"]
-        }
+    res = submit_bingx_order(symbol, side, order_type, tf, qty, leverage, price, tp, sl, close_at_candle_end)
 
     record_signal({
         "symbol": symbol,
@@ -716,6 +721,117 @@ def api_order():
     })
 
     return jsonify({**res, "signals_log": SIGNAL_LOG})
+
+
+@app.route("/api/auto-trade", methods=["POST"])
+def api_auto_trade():
+    data = request.get_json(force=True) or {}
+    symbol = data.get("symbol", "BTC-USDT")
+    tf = str(data.get("tf", "5m"))
+    qty = float(data.get("quantity", 0) or 0)
+    leverage = int(data.get("leverage", 20) or 20)
+    score_threshold = int(data.get("score_threshold", 60) or 60)
+    close_at_candle_end = bool(data.get("close_at_candle_end", True))
+    anti_fakeout = bool(data.get("anti_fakeout", True))
+    anti_breakout = bool(data.get("anti_breakout", True))
+
+    if qty <= 0:
+        return jsonify({"code": -1, "triggered": False, "msg": "AUTO-TRADE: quantita' non valida", "signals_log": SIGNAL_LOG})
+
+    quant = compute_quant_brain(symbol, tf)
+    score = int(quant.get("score", 0) or 0)
+    exp_r = float(quant.get("expectancy_r", 0.0) or 0.0)
+    profit_ready = bool(quant.get("profit_ready", False))
+
+    if score >= score_threshold:
+        side = "BUY"
+    elif score <= -abs(score_threshold):
+        side = "SELL"
+    else:
+        return jsonify({
+            "code": 0,
+            "triggered": False,
+            "msg": f"AUTO-TRADE IN ATTESA: Score {score} non supera soglia ±{score_threshold}",
+            "quant": quant,
+            "signals_log": SIGNAL_LOG
+        })
+
+    if exp_r <= 0 or not profit_ready:
+        return jsonify({
+            "code": 0,
+            "triggered": False,
+            "msg": f"AUTO-TRADE IN ATTESA: Expectancy {exp_r}R non positiva per profitto",
+            "quant": quant,
+            "signals_log": SIGNAL_LOG
+        })
+
+    quant_side = compute_quant_brain(symbol, tf, side)
+    ok_filter, reason = check_anti_fakeout_and_breakout(
+        symbol, tf, side, anti_fakeout, anti_breakout, quant_side, min_certainty=50, allow_override=False
+    )
+    if not ok_filter:
+        return jsonify({
+            "code": 0,
+            "triggered": False,
+            "msg": f"AUTO-TRADE IN ATTESA: {reason}",
+            "quant": quant_side,
+            "signals_log": SIGNAL_LOG
+        })
+
+    cooldown_key = f"{symbol}_{tf}_{side}"
+    now_ts = time.time()
+    tf_sec = TF_SECONDS.get(tf, 300)
+    if now_ts - LAST_AUTO_ORDER_TS.get(cooldown_key, 0) < tf_sec:
+        return jsonify({
+            "code": 0,
+            "triggered": False,
+            "msg": f"AUTO-TRADE COOLDOWN: ordine gia' inviato su {symbol} ({tf}) in questa candela",
+            "quant": quant_side,
+            "signals_log": SIGNAL_LOG
+        })
+
+    res = submit_bingx_order(
+        symbol=symbol,
+        side=side,
+        order_type="MARKET",
+        tf=tf,
+        qty=qty,
+        leverage=leverage,
+        tp=quant_side.get("tp"),
+        sl=quant_side.get("sl"),
+        close_at_candle_end=close_at_candle_end
+    )
+
+    if res.get("code") == 0:
+        LAST_AUTO_ORDER_TS[cooldown_key] = now_ts
+        record_signal({
+            "symbol": symbol,
+            "side": side,
+            "tf": tf,
+            "certainty_label": f"AUTO-TRADE • {quant_side.get('certainty_label')}",
+            "tp1": quant_side.get("tp1"),
+            "tp2": quant_side.get("tp2"),
+            "tp3": quant_side.get("tp3"),
+            "sl": quant_side.get("sl"),
+            "outcome": "AUTO-INVIATO"
+        })
+        return jsonify({
+            "code": 0,
+            "triggered": True,
+            "side": side,
+            "msg": f"AUTO-TRADE ESEGUITO {side} {symbol} (Score {score}, Exp +{exp_r}R)",
+            "quant": quant_side,
+            "order_res": res,
+            "signals_log": SIGNAL_LOG
+        })
+
+    return jsonify({
+        "code": -1,
+        "triggered": False,
+        "msg": f"AUTO-TRADE ERRORE BINGX: {res.get('msg', 'Errore ordine')}",
+        "quant": quant_side,
+        "signals_log": SIGNAL_LOG
+    })
 
 
 @app.route("/api/close-all", methods=["POST"])
