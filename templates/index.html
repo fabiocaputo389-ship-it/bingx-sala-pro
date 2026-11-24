@@ -1,201 +1,375 @@
-import os
-import time
-import hmac
-import hashlib
-import requests
-from urllib.parse import urlencode
-from flask import Flask, render_template, request, jsonify
-from dotenv import load_dotenv
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>BingX Institutional HFT Terminal</title>
+    <style>
+        :root {
+            --bg-dark: #0b0e14;
+            --panel-bg: #131722;
+            --border: #2a2e39;
+            --text-main: #d1d4dc;
+            --text-muted: #787b86;
+            --green: #089981;
+            --red: #f23645;
+            --accent: #2962ff;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; touch-action: manipulation; }
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace;
+            font-size: 13px;
+            overflow-x: hidden;
+        }
+        /* Top Bar */
+        .topbar {
+            display: flex; justify-content: space-between; align-items: center;
+            background: var(--panel-bg); padding: 8px 14px; border-bottom: 1px solid var(--border);
+            flex-wrap: wrap; gap: 10px;
+        }
+        .brand { font-weight: 700; color: #fff; font-size: 15px; letter-spacing: 0.5px; }
+        .brand span { color: var(--accent); }
+        .stats-bar { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
+        .stat-item span { display: block; font-size: 10px; color: var(--text-muted); }
+        .stat-item strong { font-size: 13px; }
 
-load_dotenv()
+        /* Main Grid */
+        .grid-container {
+            display: grid;
+            grid-template-columns: 260px 1fr 240px 290px;
+            height: calc(100vh - 48px);
+        }
+        @media (max-width: 1100px) {
+            .grid-container { grid-template-columns: 1fr; height: auto; }
+        }
+        .panel {
+            background: var(--panel-bg);
+            border-right: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
+            display: flex; flex-direction: column; overflow: hidden;
+        }
+        .panel-header {
+            padding: 8px 10px; font-weight: 600; font-size: 11px; text-transform: uppercase;
+            color: var(--text-muted); border-bottom: 1px solid var(--border);
+            display: flex; justify-content: space-between; align-items: center;
+        }
 
-app = Flask(__name__)
+        /* Market Scanner */
+        .search-box {
+            width: 100%; padding: 8px; background: #1e222d; border: none;
+            border-bottom: 1px solid var(--border); color: #fff; outline: none;
+        }
+        .market-list { overflow-y: auto; flex: 1; max-height: 75vh; }
+        .market-row {
+            display: flex; justify-content: space-between; padding: 7px 10px;
+            border-bottom: 1px solid #1e222d; cursor: pointer;
+        }
+        .market-row:hover, .market-row.active { background: #2a2e39; }
+        .pos { color: var(--green); }
+        .neg { color: var(--red); }
 
-API_KEY = os.getenv("BINGX_API_KEY", "")
-API_SECRET = os.getenv("BINGX_SECRET_KEY", "")
-BASE_URL = "https://open-api.bingx.com"
+        /* Chart & Bottom Positions */
+        .center-col { display: flex; flex-direction: column; border-right: 1px solid var(--border); }
+        #tv-chart { flex: 1; min-height: 420px; }
+        .positions-panel { height: 220px; overflow-y: auto; border-top: 1px solid var(--border); background: var(--panel-bg); }
+        table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        th, td { padding: 6px 8px; text-align: left; border-bottom: 1px solid #1e222d; }
+        th { color: var(--text-muted); font-weight: 500; }
 
+        /* Order Book */
+        .ob-list { flex: 1; overflow-y: auto; padding: 4px 8px; font-family: monospace; }
+        .ob-row { display: flex; justify-content: space-between; padding: 2px 0; font-size: 12px; }
+        .ob-mid {
+            text-align: center; padding: 6px; font-size: 15px; font-weight: bold;
+            border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); margin: 4px 0;
+        }
 
-def generate_signature(params_str: str) -> str:
-    return hmac.new(
-        API_SECRET.encode("utf-8"),
-        params_str.encode("utf-8"),
-        hashlib.sha256
-    ).hexdigest()
+        /* Order Execution */
+        .exec-body { padding: 12px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
+        .form-group label { display: block; font-size: 11px; color: var(--text-muted); margin-bottom: 4px; }
+        .form-control {
+            width: 100%; padding: 8px; background: #1e222d; border: 1px solid var(--border);
+            color: #fff; border-radius: 4px; font-size: 13px;
+        }
+        .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px; }
+        .btn {
+            padding: 12px; border: none; border-radius: 4px; font-weight: 700;
+            color: #fff; cursor: pointer; font-size: 13px; text-align: center;
+        }
+        .btn-buy { background: var(--green); }
+        .btn-sell { background: var(--red); }
+        .btn-panic { background: #363a45; color: #ff9800; width: 100%; margin-top: 8px; border: 1px solid #ff9800; }
+        .badge-neutral {
+            background: #2a2e39; color: #b2b5be; padding: 4px 8px; border-radius: 4px;
+            text-align: center; font-size: 11px;
+        }
+    </style>
+</head>
+<body>
 
+<div class="topbar">
+    <div class="brand">BINGX <span>PRO DESK</span></div>
+    <div class="stats-bar">
+        <div class="stat-item"><span>ASSET ATTIVO</span><strong id="top-symbol">BTC-USDT</strong></div>
+        <div class="stat-item"><span>MARK PRICE</span><strong id="top-price">--</strong></div>
+        <div class="stat-item"><span>FUNDING RATE</span><strong id="top-funding">--</strong></div>
+        <div class="stat-item"><span>EQUITY (USDT)</span><strong id="top-equity">0.00</strong></div>
+        <div class="stat-item"><span>LEVA DINAMICA</span><strong id="top-lev" class="pos">20x</strong></div>
+    </div>
+</div>
 
-def bingx_request(method: str, path: str, params: dict = None, signed: bool = False):
-    if params is None:
-        params = {}
+<div class="grid-container">
+    <!-- 1. Scanner Mercato -->
+    <div class="panel">
+        <div class="panel-header"><span>MERCATO BINGX (<span id="market-count">0</span>)</span></div>
+        <input type="text" id="search-market" class="search-box" placeholder="Cerca coppia (es. BTC, SOL, PEPE)...">
+        <div class="market-list" id="market-list">Caricamento mercati...</div>
+    </div>
 
-    headers = {"X-BX-APIKEY": API_KEY}
-    if signed:
-        params["timestamp"] = int(time.time() * 1000)
-        sorted_params = sorted(params.items())
-        query_string = urlencode(sorted_params)
-        signature = generate_signature(query_string)
-        url = f"{BASE_URL}{path}?{query_string}&signature={signature}"
-    else:
-        query_string = urlencode(params)
-        url = f"{BASE_URL}{path}?{query_string}" if query_string else f"{BASE_URL}{path}"
+    <!-- 2. Grafico & Posizioni -->
+    <div class="center-col">
+        <div id="tv-chart"></div>
+        <div class="positions-panel">
+            <div class="panel-header">
+                <span>POSIZIONI APERTE & STORICO PNL</span>
+                <button onclick="fetchAccount()" style="background:none;border:none;color:#2962ff;cursor:pointer;">Aggiorna</button>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Simbolo</th>
+                        <th>Lato</th>
+                        <th>Size</th>
+                        <th>Entry</th>
+                        <th>PnL Non Realizzato</th>
+                    </tr>
+                </thead>
+                <tbody id="positions-body">
+                    <tr><td colspan="5" style="text-align:center;color:#787b86;">Nessuna posizione attiva</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
 
-    try:
-        if method == "GET":
-            resp = requests.get(url, headers=headers, timeout=10)
-        elif method == "POST":
-            resp = requests.post(url, headers=headers, timeout=10)
-        elif method == "DELETE":
-            resp = requests.delete(url, headers=headers, timeout=10)
-        else:
-            return {"code": -1, "msg": "Metodo non supportato"}
-        return resp.json()
-    except Exception as e:
-        return {"code": -1, "msg": str(e)}
+    <!-- 3. Order Book -->
+    <div class="panel">
+        <div class="panel-header"><span>ORDER BOOK (DOM)</span><span>QTY</span></div>
+        <div class="ob-list" id="ob-asks"></div>
+        <div class="ob-mid" id="ob-mid-price">--</div>
+        <div class="ob-list" id="ob-bids"></div>
+    </div>
 
+    <!-- 4. Pannello Esecuzione -->
+    <div class="panel" style="border-right:none;">
+        <div class="panel-header"><span>ESECUZIONE ISTITUZIONALE</span></div>
+        <div class="exec-body">
+            <div class="badge-neutral" id="engine-status">STATO MOTORE: NEUTRAL (PRONTO)</div>
 
-def calculate_dynamic_leverage(equity: float) -> int:
-    """Regola istituzionale di scalatura leva basata sul capitale."""
-    if equity <= 2.00:
-        return 20
-    elif equity <= 50.00:
-        return 15
-    elif equity <= 500.00:
-        return 10
-    return 5
+            <div class="form-group">
+                <label>TIPO ORDINE</label>
+                <select id="order-type" class="form-control">
+                    <option value="MARKET">MARKET (Esecuzione Immediata)</option>
+                    <option value="LIMIT">LIMIT (Book)</option>
+                </select>
+            </div>
 
+            <div class="form-group" id="limit-price-group" style="display:none;">
+                <label>PREZZO LIMIT (USDT)</label>
+                <input type="number" step="any" id="order-price" class="form-control" placeholder="0.00">
+            </div>
 
-@app.route("/")
-def index():
-    return render_template("index.html")
+            <div class="form-group">
+                <label>QUANTITÀ (Contratti / Coin)</label>
+                <input type="number" step="any" id="order-qty" class="form-control" value="0.001">
+            </div>
 
+            <div class="form-group">
+                <label>LEVA FINANZIARIA (Auto-Scalata)</label>
+                <input type="number" id="order-lev" class="form-control" value="20">
+            </div>
 
-@app.route("/api/markets", methods=["GET"])
-def get_all_markets():
-    """Scarica l'intero mercato Perpetual Swap BingX + Ticker 24h."""
-    contracts = bingx_request("GET", "/openApi/swap/v2/quote/contracts")
-    tickers = bingx_request("GET", "/openApi/swap/v2/quote/ticker")
+            <div class="form-group">
+                <label>TAKE PROFIT (Prezzo Target)</label>
+                <input type="number" step="any" id="order-tp" class="form-control" placeholder="Opzionale">
+            </div>
 
-    ticker_map = {}
-    if tickers.get("code") == 0:
-        for t in tickers.get("data", []):
-            ticker_map[t["symbol"]] = t
+            <div class="form-group">
+                <label>STOP LOSS (Invalidazione)</label>
+                <input type="number" step="any" id="order-sl" class="form-control" placeholder="Opzionale">
+            </div>
 
-    markets = []
-    if contracts.get("code") == 0:
-        for c in contracts.get("data", []):
-            sym = c["symbol"]
-            t_info = ticker_map.get(sym, {})
-            markets.append({
-                "symbol": sym,
-                "asset": c.get("asset"),
-                "currency": c.get("currency"),
-                "maxLeverage": c.get("maxLeverage", 20),
-                "minQty": c.get("tradeMinQuantity", 0.001),
-                "lastPrice": float(t_info.get("lastPrice", 0)),
-                "priceChangePercent": float(t_info.get("priceChangePercent", 0)),
-                "volume": float(t_info.get("volume", 0)),
-                "highPrice": float(t_info.get("highPrice", 0)),
-                "lowPrice": float(t_info.get("lowPrice", 0)),
-            })
+            <div class="btn-grid">
+                <button class="btn btn-buy" onclick="sendOrder('BUY')">BUY / LONG</button>
+                <button class="btn btn-sell" onclick="sendOrder('SELL')">SELL / SHORT</button>
+            </div>
 
-    # Ordina per volume 24h decrescente
-    markets.sort(key=lambda x: x["volume"], reverse=True)
-    return jsonify({"status": "ok", "count": len(markets), "markets": markets})
+            <button class="btn btn-panic" onclick="panicClose()">CHIUDI TUTTE LE POSIZIONI</button>
+        </div>
+    </div>
+</div>
 
+<script src="https://s3.tradingview.com/tv.js"></script>
+<script>
+    let currentSymbol = "BTC-USDT";
+    let allMarkets = [];
 
-@app.route("/api/live-ticker", methods=["GET"])
-def live_ticker():
-    """Endpoint ad alta frequenza per prezzo, order book e funding rate."""
-    symbol = request.args.get("symbol", "BTC-USDT")
-    ticker = bingx_request("GET", "/openApi/swap/v2/quote/ticker", {"symbol": symbol})
-    depth = bingx_request("GET", "/openApi/swap/v2/quote/depth", {"symbol": symbol, "limit": 10})
-    funding = bingx_request("GET", "/openApi/swap/v2/quote/premiumIndex", {"symbol": symbol})
-
-    return jsonify({
-        "ticker": ticker.get("data", {}),
-        "depth": depth.get("data", {}),
-        "funding": funding.get("data", {})
-    })
-
-
-@app.route("/api/account", methods=["GET"])
-def get_account():
-    """Recupera saldo reale, posizioni aperte e storico PnL chiuso."""
-    balance = bingx_request("GET", "/openApi/swap/v2/user/balance", signed=True)
-    positions = bingx_request("GET", "/openApi/swap/v2/user/positions", signed=True)
-    income = bingx_request("GET", "/openApi/swap/v2/user/income", {"limit": 20}, signed=True)
-
-    equity = 0.0
-    available = 0.0
-    if balance.get("code") == 0 and "balance" in balance.get("data", {}):
-        b = balance["data"]["balance"]
-        equity = float(b.get("equity", 0))
-        available = float(b.get("availableMargin", 0))
-
-    rec_leverage = calculate_dynamic_leverage(equity)
-
-    return jsonify({
-        "equity": equity,
-        "available": available,
-        "recommended_leverage": rec_leverage,
-        "positions": positions.get("data", []),
-        "income_history": income.get("data", [])
-    })
-
-
-@app.route("/api/order", methods=["POST"])
-def execute_order():
-    """Esecuzione ordine professionale con separazione stretta BUY/SELL e TP/SL."""
-    data = request.json
-    symbol = data.get("symbol", "BTC-USDT")
-    side = data.get("side", "NEUTRAL").upper()
-    order_type = data.get("type", "MARKET").upper()
-    quantity = float(data.get("quantity", 0))
-    price = data.get("price")
-    tp_price = data.get("tp")
-    sl_price = data.get("sl")
-    leverage = int(data.get("leverage", 20))
-
-    if side not in ["BUY", "SELL"]:
-        return jsonify({"code": -1, "msg": "Stato NEUTRAL o direzione non valida. Nessun ordine inviato."}), 400
-
-    position_side = "LONG" if side == "BUY" else "SHORT"
-
-    # 1. Imposta la leva prima dell'ordine
-    bingx_request("POST", "/openApi/swap/v2/trade/leverage", {
-        "symbol": symbol,
-        "side": position_side,
-        "leverage": leverage
-    }, signed=True)
-
-    # 2. Costruisci parametri ordine principale
-    order_params = {
-        "symbol": symbol,
-        "side": side,
-        "positionSide": position_side,
-        "type": order_type,
-        "quantity": quantity
+    // Inizializza Grafico TradingView
+    function loadChart(symbol) {
+        const tvSymbol = "BINGX:" + symbol.replace("-", "") + ".P";
+        document.getElementById("tv-chart").innerHTML = "";
+        new TradingView.widget({
+            "autosize": true,
+            "symbol": tvSymbol,
+            "interval": "5",
+            "timezone": "Europe/Rome",
+            "theme": "dark",
+            "style": "1",
+            "locale": "it",
+            "toolbar_bg": "#131722",
+            "enable_publishing": false,
+            "hide_side_toolbar": false,
+            "allow_symbol_change": true,
+            "container_id": "tv-chart"
+        });
     }
-    if order_type == "LIMIT" and price:
-        order_params["price"] = float(price)
 
-    if tp_price:
-        order_params["takeProfit"] = f'{{"type": "TAKE_PROFIT_MARKET", "stopPrice": {float(tp_price)}, "price": {float(tp_price)}, "workingType": "MARK_PRICE"}}'
-    if sl_price:
-        order_params["stopLoss"] = f'{{"type": "STOP_MARKET", "stopPrice": {float(sl_price)}, "price": {float(sl_price)}, "workingType": "MARK_PRICE"}}'
+    // Carica tutto il mercato BingX
+    async function loadMarkets() {
+        const res = await fetch("/api/markets");
+        const data = await res.json();
+        if (data.status === "ok") {
+            allMarkets = data.markets;
+            document.getElementById("market-count").innerText = data.count;
+            renderMarkets(allMarkets);
+        }
+    }
 
-    result = bingx_request("POST", "/openApi/swap/v2/trade/order", order_params, signed=True)
-    return jsonify(result)
+    function renderMarkets(list) {
+        const container = document.getElementById("market-list");
+        container.innerHTML = list.map(m => {
+            const cls = m.priceChangePercent >= 0 ? "pos" : "neg";
+            const active = m.symbol === currentSymbol ? "active" : "";
+            return `<div class="market-row ${active}" onclick="selectSymbol('${m.symbol}')">
+                <span><strong>${m.symbol}</strong></span>
+                <span class="${cls}">${m.lastPrice} (${m.priceChangePercent.toFixed(2)}%)</span>
+            </div>`;
+        }).join("");
+    }
 
+    function selectSymbol(sym) {
+        currentSymbol = sym;
+        document.getElementById("top-symbol").innerText = sym;
+        loadChart(sym);
+        renderMarkets(allMarkets);
+    }
 
-@app.route("/api/close-all", methods=["POST"])
-def panic_close_all():
-    """Pulsante di emergenza istituzionale: chiude tutte le posizioni a mercato."""
-    symbol = request.json.get("symbol")
-    params = {"symbol": symbol} if symbol else {}
-    res = bingx_request("POST", "/openApi/swap/v2/trade/closeAllPositions", params, signed=True)
-    return jsonify(res)
+    document.getElementById("search-market").addEventListener("input", (e) => {
+        const q = e.target.value.toUpperCase();
+        renderMarkets(allMarkets.filter(m => m.symbol.includes(q)));
+    });
 
+    document.getElementById("order-type").addEventListener("change", (e) => {
+        document.getElementById("limit-price-group").style.display = e.target.value === "LIMIT" ? "block" : "none";
+    });
 
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=False)
+    // Polling ad alta frequenza Ticker & Order Book
+    async function pollLive() {
+        try {
+            const res = await fetch(`/api/live-ticker?symbol=${currentSymbol}`);
+            const data = await res.json();
+            if (data.ticker && data.ticker.lastPrice) {
+                document.getElementById("top-price").innerText = data.ticker.lastPrice;
+                document.getElementById("ob-mid-price").innerText = data.ticker.lastPrice;
+            }
+            if (data.funding && data.funding.lastFundingRate) {
+                const fr = (parseFloat(data.funding.lastFundingRate) * 100).toFixed(4) + "%";
+                document.getElementById("top-funding").innerText = fr;
+            }
+            if (data.depth) {
+                const asks = (data.depth.asks || []).slice(0, 8).reverse();
+                const bids = (data.depth.bids || []).slice(0, 8);
+                document.getElementById("ob-asks").innerHTML = asks.map(a =>
+                    `<div class="ob-row"><span class="neg">${a[0]}</span><span>${a[1]}</span></div>`).join("");
+                document.getElementById("ob-bids").innerHTML = bids.map(b =>
+                    `<div class="ob-row"><span class="pos">${b[0]}</span><span>${b[1]}</span></div>`).join("");
+            }
+        } catch (e) {}
+    }
+
+    // Dati Account & Posizioni
+    async function fetchAccount() {
+        try {
+            const res = await fetch("/api/account");
+            const data = await res.json();
+            document.getElementById("top-equity").innerText = data.equity.toFixed(2);
+            document.getElementById("top-lev").innerText = data.recommended_leverage + "x";
+            document.getElementById("order-lev").value = data.recommended_leverage;
+
+            const tbody = document.getElementById("positions-body");
+            if (data.positions && data.positions.length > 0) {
+                tbody.innerHTML = data.positions.map(p => {
+                    const pnl = parseFloat(p.unrealizedProfit || 0);
+                    return `<tr>
+                        <td><strong>${p.symbol}</strong></td>
+                        <td class="${p.positionSide === 'LONG' ? 'pos' : 'neg'}">${p.positionSide}</td>
+                        <td>${p.positionAmt}</td>
+                        <td>${p.avgPrice}</td>
+                        <td class="${pnl >= 0 ? 'pos' : 'neg'}">${pnl.toFixed(4)} USDT</td>
+                    </tr>`;
+                }).join("");
+            } else {
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#787b86;">Nessuna posizione attiva</td></tr>`;
+            }
+        } catch (e) {}
+    }
+
+    // Invio Ordine Direzionale
+    async function sendOrder(side) {
+        const statusEl = document.getElementById("engine-status");
+        statusEl.innerText = `ESECUZIONE ${side} IN CORSO...`;
+        const payload = {
+            symbol: currentSymbol,
+            side: side,
+            type: document.getElementById("order-type").value,
+            quantity: document.getElementById("order-qty").value,
+            price: document.getElementById("order-price").value,
+            leverage: document.getElementById("order-lev").value,
+            tp: document.getElementById("order-tp").value,
+            sl: document.getElementById("order-sl").value
+        };
+
+        const res = await fetch("/api/order", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify(payload)
+        });
+        const result = await res.json();
+        if (result.code === 0) {
+            statusEl.innerText = `ORDINE ${side} ESEGUITO CON SUCCESSO`;
+            fetchAccount();
+        } else {
+            statusEl.innerText = `ERRORE: ${result.msg || 'Verifica API/Margine'}`;
+        }
+        setTimeout(() => { statusEl.innerText = "STATO MOTORE: NEUTRAL (PRONTO)"; }, 4000);
+    }
+
+    async function panicClose() {
+        if (!confirm("Chiudere TUTTE le posizioni aperte a mercato?")) return;
+        await fetch("/api/close-all", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({})
+        });
+        fetchAccount();
+    }
+
+    loadChart(currentSymbol);
+    loadMarkets();
+    fetchAccount();
+    setInterval(pollLive, 1500);
+    setInterval(fetchAccount, 5000);
+</script>
+</body>
+</html>
