@@ -665,7 +665,7 @@ def get_cached_markets(force_refresh: bool = False):
     return out
 
 
-def select_category_candidates(category: str = "ALL", query: str = "", current_symbol: str = "BTC-USDT", max_items: int = 24):
+def select_category_candidates(category: str = "ALL", query: str = "", current_symbol: str = "BTC-USDT", max_items: int = 8):
     all_mkts = get_cached_markets(force_refresh=False)
     q = (query or "").strip().upper()
     cat = (category or "ALL").strip()
@@ -709,7 +709,7 @@ def select_category_candidates(category: str = "ALL", query: str = "", current_s
     return rotated[:step]
 
 
-def scan_category_markets(category: str = "ALL", query: str = "", tf: str = "5m", current_symbol: str = "BTC-USDT", max_items: int = 24):
+def scan_category_markets(category: str = "ALL", query: str = "", tf: str = "5m", current_symbol: str = "BTC-USDT", max_items: int = 8):
     lock_info = get_active_signal_lock()
     if lock_info.get("locked") and lock_info.get("symbol"):
         l_sym = lock_info["symbol"]
@@ -1027,7 +1027,7 @@ def api_scan_category():
     query = request.args.get("query", "")
     tf = request.args.get("tf", "5m")
     current_symbol = request.args.get("symbol", "BTC-USDT")
-    scan = scan_category_markets(category, query, tf, current_symbol, max_items=24)
+    scan = scan_category_markets(category, query, tf, current_symbol, max_items=8)
     best = scan.get("best") or {}
     return jsonify({
         "code": 0,
@@ -1046,7 +1046,7 @@ def api_auto_scan():
     query = request.args.get("query", "")
     tf = request.args.get("tf", "5m")
     current_symbol = request.args.get("symbol", "BTC-USDT")
-    scan = scan_category_markets(category, query, tf, current_symbol, max_items=24)
+    scan = scan_category_markets(category, query, tf, current_symbol, max_items=8)
     best = scan.get("best") or {}
     lock_info = get_active_signal_lock()
     return jsonify({
@@ -1253,6 +1253,14 @@ def submit_bingx_order(symbol: str, side: str, order_type: str, tf: str, qty: fl
             "close_at": timing["candle_end_ts"]
         }
 
+    if res.get("code") != 0:
+        bx_msg = res.get("msg") or res.get("message") or "Ordine rifiutato da BingX"
+        return {
+            **res,
+            "code": res.get("code", -1),
+            "msg": f"{bx_msg} (simbolo={symbol}, lato={pos_side}, qty={qty_val}, leva={lev_val}x)"
+        }
+
     return res
 
 
@@ -1320,10 +1328,11 @@ def api_order():
         "tp2": tp or quant.get("tp2"),
         "tp3": quant.get("tp3"),
         "sl": sl or quant.get("sl"),
-        "outcome": "INVIATO" if res.get("code") == 0 else (res.get("msg") or "ERRORE_API")
+        "outcome": "APERTO SU BINGX" if res.get("code") == 0 else (res.get("msg") or "ERRORE_API")
     })
 
-    return jsonify({**res, "signal_lock": get_active_signal_lock(), "signals_log": SIGNAL_LOG})
+    status_code = 200 if res.get("code") == 0 else 400
+    return jsonify({**res, "signal_lock": get_active_signal_lock(), "signals_log": SIGNAL_LOG}), status_code
 
 
 @app.route("/api/auto-trade", methods=["POST"])
@@ -1343,7 +1352,7 @@ def api_auto_trade():
     anti_breakout = bool(data.get("anti_breakout", True))
 
     if not auto_trade_enabled:
-        scan = scan_category_markets(category, query, tf, current_symbol, max_items=24)
+        scan = scan_category_markets(category, query, tf, current_symbol, max_items=8)
         best = scan.get("best") or {}
         lock_info = get_active_signal_lock()
         msg = (
@@ -1408,16 +1417,26 @@ def api_auto_trade():
                     "tp2": quant_side.get("tp2"),
                     "tp3": quant_side.get("tp3"),
                     "sl": quant_side.get("sl"),
-                    "outcome": "AUTO-INVIATO"
+                    "outcome": "APERTO SU BINGX"
                 })
                 return jsonify({
                     "code": 0,
                     "triggered": True,
                     "side": side,
                     "selected_symbol": c_sym,
-                    "msg": f"AUTO-TRADE ESEGUITO {side} {c_sym} (SEGNALE CERTO BLOCCATO)",
+                    "msg": f"POSIZIONE APERTA SU BINGX: AUTO {side} {c_sym} (SEGNALE CERTO BLOCCATO)",
                     "quant": quant_side,
                     "order_res": res,
+                    "signal_lock": get_active_signal_lock(),
+                    "signals_log": SIGNAL_LOG
+                })
+            else:
+                return jsonify({
+                    "code": res.get("code", -1),
+                    "triggered": False,
+                    "selected_symbol": c_sym,
+                    "msg": res.get("msg") or "Ordine rifiutato da BingX",
+                    "quant": quant_side,
                     "signal_lock": get_active_signal_lock(),
                     "signals_log": SIGNAL_LOG
                 })
@@ -1425,7 +1444,7 @@ def api_auto_trade():
             release_signal_lock()
 
     if scan_all_cat:
-        scan = scan_category_markets(category, query, tf, current_symbol, max_items=24)
+        scan = scan_category_markets(category, query, tf, current_symbol, max_items=8)
         candidates = scan.get("results") or []
     else:
         q0 = compute_quant_brain(current_symbol, tf)
@@ -1502,21 +1521,21 @@ def api_auto_trade():
                 "tp2": quant_side.get("tp2"),
                 "tp3": quant_side.get("tp3"),
                 "sl": quant_side.get("sl"),
-                "outcome": "AUTO-INVIATO"
+                "outcome": "APERTO SU BINGX"
             })
             return jsonify({
                 "code": 0,
                 "triggered": True,
                 "side": side,
                 "selected_symbol": c_sym,
-                "msg": f"AUTO-TRADE ESEGUITO {side} {c_sym} [{category}] (Score {score}, Exp +{exp_r}R)",
+                "msg": f"POSIZIONE APERTA SU BINGX: AUTO {side} {c_sym} [{category}]",
                 "quant": quant_side,
                 "order_res": res,
                 "signal_lock": get_active_signal_lock(),
                 "signals_log": SIGNAL_LOG
             })
 
-        last_status_msg = f"AUTO-TRADE ERRORE {c_sym}: {res.get('msg', 'Errore ordine')}"
+        last_status_msg = res.get("msg") or f"Errore ordine su {c_sym}"
 
     return jsonify({
         "code": 0,
