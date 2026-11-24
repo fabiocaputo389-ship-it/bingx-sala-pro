@@ -137,7 +137,40 @@ def bingx_req(method: str, path: str, params: dict = None, signed: bool = False)
 
 def record_signal(entry: dict):
     entry = dict(entry)
+    now_ts = time.time()
     entry["ts"] = time.strftime("%H:%M:%S")
+    entry["_ts"] = now_ts
+
+    sym_e = str(entry.get("symbol", "")).upper()
+    side_e = str(entry.get("side", "")).upper()
+    tf_e = str(entry.get("tf", "")).lower()
+    out_e = str(entry.get("outcome", "")).upper()
+    cert_lbl = str(entry.get("certainty_label", ""))
+
+    is_execution_event = (
+        "APERTO SU BINGX" in out_e
+        or "CHIUSO" in out_e
+        or side_e == "CLOSE_TF"
+        or (out_e not in ("SEGNALE BLOCCATO", "CALCOLATO", ""))
+    )
+
+    if not is_execution_event and SIGNAL_LOG:
+        for prev in SIGNAL_LOG[:8]:
+            if (
+                str(prev.get("symbol", "")).upper() == sym_e
+                and str(prev.get("side", "")).upper() == side_e
+                and str(prev.get("tf", "")).lower() == tf_e
+                and str(prev.get("outcome", "")).upper() == out_e
+                and (now_ts - to_float(prev.get("_ts", 0.0), 0.0)) < 120
+            ):
+                prev["ts"] = entry["ts"]
+                prev["_ts"] = now_ts
+                prev["certainty_label"] = cert_lbl
+                prev["tp1"] = entry.get("tp1", prev.get("tp1"))
+                prev["tp2"] = entry.get("tp2", prev.get("tp2"))
+                prev["sl"] = entry.get("sl", prev.get("sl"))
+                return
+
     SIGNAL_LOG.insert(0, entry)
     del SIGNAL_LOG[40:]
 
@@ -1072,17 +1105,6 @@ def api_tf_plan():
     quant = compute_quant_brain(symbol, tf, side)
     if is_exact_certain_signal(quant):
         engage_signal_lock(symbol, tf, quant)
-    record_signal({
-        "symbol": symbol,
-        "side": side,
-        "tf": tf,
-        "certainty_label": quant.get("certainty_label"),
-        "tp1": quant.get("tp1"),
-        "tp2": quant.get("tp2"),
-        "tp3": quant.get("tp3"),
-        "sl": quant.get("sl"),
-        "outcome": "CALCOLATO"
-    })
     return jsonify({"code": 0, "timing": timing, "quant": quant, "signal_lock": get_active_signal_lock(), "signals_log": SIGNAL_LOG})
 
 
