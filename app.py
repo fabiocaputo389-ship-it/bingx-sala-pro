@@ -20,7 +20,7 @@ STATE_LOCK = threading.RLock()
 AUTO_TRADE_STATE = {
     "enabled": True,
     "mode": "AUTOMATICO",
-    "symbol": "XAUT-USDT",
+    "symbol": "BTC-USDT",
     "tf": "1m",
     "qty": 0.0005,
     "leverage": 20,
@@ -52,19 +52,18 @@ MARKET_SCAN_CACHE = {
 MARKET_CATALOG = {
     "Crypto Major": [
         "BTC-USDT", "ETH-USDT", "SOL-USDT", "BNB-USDT", "XRP-USDT",
-        "ADA-USDT", "DOGE-USDT", "AVAX-USDT", "LINK-USDT", "DOT-USDT",
-        "TRX-USDT", "SUI-USDT",
+        "ADA-USDT", "DOGE-USDT", "AVAX-USDT", "LINK-USDT", "SUI-USDT",
     ],
-    "Materie Prime": [
-        "XAUT-USDT", "PAXG-USDT", "GOLD-USDT", "SILVER-USDT",
-        "XAG-USDT", "WTI-USDT", "BRENT-USDT", "NATGAS-USDT", "COPPER-USDT",
+    "Meme/Alt": [
+        "PEPE-USDT", "WIF-USDT", "BONK-USDT", "SHIB-USDT", "ENA-USDT",
+        "SEI-USDT", "TIA-USDT", "SFP-USDT",
     ],
     "Azioni": [
-        "AAPL-USDT", "MSFT-USDT", "NVDA-USDT", "AMZN-USDT",
-        "GOOGL-USDT", "META-USDT", "TSLA-USDT", "PLTR-USDT", "COIN-USDT", "MSTR-USDT",
+        "TSLA-USDT", "NVDA-USDT", "AAPL-USDT", "MSFT-USDT", "AMZN-USDT",
+        "META-USDT", "GOOGL-USDT",
     ],
-    "Forex": [
-        "EUR-USDT",
+    "Materie Prime": [
+        "XAUT-USDT", "PAXG-USDT",
     ],
 }
 
@@ -289,7 +288,7 @@ def compute_quant_brain(symbol: str, tf: str = "1m", forced_side: str = None) ->
     if live_price <= 0 and closes:
         live_price = closes[-1]
     if live_price <= 0:
-        live_price = 3600.0
+        live_price = 60000.0
 
     if len(closes) >= 20:
         ema_fast = _ema(closes, 9)[-1]
@@ -395,17 +394,13 @@ CATEGORY_ALIASES = {
     "ALL": "Tutti",
     "CRYPTO": "Crypto Major",
     "CRYPTO MAJOR": "Crypto Major",
-    "CRIPTO": "Crypto Major",
-    "MATERIE PRIME": "Materie Prime",
-    "COMMODITIES": "Materie Prime",
-    "ORO": "Materie Prime",
-    "GOLD": "Materie Prime",
+    "MEME/ALT": "Meme/Alt",
+    "MEME": "Meme/Alt",
+    "ALT": "Meme/Alt",
     "AZIONI": "Azioni",
     "STOCKS": "Azioni",
-    "FOREX": "Forex",
-    "EUR": "Forex",
-    "EURUSDT": "Forex",
-    "EUR-USDT": "Forex",
+    "MATERIE PRIME": "Materie Prime",
+    "COMMODITIES": "Materie Prime",
 }
 
 
@@ -422,25 +417,10 @@ def normalize_category(category: str) -> str:
     return "Tutti"
 
 
-def _pool_for_category(category: str):
-    cat = normalize_category(category)
-    if cat == "Tutti":
-        out = []
-        seen = set()
-        for syms in MARKET_CATALOG.values():
-            for s in syms:
-                if s not in seen:
-                    seen.add(s)
-                    out.append(s)
-        return out
-    return list(MARKET_CATALOG.get(cat, []))
-
-
-def scan_markets(category: str = "Tutti", query: str = "", force_refresh: bool = False):
+def scan_markets(category: str = "Materie Prime", query: str = "", force_refresh: bool = False):
     cat = normalize_category(category)
     q = (query or "").strip().upper()
-    q_alt = "EUR-USDT" if q == "EURUSDT" else q
-    search_cat = CATEGORY_ALIASES[q] if (q and q in CATEGORY_ALIASES and q not in ("EURUSDT", "EUR-USDT")) else None
+    search_cat = CATEGORY_ALIASES[q] if (q and q in CATEGORY_ALIASES) else None
 
     with STATE_LOCK:
         cache_age = time.time() - MARKET_SCAN_CACHE.get("updated_at", 0)
@@ -448,7 +428,7 @@ def scan_markets(category: str = "Tutti", query: str = "", force_refresh: bool =
         cached_cat = MARKET_SCAN_CACHE.get("category")
         locked_map = dict(AUTO_TRADE_STATE.get("locked_signals") or {})
 
-    if not force_refresh and has_cache and cache_age < 5 and cached_cat == "Tutti":
+    if not force_refresh and has_cache and cache_age < 5 and cached_cat == cat:
         all_rows = list(MARKET_SCAN_CACHE["rows"])
     else:
         bulk = bingx_req("GET", "/openApi/swap/v2/quote/ticker")
@@ -482,7 +462,7 @@ def scan_markets(category: str = "Tutti", query: str = "", force_refresh: bool =
                 })
         with STATE_LOCK:
             MARKET_SCAN_CACHE["rows"] = list(all_rows)
-            MARKET_SCAN_CACHE["category"] = "Tutti"
+            MARKET_SCAN_CACHE["category"] = cat
             MARKET_SCAN_CACHE["updated_at"] = time.time()
 
     effective_cat = search_cat if search_cat else cat
@@ -490,7 +470,7 @@ def scan_markets(category: str = "Tutti", query: str = "", force_refresh: bool =
     for r in all_rows:
         if effective_cat != "Tutti" and r["category"] != effective_cat:
             continue
-        if q and not search_cat and (q not in r["symbol"] and q_alt not in r["symbol"]) and q not in r["category"].upper():
+        if q and not search_cat and q not in r["symbol"] and q not in r["category"].upper():
             continue
         row_copy = dict(r)
         row_copy["locked_side"] = locked_map.get(r["symbol"])
@@ -644,7 +624,15 @@ def _lock_signal_and_advance_monitoring(symbol: str, side: str, tf: str, categor
         rotate = bool(AUTO_TRADE_STATE.get("rotate_after_open", True))
 
     if rotate:
-        pool = _pool_for_category(category)
+        cat = normalize_category(category)
+        pool = []
+        if cat == "Tutti":
+            for syms in MARKET_CATALOG.values():
+                for s in syms:
+                    if s not in pool:
+                        pool.append(s)
+        else:
+            pool = list(MARKET_CATALOG.get(cat, []))
 
         with STATE_LOCK:
             current_locked = dict(AUTO_TRADE_STATE.get("locked_signals") or {})
@@ -731,7 +719,7 @@ def submit_bingx_order(
                 "updated_at": int(time.time()),
             }
 
-        next_sym = _lock_signal_and_advance_monitoring(symbol, side, tf, category="Materie Prime")
+        next_sym = _lock_signal_and_advance_monitoring(symbol, side, tf, category=category)
         out_str = f"ESITO BINGX: POSIZIONE APERTA SU BINGX ({tp_info} | {sl_info})"
         with STATE_LOCK:
             AUTO_TRADE_STATE["last_outcome"] = out_str
@@ -861,7 +849,7 @@ def process_auto_trade_tick(symbol: str, tf: str, category: str):
         return None
 
     if sig not in ("BUY", "SELL") or score_val < min_score:
-        outcome_msg = f"ESITO BINGX: POSIZIONE NON APERTA SU BINGX — Motivo: SCAN Materie Prime ({symbol}): Score {int(score_val)} < +{int(min_score)}"
+        outcome_msg = f"ESITO BINGX: POSIZIONE NON APERTA SU BINGX — Motivo: SCAN {category} ({symbol}): Score {int(score_val)} < +{int(min_score)}"
         with STATE_LOCK:
             AUTO_TRADE_STATE["last_outcome"] = outcome_msg
         return None
@@ -880,7 +868,7 @@ def process_auto_trade_tick(symbol: str, tf: str, category: str):
         close_at_candle_end=close_at_end,
         max_concurrent_trades=max_conc,
         quant=quant,
-        category="Materie Prime",
+        category=category,
     )
 
 
@@ -893,7 +881,7 @@ def index():
 def api_live_ticker():
     req_symbol = (request.args.get("symbol") or "").strip().upper()
     tf = (request.args.get("tf") or "1m").strip().lower()
-    category = "Materie Prime"
+    category = (request.args.get("category") or "Materie Prime").strip()
     query = (request.args.get("query") or "").strip()
     scan_now = request.args.get("scan") == "1"
 
@@ -905,8 +893,8 @@ def api_live_ticker():
             AUTO_TRADE_STATE["symbol"] = req_symbol
         else:
             cur_sym = AUTO_TRADE_STATE.get("symbol", "BTC-USDT")
-            cat_pool = _pool_for_category(norm_cat)
-            if cat_pool and cur_sym not in cat_pool:
+            cat_pool = MARKET_CATALOG.get(norm_cat, [])
+            if norm_cat != "Tutti" and cat_pool and cur_sym not in cat_pool:
                 AUTO_TRADE_STATE["symbol"] = cat_pool[0]
         active_symbol = AUTO_TRADE_STATE.get("symbol", "BTC-USDT")
         locked_signals = dict(AUTO_TRADE_STATE.get("locked_signals") or {})
@@ -923,7 +911,7 @@ def api_live_ticker():
     positions = fetch_positions_raw()
     income = fetch_income_history(20)
     timing = candle_timing_info(tf)
-    markets = scan_markets(category="Materie Prime", query=query, force_refresh=scan_now)
+    markets = scan_markets(category=category, query=query, force_refresh=scan_now)
 
     with STATE_LOCK:
         logs = list(SIGNAL_HISTORY[:40])
@@ -946,14 +934,14 @@ def api_live_ticker():
 @app.route("/api/order", methods=["POST"])
 def api_order():
     data = request.get_json(silent=True) or {}
-    symbol = (data.get("symbol") or "XAUT-USDT").strip().upper()
+    symbol = (data.get("symbol") or "BTC-USDT").strip().upper()
     side = (data.get("side") or "BUY").strip().upper()
     if side not in ("BUY", "SELL"):
         side = "BUY"
     order_type = (data.get("order_type") or "MARKET").strip().upper()
     tf = (data.get("tf") or "1m").strip().lower()
     qty = to_float(data.get("qty"), 0.0005)
-    category = "Materie Prime"
+    category = (data.get("category") or AUTO_TRADE_STATE.get("scan_category") or "Materie Prime").strip()
 
     bal = fetch_balance_summary()
     req_lev = int(to_float(data.get("leverage"), 20))
@@ -1048,7 +1036,8 @@ def api_auto_trade():
                 AUTO_TRADE_STATE["close_at_candle_end"] = bool(data["close_at_candle_end"])
             if "rotate_after_open" in data:
                 AUTO_TRADE_STATE["rotate_after_open"] = bool(data["rotate_after_open"])
-            AUTO_TRADE_STATE["scan_category"] = "Materie Prime"
+            if "category" in data and data["category"]:
+                AUTO_TRADE_STATE["scan_category"] = normalize_category(str(data["category"]).strip())
             if data.get("reset_locks"):
                 AUTO_TRADE_STATE["locked_signals"] = {}
                 AUTO_TRADE_STATE["last_signal_key"] = None
