@@ -52,8 +52,6 @@ MARKET_SCAN_CACHE = {
 MARKET_CATALOG = {
     "Crypto Major": [
         "BTC-USDT", "ETH-USDT", "SOL-USDT", "BNB-USDT", "XRP-USDT",
-        "ADA-USDT", "DOGE-USDT", "AVAX-USDT", "LINK-USDT", "DOT-USDT",
-        "TRX-USDT", "SUI-USDT",
     ],
     "Materie Prime": [
         "XAUT-USDT", "PAXG-USDT", "GOLD-USDT", "SILVER-USDT",
@@ -61,13 +59,12 @@ MARKET_CATALOG = {
     ],
     "Azioni": [
         "AAPL-USDT", "MSFT-USDT", "NVDA-USDT", "AMZN-USDT",
-        "GOOGL-USDT", "META-USDT", "TSLA-USDT", "PLTR-USDT", "COIN-USDT", "MSTR-USDT",
+        "GOOGL-USDT", "META-USDT", "TSLA-USDT",
     ],
     "Forex": [
         "EUR-USDT",
     ],
 }
-
 
 def to_float(val, default=0.0):
     if val is None or val == "":
@@ -265,16 +262,6 @@ def fetch_klines(symbol: str, tf: str = "1m", limit: int = 60):
             })
     candles.sort(key=lambda x: x["time"])
     return candles
-
-
-def _ema(values, period):
-    if not values:
-        return []
-    k = 2.0 / (period + 1)
-    out = [values[0]]
-    for v in values[1:]:
-        out.append(v * k + out[-1] * (1 - k))
-    return out
 
 
 def _rsi(values, period=14):
@@ -489,7 +476,6 @@ def compute_quant_brain(symbol: str, tf: str = "1m", forced_side: str = None) ->
         "candles": candles[-35:],
     }
 
-
 def _extract_ticker_map(raw_tickers):
     out = {}
     if not isinstance(raw_tickers, list):
@@ -558,73 +544,88 @@ def _pool_for_category(category: str):
     return list(MARKET_CATALOG.get(cat, []))
 
 
-def scan_markets(category: str = "Tutti", query: str = "", force_refresh: bool = False):
+def _category_for_symbol(sym: str) -> str:
+    for c_name, syms in MARKET_CATALOG.items():
+        if sym in syms:
+            return c_name
+    return "Materie Prime"
+
+
+def scan_markets(category: str = "Materie Prime", query: str = "", force_refresh: bool = False):
     cat = normalize_category(category)
     q = (query or "").strip().upper()
     q_alt = "EUR-USDT" if q == "EURUSDT" else q
     search_cat = CATEGORY_ALIASES[q] if (q and q in CATEGORY_ALIASES and q not in ("EURUSDT", "EUR-USDT")) else None
+    effective_cat = search_cat if search_cat else cat
 
     with STATE_LOCK:
         cache_age = time.time() - MARKET_SCAN_CACHE.get("updated_at", 0)
-        has_cache = bool(MARKET_SCAN_CACHE.get("rows"))
+        cached_rows = list(MARKET_SCAN_CACHE.get("rows") or [])
         cached_cat = MARKET_SCAN_CACHE.get("category")
         locked_map = dict(AUTO_TRADE_STATE.get("locked_signals") or {})
 
-    if not force_refresh and has_cache and cache_age < 5 and cached_cat == "Tutti":
-        all_rows = list(MARKET_SCAN_CACHE["rows"])
+    if not force_refresh and cached_rows and cache_age < 5 and cached_cat == effective_cat:
+        base_rows = cached_rows
     else:
+        target_pairs = []
+        seen = set()
+        if effective_cat == "Tutti":
+            for c_name, syms in MARKET_CATALOG.items():
+                for s in syms:
+                    if s not in seen:
+                        seen.add(s)
+                        target_pairs.append((c_name, s))
+        else:
+            for s in MARKET_CATALOG.get(effective_cat, []):
+                if s not in seen:
+                    seen.add(s)
+                    target_pairs.append((effective_cat, s))
+
         bulk = bingx_req("GET", "/openApi/swap/v2/quote/ticker")
         t_map = _extract_ticker_map(bulk.get("data"))
 
-        all_rows = []
-        seen = set()
-        for c_name, syms in MARKET_CATALOG.items():
-            for s in syms:
-                if s in seen:
-                    continue
-                seen.add(s)
-                t_info = t_map.get(s)
-                if not t_info or t_info["price"] <= 0:
-                    single = bingx_req("GET", "/openApi/swap/v2/quote/ticker", {"symbol": s})
-                    s_data = single.get("data") if isinstance(single.get("data"), dict) else {}
-                    lp = to_float(s_data.get("lastPrice"), 0.0)
-                    cp = to_float(s_data.get("priceChangePercent"), 0.0)
-                    t_info = {
-                        "price": format_price_smart(lp, lp) if lp > 0 else 0.0,
-                        "change_pct": round(cp, 2),
-                    }
-                chg = t_info["change_pct"]
-                sig = "BUY" if chg >= 0.6 else ("SELL" if chg <= -0.6 else "NEUTRAL")
-                all_rows.append({
-                    "symbol": s,
-                    "category": c_name,
-                    "price": t_info["price"],
-                    "change_pct": chg,
-                    "signal": sig,
-                })
+        base_rows = []
+        for c_name, s in target_pairs:
+            t_info = t_map.get(s)
+            if not t_info or t_info.get("price", 0.0) <= 0:
+                single = bingx_req("GET", "/openApi/swap/v2/quote/ticker", {"symbol": s})
+                s_data = single.get("data") if isinstance(single.get("data"), dict) else {}
+                lp = to_float(s_data.get("lastPrice"), 0.0)
+                cp = to_float(s_data.get("priceChangePercent"), 0.0)
+                t_info = {
+                    "price": format_price_smart(lp, lp) if lp > 0 else 0.0,
+                    "change_pct": round(cp, 2),
+                }
+            chg = to_float(t_info.get("change_pct"), 0.0)
+            sig = "BUY" if chg >= 0.6 else ("SELL" if chg <= -0.6 else "NEUTRAL")
+            base_rows.append({
+                "symbol": s,
+                "category": c_name,
+                "price": t_info.get("price", 0.0),
+                "change_pct": chg,
+                "signal": sig,
+            })
+
         with STATE_LOCK:
-            MARKET_SCAN_CACHE["rows"] = list(all_rows)
-            MARKET_SCAN_CACHE["category"] = "Tutti"
+            MARKET_SCAN_CACHE["rows"] = list(base_rows)
+            MARKET_SCAN_CACHE["category"] = effective_cat
             MARKET_SCAN_CACHE["updated_at"] = time.time()
 
-    effective_cat = search_cat if search_cat else cat
     filtered = []
-    for r in all_rows:
-        if effective_cat != "Tutti" and r["category"] != effective_cat:
-            continue
+    for r in base_rows:
         if q and not search_cat and (q not in r["symbol"] and q_alt not in r["symbol"]) and q not in r["category"].upper():
             continue
         row_copy = dict(r)
         row_copy["locked_side"] = locked_map.get(r["symbol"])
         filtered.append(row_copy)
 
+    total_cat_count = len(_pool_for_category(effective_cat))
     return {
         "category": effective_cat,
         "query": q,
-        "total_catalog": len(all_rows),
+        "total_catalog": total_cat_count,
         "rows": filtered,
     }
-
 
 def sanitize_tp_sl_for_side(side: str, ref_price: float, tp_val, sl_val):
     p = to_float(ref_price, 0.0)
@@ -1032,18 +1033,21 @@ def api_live_ticker():
     with STATE_LOCK:
         if category:
             AUTO_TRADE_STATE["scan_category"] = norm_cat
+        cat_pool = _pool_for_category(norm_cat)
         if req_symbol:
-            AUTO_TRADE_STATE["symbol"] = req_symbol
+            if not cat_pool or req_symbol in cat_pool:
+                AUTO_TRADE_STATE["symbol"] = req_symbol
+            else:
+                AUTO_TRADE_STATE["symbol"] = cat_pool[0]
         else:
-            cur_sym = AUTO_TRADE_STATE.get("symbol", "BTC-USDT")
-            cat_pool = _pool_for_category(norm_cat)
+            cur_sym = AUTO_TRADE_STATE.get("symbol", "XAUT-USDT")
             if cat_pool and cur_sym not in cat_pool:
                 AUTO_TRADE_STATE["symbol"] = cat_pool[0]
-        active_symbol = AUTO_TRADE_STATE.get("symbol", "BTC-USDT")
+        active_symbol = AUTO_TRADE_STATE.get("symbol", "XAUT-USDT")
         locked_signals = dict(AUTO_TRADE_STATE.get("locked_signals") or {})
 
     process_auto_close_expired()
-    process_auto_trade_tick(active_symbol, tf, category)
+    process_auto_trade_tick(active_symbol, tf, norm_cat)
 
     with STATE_LOCK:
         locked_signals = dict(AUTO_TRADE_STATE.get("locked_signals") or {})
