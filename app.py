@@ -29,6 +29,17 @@ AUTO_CLOSE_WATCHLIST = {}
 SIGNAL_LOG = []
 LAST_AUTO_ORDER_TS = {}
 MARKET_CACHE = {"ts": 0.0, "markets": []}
+SIGNAL_LOCK = {
+    "locked": False,
+    "symbol": None,
+    "tf": None,
+    "side": None,
+    "certainty_pct": 0,
+    "certainty_label": "",
+    "locked_at": 0.0,
+    "expires_at": 0.0,
+    "quant": None
+}
 
 
 def sign_params(params: dict) -> str:
@@ -64,6 +75,90 @@ def record_signal(entry: dict):
     entry["ts"] = time.strftime("%H:%M:%S")
     SIGNAL_LOG.insert(0, entry)
     del SIGNAL_LOG[40:]
+
+
+def is_exact_certain_signal(quant: dict, min_certainty: int = 70) -> bool:
+    if not isinstance(quant, dict):
+        return False
+    sig = str(quant.get("signal", "NEUTRAL")).upper()
+    cert = int(quant.get("certainty_pct", 0) or 0)
+    label = str(quant.get("certainty_label", "")).upper()
+    profit_ready = bool(quant.get("profit_ready", False))
+    exp_r = float(quant.get("expectancy_r", 0.0) or 0.0)
+    return (
+        sig in ("BUY", "SELL")
+        and cert >= max(70, int(min_certainty or 70))
+        and "SEGNALE CERTO" in label
+        and profit_ready
+        and exp_r > 0
+    )
+
+
+def get_active_signal_lock():
+    now = time.time()
+    if SIGNAL_LOCK.get("locked") and now >= float(SIGNAL_LOCK.get("expires_at", 0) or 0):
+        SIGNAL_LOCK["locked"] = False
+    return {
+        **SIGNAL_LOCK,
+        "remaining_sec": max(0, int(float(SIGNAL_LOCK.get("expires_at", 0) or 0) - now)) if SIGNAL_LOCK.get("locked") else 0
+    }
+
+
+def engage_signal_lock(symbol: str, tf: str, quant: dict, ttl_sec: int = None):
+    if not is_exact_certain_signal(quant):
+        return get_active_signal_lock()
+    now = time.time()
+    duration = int(ttl_sec or TF_SECONDS.get(tf, 300))
+    same_setup = (
+        SIGNAL_LOCK.get("locked")
+        and SIGNAL_LOCK.get("symbol") == symbol
+        and SIGNAL_LOCK.get("tf") == tf
+        and SIGNAL_LOCK.get("side") == quant.get("signal")
+        and now < float(SIGNAL_LOCK.get("expires_at", 0) or 0)
+    )
+    if not same_setup:
+        SIGNAL_LOCK.update({
+            "locked": True,
+            "symbol": symbol,
+            "tf": tf,
+            "side": quant.get("signal"),
+            "certainty_pct": int(quant.get("certainty_pct", 0) or 0),
+            "certainty_label": quant.get("certainty_label", ""),
+            "locked_at": now,
+            "expires_at": now + duration,
+            "quant": quant
+        })
+        record_signal({
+            "symbol": symbol,
+            "side": quant.get("signal"),
+            "tf": tf,
+            "certainty_label": f"BLOCCATO • {quant.get('certainty_label')}",
+            "tp1": quant.get("tp1"),
+            "tp2": quant.get("tp2"),
+            "tp3": quant.get("tp3"),
+            "sl": quant.get("sl"),
+            "outcome": "SEGNALE BLOCCATO"
+        })
+    else:
+        SIGNAL_LOCK["quant"] = quant
+        SIGNAL_LOCK["certainty_pct"] = int(quant.get("certainty_pct", 0) or 0)
+        SIGNAL_LOCK["certainty_label"] = quant.get("certainty_label", "")
+    return get_active_signal_lock()
+
+
+def release_signal_lock():
+    SIGNAL_LOCK.update({
+        "locked": False,
+        "symbol": None,
+        "tf": None,
+        "side": None,
+        "certainty_pct": 0,
+        "certainty_label": "",
+        "locked_at": 0.0,
+        "expires_at": 0.0,
+        "quant": None
+    })
+    return get_active_signal_lock()
 
 
 def calc_ema(values: list, period: int):
@@ -405,12 +500,11 @@ def compute_quant_brain(symbol: str, tf: str, side: str = "BUY"):
 def categorize_symbol(symbol: str) -> str:
     s = symbol.upper()
     commodities = (
-        "XAU", "XAG", "GOLD", "SILVER", "OIL", "WTI", "BRENT",
-        "COPPER", "NATGAS", "CORN", "WHEAT", "PALLADIUM", "PLATINUM"
+        "XAUT-USDT", "PAXG-USDT", "XAG-USDT", "WTI-USDT", "BRENT-USDT", "XAU-USDT"
     )
     stocks = (
         "NCSK", "AAPL", "TSLA", "NVDA", "MSFT", "AMZN", "META",
-        "GOOGL", "GOOG", "COIN", "MSTR", "SPX", "NDX", "US30", "NAS100"
+        "GOOGL", "GOOG", "COIN", "MSTR"
     )
     memes = (
         "PEPE", "SHIB", "DOGE", "FLOKI", "BONK", "WIF", "MEME",
@@ -418,7 +512,7 @@ def categorize_symbol(symbol: str) -> str:
         "FARTCOIN", "HMSTR", "POPCAT", "PNUT", "MOODENG", "GOAT", "ACT"
     )
 
-    if any(k in s for k in commodities):
+    if s in commodities or any(s.startswith(p) for p in ("XAUT", "PAXG", "XAG", "XAU")):
         return "Materie Prime"
     if any(k in s for k in stocks):
         return "Azioni & Indici"
@@ -510,6 +604,39 @@ def select_category_candidates(category: str = "ALL", query: str = "", current_s
 
 
 def scan_category_markets(category: str = "ALL", query: str = "", tf: str = "5m", current_symbol: str = "BTC-USDT", max_items: int = 8):
+    lock_info = get_active_signal_lock()
+    if lock_info.get("locked") and lock_info.get("symbol"):
+        l_sym = lock_info["symbol"]
+        l_tf = lock_info.get("tf") or tf
+        l_side = lock_info.get("side") or "BUY"
+        q_locked = compute_quant_brain(l_sym, l_tf, l_side)
+        engage_signal_lock(l_sym, l_tf, q_locked)
+        best_locked = {
+            "symbol": l_sym,
+            "category": categorize_symbol(l_sym),
+            "score": int(q_locked.get("score", 0) or 0),
+            "abs_score": abs(int(q_locked.get("score", 0) or 0)),
+            "signal": q_locked.get("signal", l_side),
+            "certainty_pct": q_locked.get("certainty_pct", 0),
+            "certainty_label": q_locked.get("certainty_label", ""),
+            "expectancy_r": float(q_locked.get("expectancy_r", 0.0) or 0.0),
+            "profit_ready": q_locked.get("profit_ready", False),
+            "tp": q_locked.get("tp"),
+            "tp1": q_locked.get("tp1"),
+            "tp2": q_locked.get("tp2"),
+            "tp3": q_locked.get("tp3"),
+            "sl": q_locked.get("sl"),
+            "quant": q_locked
+        }
+        return {
+            "category": category,
+            "query": query,
+            "scanned_count": 1,
+            "best": best_locked,
+            "results": [best_locked],
+            "signal_lock": get_active_signal_lock()
+        }
+
     candidates = select_category_candidates(category, query, current_symbol, max_items)
     results = []
     best = None
@@ -539,6 +666,11 @@ def scan_category_markets(category: str = "ALL", query: str = "", tf: str = "5m"
         }
         results.append(item)
 
+        if is_exact_certain_signal(q_data):
+            engage_signal_lock(s, tf, q_data)
+            best = item
+            break
+
         rank_val = abs(sc) + (15 if exp_r > 0 else -20)
         if rank_val > best_abs_score:
             best_abs_score = rank_val
@@ -550,7 +682,8 @@ def scan_category_markets(category: str = "ALL", query: str = "", tf: str = "5m"
         "query": query,
         "scanned_count": len(results),
         "best": best,
-        "results": results
+        "results": results,
+        "signal_lock": get_active_signal_lock()
     }
 
 
@@ -661,69 +794,111 @@ def calc_dynamic_leverage(equity: float) -> int:
     return 5
 
 
-def compute_pnl_stats(inc_list: list, equity: float):
+def fetch_income_since(start_ms: int, max_windows: int = 6) -> list:
+    all_rows = []
+    seen_ids = set()
+    now_ms = int(time.time() * 1000)
+    window_ms = 7 * 24 * 60 * 60 * 1000
+    cursor_end = now_ms
+
+    for _ in range(max_windows):
+        if cursor_end < start_ms:
+            break
+        cursor_start = max(int(start_ms), cursor_end - window_ms + 1)
+
+        resp = bingx_req("GET", "/openApi/swap/v2/user/income", {
+            "startTime": cursor_start,
+            "endTime": cursor_end,
+            "limit": 1000
+        }, signed=True)
+
+        if resp.get("code") == 0 and isinstance(resp.get("data"), list):
+            for item in resp.get("data") or []:
+                ts_ms = int(item.get("time", 0) or item.get("timestamp", 0) or 0)
+                if 0 < ts_ms < 10**11:
+                    ts_ms *= 1000
+                uniq = (
+                    str(item.get("tranId") or item.get("id") or "")
+                    + "_" + str(ts_ms)
+                    + "_" + str(item.get("incomeType") or "")
+                    + "_" + str(item.get("symbol") or "")
+                    + "_" + str(item.get("income") or "")
+                )
+                if uniq not in seen_ids:
+                    seen_ids.add(uniq)
+                    all_rows.append({**item, "_ts_ms": ts_ms})
+
+        if cursor_start <= start_ms:
+            break
+        cursor_end = cursor_start - 1
+
+    all_rows.sort(key=lambda x: x.get("_ts_ms", 0), reverse=True)
+    return all_rows
+
+
+def compute_pnl_stats(month_rows: list, equity: float):
     now_dt = datetime.now(timezone.utc)
     day_start_ms = int(datetime(now_dt.year, now_dt.month, now_dt.day, tzinfo=timezone.utc).timestamp() * 1000)
     month_start_ms = int(datetime(now_dt.year, now_dt.month, 1, tzinfo=timezone.utc).timestamp() * 1000)
 
-    pnl_types = {"REALIZED_PNL", "PNL", "SETTLEMENT", "TRADE_PNL"}
-    daily_pnl = 0.0
-    monthly_pnl = 0.0
-    day_wins = 0
-    day_losses = 0
-    month_wins = 0
-    month_losses = 0
+    def summarize(rows: list, start_ms: int):
+        total_pnl = 0.0
+        wins = 0
+        losses = 0
 
-    for item in inc_list:
-        itype = str(item.get("incomeType", "")).upper()
-        if itype and itype not in pnl_types and "PNL" not in itype:
-            continue
-        try:
-            val = float(item.get("income", 0) or 0)
-        except Exception:
-            continue
-        ts_ms = int(item.get("time", 0) or item.get("timestamp", 0) or 0)
-        if ts_ms < 10**11 and ts_ms > 0:
-            ts_ms *= 1000
+        for item in rows:
+            ts_ms = int(item.get("_ts_ms") or item.get("time", 0) or item.get("timestamp", 0) or 0)
+            if 0 < ts_ms < 10**11:
+                ts_ms *= 1000
+            if ts_ms < start_ms:
+                continue
 
-        if ts_ms >= month_start_ms:
-            monthly_pnl += val
-            if val > 0:
-                month_wins += 1
-            elif val < 0:
-                month_losses += 1
+            itype = str(item.get("incomeType", "")).upper()
+            try:
+                val = float(item.get("income", 0) or 0)
+            except Exception:
+                continue
 
-        if ts_ms >= day_start_ms:
-            daily_pnl += val
-            if val > 0:
-                day_wins += 1
-            elif val < 0:
-                day_losses += 1
+            if "PNL" in itype or itype in ("REALIZED_PNL", "SETTLEMENT", "TRADE_PNL", "COMMISSION", "FUNDING_FEE", "FEE"):
+                total_pnl += val
+                if "PNL" in itype or itype in ("REALIZED_PNL", "SETTLEMENT", "TRADE_PNL"):
+                    if val > 0:
+                        wins += 1
+                    elif val < 0:
+                        losses += 1
 
-    day_trades = day_wins + day_losses
-    month_trades = month_wins + month_losses
+        total_trades = wins + losses
+        win_pct = round((wins / total_trades) * 100, 1) if total_trades > 0 else 0.0
+        loss_pct = round((losses / total_trades) * 100, 1) if total_trades > 0 else 0.0
 
-    day_win_pct = round((day_wins / day_trades) * 100, 1) if day_trades > 0 else 0.0
-    day_loss_pct = round((day_losses / day_trades) * 100, 1) if day_trades > 0 else 0.0
-    month_win_pct = round((month_wins / month_trades) * 100, 1) if month_trades > 0 else 0.0
-    month_loss_pct = round((month_losses / month_trades) * 100, 1) if month_trades > 0 else 0.0
+        base_eq = equity - total_pnl
+        if base_eq > 0.0001:
+            pnl_pct = round((total_pnl / base_eq) * 100, 2)
+        else:
+            pnl_pct = 0.0
 
-    base_eq = max(equity - monthly_pnl, 0.01) if equity > 0 else 1.0
-    day_base_eq = max(equity - daily_pnl, 0.01) if equity > 0 else 1.0
-    daily_pnl_pct = round((daily_pnl / day_base_eq) * 100, 2)
-    monthly_pnl_pct = round((monthly_pnl / base_eq) * 100, 2)
+        return {
+            "pnl": round(total_pnl, 4),
+            "pnl_pct": pnl_pct,
+            "win_pct": win_pct,
+            "loss_pct": loss_pct,
+            "trades": total_trades
+        }
+
+    d_stat = summarize(month_rows, day_start_ms)
+    m_stat = summarize(month_rows, month_start_ms)
 
     return {
-        "daily_pnl": round(daily_pnl, 4),
-        "daily_pnl_pct": daily_pnl_pct,
-        "daily_win_pct": day_win_pct,
-        "daily_loss_pct": day_loss_pct,
-        "daily_trades": day_trades,
-        "monthly_pnl": round(monthly_pnl, 4),
-        "monthly_pnl_pct": monthly_pnl_pct,
-        "monthly_win_pct": month_win_pct,
-        "monthly_loss_pct": month_loss_pct,
-        "monthly_trades": month_trades
+        "daily_pnl": d_stat["pnl"],
+        "daily_pnl_pct": d_stat["pnl_pct"],
+        "daily_win_pct": d_stat["win_pct"],
+        "daily_loss_pct": d_stat["loss_pct"],
+        "daily_trades": d_stat["trades"],
+        "monthly_pnl": m_stat["pnl"],
+        "monthly_pnl_pct": m_stat["pnl_pct"],
+        "monthly_win_pct": m_stat["win_pct"],
+        "monthly_loss_pct": m_stat["loss_pct"],
+        "monthly_trades": m_stat["trades"]
     }
 
 
@@ -736,6 +911,22 @@ def home():
 def api_markets():
     out = get_cached_markets(force_refresh=False)
     return jsonify({"code": 0, "count": len(out), "markets": out})
+
+
+@app.route("/api/signal-lock", methods=["GET", "POST"])
+def api_signal_lock():
+    if request.method == "POST":
+        data = request.get_json(silent=True) or {}
+        action = str(data.get("action", "")).upper()
+        if action in ("UNLOCK", "RELEASE", "CLEAR"):
+            return jsonify({"code": 0, "signal_lock": release_signal_lock()})
+        sym_req = data.get("symbol", "BTC-USDT")
+        tf_req = data.get("tf", "5m")
+        q_req = compute_quant_brain(sym_req, tf_req)
+        if is_exact_certain_signal(q_req):
+            return jsonify({"code": 0, "locked": True, "signal_lock": engage_signal_lock(sym_req, tf_req, q_req)})
+        return jsonify({"code": -1, "locked": False, "msg": "Segnale non ancora certo", "signal_lock": get_active_signal_lock()})
+    return jsonify({"code": 0, "signal_lock": get_active_signal_lock()})
 
 
 @app.route("/api/scan-category")
@@ -751,6 +942,7 @@ def api_scan_category():
         "scan": scan,
         "best_symbol": best.get("symbol", current_symbol),
         "quant": best.get("quant"),
+        "signal_lock": get_active_signal_lock(),
         "timing": candle_timing_info(tf),
         "signals_log": SIGNAL_LOG
     })
@@ -763,6 +955,8 @@ def api_tf_plan():
     side = request.args.get("side", "BUY").upper()
     timing = candle_timing_info(tf)
     quant = compute_quant_brain(symbol, tf, side)
+    if is_exact_certain_signal(quant):
+        engage_signal_lock(symbol, tf, quant)
     record_signal({
         "symbol": symbol,
         "side": side,
@@ -774,7 +968,7 @@ def api_tf_plan():
         "sl": quant.get("sl"),
         "outcome": "CALCOLATO"
     })
-    return jsonify({"code": 0, "timing": timing, "quant": quant, "signals_log": SIGNAL_LOG})
+    return jsonify({"code": 0, "timing": timing, "quant": quant, "signal_lock": get_active_signal_lock(), "signals_log": SIGNAL_LOG})
 
 
 @app.route("/api/live-ticker")
@@ -787,12 +981,15 @@ def api_live_ticker():
     depth = bingx_req("GET", "/openApi/swap/v2/quote/depth", {"symbol": symbol, "limit": 10})
     funding = bingx_req("GET", "/openApi/swap/v2/quote/premiumIndex", {"symbol": symbol})
     quant = compute_quant_brain(symbol, tf)
+    if is_exact_certain_signal(quant):
+        engage_signal_lock(symbol, tf, quant)
 
     return jsonify({
         "ticker": ticker.get("data", {}),
         "depth": depth.get("data", {}),
         "funding": funding.get("data", {}),
         "quant": quant,
+        "signal_lock": get_active_signal_lock(),
         "timing": candle_timing_info(tf),
         "auto_closed": auto_closed,
         "active_auto_closes": list(AUTO_CLOSE_WATCHLIST.values()),
@@ -802,9 +999,12 @@ def api_live_ticker():
 
 @app.route("/api/account")
 def api_account():
+    now_dt = datetime.now(timezone.utc)
+    month_start_ms = int(datetime(now_dt.year, now_dt.month, 1, tzinfo=timezone.utc).timestamp() * 1000)
+
     balance = bingx_req("GET", "/openApi/swap/v2/user/balance", signed=True)
     positions = bingx_req("GET", "/openApi/swap/v2/user/positions", signed=True)
-    income = bingx_req("GET", "/openApi/swap/v2/user/income", {"limit": 100}, signed=True)
+    month_income = fetch_income_since(month_start_ms, max_windows=6)
 
     equity = 0.0
     available = 0.0
@@ -813,7 +1013,6 @@ def api_account():
         equity = float(b.get("equity", 0) or 0)
         available = float(b.get("availableMargin", 0) or 0)
 
-    inc_list = income.get("data", []) if income.get("code") == 0 and isinstance(income.get("data"), list) else []
     raw_pos = positions.get("data", []) if positions.get("code") == 0 and isinstance(positions.get("data"), list) else []
 
     active_positions = []
@@ -837,15 +1036,16 @@ def api_account():
             "pnlPct": pnl_pct
         })
 
-    stats = compute_pnl_stats(inc_list, equity)
+    stats = compute_pnl_stats(month_income, equity)
 
     return jsonify({
         "equity": equity,
         "available": available,
         "recommended_leverage": calc_dynamic_leverage(equity),
         "positions": active_positions,
-        "income_history": inc_list,
+        "income_history": month_income,
         "pnl_stats": stats,
+        "signal_lock": get_active_signal_lock(),
         "signals_log": SIGNAL_LOG
     })
 
@@ -892,10 +1092,11 @@ def submit_bingx_order(symbol: str, side: str, order_type: str, tf: str, qty: fl
 @app.route("/api/order", methods=["POST"])
 def api_order():
     data = request.get_json(force=True) or {}
-    symbol = data.get("symbol", "BTC-USDT")
-    side = str(data.get("side", "NEUTRAL")).upper()
+    lock_info = get_active_signal_lock()
+    symbol = lock_info.get("symbol") if lock_info.get("locked") else data.get("symbol", "BTC-USDT")
+    side = (lock_info.get("side") if lock_info.get("locked") else str(data.get("side", "NEUTRAL"))).upper()
     order_type = str(data.get("type", "MARKET")).upper()
-    tf = str(data.get("tf", "5m"))
+    tf = lock_info.get("tf") if lock_info.get("locked") else str(data.get("tf", "5m"))
     qty = float(data.get("quantity", 0) or 0)
     leverage = int(data.get("leverage", 20) or 20)
     price = data.get("price")
@@ -913,6 +1114,9 @@ def api_order():
         return jsonify({"code": -1, "msg": "Quantita' non valida"}), 400
 
     quant = compute_quant_brain(symbol, tf, side)
+    if is_exact_certain_signal(quant):
+        engage_signal_lock(symbol, tf, quant)
+
     ok_filter, reason = check_anti_fakeout_and_breakout(
         symbol, tf, side, anti_fakeout, anti_breakout, quant, min_certainty, allow_override
     )
@@ -928,7 +1132,7 @@ def api_order():
             "sl": quant.get("sl"),
             "outcome": "BLOCCATO"
         })
-        return jsonify({"code": -10, "msg": reason, "status": "NEUTRAL", "signals_log": SIGNAL_LOG}), 400
+        return jsonify({"code": -10, "msg": reason, "status": "NEUTRAL", "signal_lock": get_active_signal_lock(), "signals_log": SIGNAL_LOG}), 400
 
     res = submit_bingx_order(symbol, side, order_type, tf, qty, leverage, price, tp, sl, close_at_candle_end)
 
@@ -944,7 +1148,7 @@ def api_order():
         "outcome": "INVIATO" if res.get("code") == 0 else "ERRORE_API"
     })
 
-    return jsonify({**res, "signals_log": SIGNAL_LOG})
+    return jsonify({**res, "signal_lock": get_active_signal_lock(), "signals_log": SIGNAL_LOG})
 
 
 @app.route("/api/auto-trade", methods=["POST"])
@@ -963,7 +1167,65 @@ def api_auto_trade():
     anti_breakout = bool(data.get("anti_breakout", True))
 
     if qty <= 0:
-        return jsonify({"code": -1, "triggered": False, "msg": "AUTO-TRADE: quantita' non valida", "signals_log": SIGNAL_LOG})
+        return jsonify({"code": -1, "triggered": False, "msg": "AUTO-TRADE: quantita' non valida", "signal_lock": get_active_signal_lock(), "signals_log": SIGNAL_LOG})
+
+    lock_info = get_active_signal_lock()
+    if lock_info.get("locked") and lock_info.get("symbol") and lock_info.get("side"):
+        c_sym = lock_info["symbol"]
+        side = lock_info["side"]
+        tf_use = lock_info.get("tf") or tf
+        quant_side = compute_quant_brain(c_sym, tf_use, side)
+        engage_signal_lock(c_sym, tf_use, quant_side)
+
+        cooldown_key = f"{c_sym}_{tf_use}_{side}"
+        now_ts = time.time()
+        tf_sec = TF_SECONDS.get(tf_use, 300)
+        if now_ts - LAST_AUTO_ORDER_TS.get(cooldown_key, 0) < tf_sec:
+            return jsonify({
+                "code": 0,
+                "triggered": False,
+                "selected_symbol": c_sym,
+                "msg": f"SEGNALE CERTO BLOCCATO {side} {c_sym} ({lock_info.get('remaining_sec')}s residui)",
+                "quant": quant_side,
+                "signal_lock": get_active_signal_lock(),
+                "signals_log": SIGNAL_LOG
+            })
+
+        res = submit_bingx_order(
+            symbol=c_sym,
+            side=side,
+            order_type="MARKET",
+            tf=tf_use,
+            qty=qty,
+            leverage=leverage,
+            tp=quant_side.get("tp"),
+            sl=quant_side.get("sl"),
+            close_at_candle_end=close_at_candle_end
+        )
+        if res.get("code") == 0:
+            LAST_AUTO_ORDER_TS[cooldown_key] = now_ts
+            record_signal({
+                "symbol": c_sym,
+                "side": side,
+                "tf": tf_use,
+                "certainty_label": f"AUTO-TRADE BLOCCATO • {quant_side.get('certainty_label')}",
+                "tp1": quant_side.get("tp1"),
+                "tp2": quant_side.get("tp2"),
+                "tp3": quant_side.get("tp3"),
+                "sl": quant_side.get("sl"),
+                "outcome": "AUTO-INVIATO"
+            })
+            return jsonify({
+                "code": 0,
+                "triggered": True,
+                "side": side,
+                "selected_symbol": c_sym,
+                "msg": f"AUTO-TRADE ESEGUITO {side} {c_sym} (SEGNALE CERTO BLOCCATO)",
+                "quant": quant_side,
+                "order_res": res,
+                "signal_lock": get_active_signal_lock(),
+                "signals_log": SIGNAL_LOG
+            })
 
     if scan_all_cat:
         scan = scan_category_markets(category, query, tf, current_symbol, max_items=8)
@@ -987,7 +1249,10 @@ def api_auto_trade():
             display_quant = q_base
             display_symbol = c_sym
 
-        if score >= score_threshold:
+        if is_exact_certain_signal(q_base):
+            engage_signal_lock(c_sym, tf, q_base)
+            side = q_base["signal"]
+        elif score >= score_threshold:
             side = "BUY"
         elif score <= -abs(score_threshold):
             side = "SELL"
@@ -1000,6 +1265,9 @@ def api_auto_trade():
             continue
 
         quant_side = compute_quant_brain(c_sym, tf, side)
+        if is_exact_certain_signal(quant_side):
+            engage_signal_lock(c_sym, tf, quant_side)
+
         ok_filter, reason = check_anti_fakeout_and_breakout(
             c_sym, tf, side, anti_fakeout, anti_breakout, quant_side, min_certainty=50, allow_override=False
         )
@@ -1047,6 +1315,7 @@ def api_auto_trade():
                 "msg": f"AUTO-TRADE ESEGUITO {side} {c_sym} [{category}] (Score {score}, Exp +{exp_r}R)",
                 "quant": quant_side,
                 "order_res": res,
+                "signal_lock": get_active_signal_lock(),
                 "signals_log": SIGNAL_LOG
             })
 
@@ -1058,6 +1327,7 @@ def api_auto_trade():
         "selected_symbol": display_symbol,
         "msg": last_status_msg,
         "quant": display_quant,
+        "signal_lock": get_active_signal_lock(),
         "signals_log": SIGNAL_LOG
     })
 
