@@ -6,16 +6,16 @@
   <title>BINGX PRO SIGNAL DESK</title>
   <style>
     :root {
-      --bg: #070b12;
-      --panel: #0d1420;
-      --panel-2: #131d2f;
-      --border: #1e2d46;
-      --text: #e8eef8;
-      --muted: #8fa1bd;
-      --green: #16c784;
-      --red: #ea3943;
-      --amber: #f5b942;
-      --blue: #2563eb;
+      --bg: #ffffff;
+      --panel: #f4f9ff;
+      --panel-2: #eaf4fc;
+      --border: #b8d4ec;
+      --text: #0b2545;
+      --muted: #3b5f85;
+      --green: #0d9458;
+      --red: #d92d38;
+      --amber: #d9820b;
+      --blue: #1565c0;
     }
     * { box-sizing: border-box; touch-action: manipulation; }
     body {
@@ -81,16 +81,16 @@
       color: #fff;
     }
     .btn-primary { background: var(--blue); }
-    .btn-buy { background: var(--green); color: #03190f; }
-    .btn-sell { background: var(--red); }
+    .btn-buy { background: var(--green); color: #ffffff; }
+    .btn-sell { background: var(--blue); }
     .btn-warn { background: var(--amber); color: #191202; }
     .btn-ghost { background: var(--panel-2); border: 1px solid var(--border); color: var(--text); }
     .market-row { cursor: pointer; }
     .market-row:hover { background: var(--panel-2); }
-    .market-row.selected { background: rgba(37, 99, 235, 0.18); }
+    .market-row.selected { background: rgba(21, 101, 192, 0.14); }
     .tag-buy { color: var(--green); font-weight: 800; }
-    .tag-sell { color: var(--red); font-weight: 800; }
-    .tag-warn { color: var(--amber); font-weight: 800; }
+    .tag-sell { color: var(--blue); font-weight: 800; }
+    .tag-warn { color: var(--blue); font-weight: 800; }
     .table-wrap { overflow-x: auto; max-height: 280px; overflow-y: auto; }
     table { width: 100%; border-collapse: collapse; font-size: 12px; }
     th, td { padding: 7px 6px; border-bottom: 1px solid var(--border); text-align: left; }
@@ -123,7 +123,7 @@
             <strong id="tach-sym-title">BTC • WR --%</strong>
             <div class="sub" id="tach-sub-dir">▲ --</div>
           </div>
-          <span style="background:rgba(37,99,235,0.22); color:#60a5fa; border:1px solid rgba(96,165,250,0.4); font-size:10px; font-weight:800; padding:3px 7px; border-radius:6px;">TOP ASSET</span>
+          <span style="background:rgba(21,101,192,0.14); color:#1565c0; border:1px solid rgba(21,101,192,0.35); font-size:10px; font-weight:800; padding:3px 7px; border-radius:6px;">TOP ASSET</span>
         </div>
 
         <div style="font-size:24px; font-weight:900; margin-top:6px;" id="tach-price-big">$--</div>
@@ -135,8 +135,8 @@
             <span>TREND HEALTH</span>
             <span id="trend-health-val">0%</span>
           </div>
-          <div style="height:6px; background:#1b283d; border-radius:99px; overflow:hidden; margin-top:4px;">
-            <div id="trend-health-bar" style="height:100%; width:0%; background:linear-gradient(90deg,#f5b942,#16c784);"></div>
+          <div style="height:6px; background:#d7e9f7; border-radius:99px; overflow:hidden; margin-top:4px;">
+            <div id="trend-health-bar" style="height:100%; width:0%; background:linear-gradient(90deg,#1565c0,#0d9458);"></div>
           </div>
         </div>
 
@@ -145,19 +145,19 @@
             <span>VALUE SCORE</span>
             <span id="value-score-val">50% Balene / 50% Orsi</span>
           </div>
-          <div style="height:6px; background:#1b283d; border-radius:99px; overflow:hidden; margin-top:4px;">
+          <div style="height:6px; background:#d7e9f7; border-radius:99px; overflow:hidden; margin-top:4px;">
             <div id="value-score-bar" style="height:100%; width:50%; background:var(--green);"></div>
           </div>
         </div>
 
-        <div id="risk-alert-box" style="margin-top:10px; padding:10px; border-radius:8px; background:rgba(234,57,67,0.12); border:1px solid rgba(234,57,67,0.45);">
-          <div style="font-size:12px; font-weight:800; color:#ff6b72;" id="risk-alert-title">ATTESA — CONFLUENZA INCOMPLETA</div>
+        <div id="risk-alert-box" style="margin-top:10px; padding:10px; border-radius:8px; background:rgba(21,101,192,0.10); border:1px solid rgba(21,101,192,0.38);">
+          <div style="font-size:12px; font-weight:800; color:#1565c0;" id="risk-alert-title">ATTESA — CONFLUENZA INCOMPLETA</div>
           <div class="sub" id="risk-alert-reason" style="margin-top:3px;">Calcolo indicatori in corso...</div>
           <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; font-size:11px; font-weight:700;">
             <span id="timer-sym-label">TEMPO RESIDUO</span>
             <span class="tag-buy" id="timer-valid-label">VERIFICA REALTIME • 01:00</span>
           </div>
-          <div style="height:5px; background:#1b283d; border-radius:99px; overflow:hidden; margin-top:4px;">
+          <div style="height:5px; background:#d7e9f7; border-radius:99px; overflow:hidden; margin-top:4px;">
             <div id="timer-progress-bar" style="height:100%; width:100%; background:var(--green);"></div>
           </div>
         </div>
@@ -437,7 +437,7 @@
       const h = canvas.height;
       ctx.clearRect(0, 0, w, h);
 
-      ctx.fillStyle = "#8fa1bd";
+      ctx.fillStyle = "#1565c0";
       ctx.font = "bold 12px sans-serif";
       ctx.fillText(symLabel || "", 10, 16);
 
@@ -463,13 +463,13 @@
         const yL = toY(c.low);
         const up = c.close >= c.open;
 
-        ctx.strokeStyle = up ? "#16c784" : "#ea3943";
+        ctx.strokeStyle = up ? "#0d9458" : "#1565c0";
         ctx.beginPath();
         ctx.moveTo(x, yH);
         ctx.lineTo(x, yL);
         ctx.stroke();
 
-        ctx.fillStyle = up ? "#16c784" : "#ea3943";
+        ctx.fillStyle = up ? "#0d9458" : "#1565c0";
         ctx.fillRect(i * stepX + stepX * 0.22, Math.min(yO, yC), Math.max(2, stepX * 0.56), Math.max(2, Math.abs(yC - yO)));
       }
     }
@@ -487,10 +487,10 @@
       const r = Math.min(w * 0.36, h - 42);
 
       const stops = [
-        { s: Math.PI, e: Math.PI * 1.25, c: "#ea3943" },
-        { s: Math.PI * 1.25, e: Math.PI * 1.5, c: "#f5b942" },
-        { s: Math.PI * 1.5, e: Math.PI * 1.75, c: "#58d68d" },
-        { s: Math.PI * 1.75, e: Math.PI * 2.0, c: "#16c784" },
+        { s: Math.PI, e: Math.PI * 1.25, c: "#1565c0" },
+        { s: Math.PI * 1.25, e: Math.PI * 1.5, c: "#0288d1" },
+        { s: Math.PI * 1.5, e: Math.PI * 1.75, c: "#2e7d32" },
+        { s: Math.PI * 1.75, e: Math.PI * 2.0, c: "#0d9458" },
       ];
       ctx.lineWidth = 14;
       ctx.lineCap = "round";
@@ -509,21 +509,21 @@
       const nx = cx + Math.cos(angle) * (r - 12);
       const ny = cy + Math.sin(angle) * (r - 12);
 
-      ctx.strokeStyle = "#f8fafc";
+      ctx.strokeStyle = "#0b2545";
       ctx.lineWidth = 3;
       ctx.beginPath();
       ctx.moveTo(cx, cy);
       ctx.lineTo(nx, ny);
       ctx.stroke();
 
-      ctx.fillStyle = "#f8fafc";
+      ctx.fillStyle = "#0b2545";
       ctx.beginPath();
       ctx.arc(cx, cy, 5, 0, Math.PI * 2);
       ctx.fill();
 
       ctx.font = "800 16px sans-serif";
       ctx.textAlign = "center";
-      ctx.fillStyle = signal === "BUY" ? "#16c784" : (signal === "SELL" ? "#ea3943" : "#f5b942");
+      ctx.fillStyle = signal === "BUY" ? "#0d9458" : (signal === "SELL" ? "#1565c0" : "#0288d1");
       ctx.fillText(signal === "BUY" ? "Buy" : (signal === "SELL" ? "Sell" : "Wait"), cx, h - 4);
     }
 
@@ -612,13 +612,13 @@
       const riskTitle = document.getElementById("risk-alert-title");
       const riskReason = document.getElementById("risk-alert-reason");
       if (q.risk_blocked) {
-        riskBox.style.background = "rgba(234,57,67,0.12)";
-        riskBox.style.borderColor = "rgba(234,57,67,0.45)";
-        riskTitle.style.color = "#ff6b72";
+        riskBox.style.background = "rgba(21,101,192,0.10)";
+        riskBox.style.borderColor = "rgba(21,101,192,0.38)";
+        riskTitle.style.color = "#1565c0";
       } else {
-        riskBox.style.background = "rgba(22,199,132,0.12)";
-        riskBox.style.borderColor = "rgba(22,199,132,0.45)";
-        riskTitle.style.color = "#16c784";
+        riskBox.style.background = "rgba(13,148,88,0.10)";
+        riskBox.style.borderColor = "rgba(13,148,88,0.38)";
+        riskTitle.style.color = "#0d9458";
       }
       riskTitle.textContent = q.risk_title || "VERIFICA IN CORSO";
       riskReason.textContent = q.risk_reason || "";
