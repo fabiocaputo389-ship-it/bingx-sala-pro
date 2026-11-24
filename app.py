@@ -45,6 +45,15 @@ def clean_secret(val: str) -> str:
     return "".join(ch for ch in s if ch.isprintable() and not ch.isspace())
 
 
+def fmt_num_str(val) -> str:
+    if isinstance(val, float):
+        if math.isnan(val) or math.isinf(val):
+            return "0"
+        s = f"{val:.8f}".rstrip("0").rstrip(".")
+        return s if s else "0"
+    return str(val)
+
+
 API_KEY = clean_secret(os.getenv("BINGX_API_KEY", ""))
 API_SECRET = clean_secret(os.getenv("BINGX_SECRET_KEY", ""))
 BASE_URL = "https://open-api.bingx.com"
@@ -104,29 +113,40 @@ SIGNAL_LOCK = {
 
 
 def build_signed_query(params: dict) -> tuple:
-    clean_params = {k: str(v) for k, v in (params or {}).items() if v is not None and str(v) != ""}
+    clean_params = {}
+    for k, v in (params or {}).items():
+        if v is None or str(v) == "":
+            continue
+        clean_params[k] = fmt_num_str(v)
     clean_params["timestamp"] = str(int(time.time() * 1000))
     sorted_items = sorted(clean_params.items(), key=lambda x: x[0])
-    query = urlencode(sorted_items)
+    query = "&".join(f"{k}={v}" for k, v in sorted_items)
     sig = hmac.new(
         API_SECRET.encode("utf-8"),
         query.encode("utf-8"),
         hashlib.sha256
     ).hexdigest()
-    return query, sig
+    encoded_query = urlencode(sorted_items)
+    return encoded_query, sig
 
 
 def bingx_req(method: str, path: str, params: dict = None, signed: bool = False):
-    clean_params = {k: str(v) for k, v in (params or {}).items() if v is not None and str(v) != ""}
+    clean_params = {}
+    for k, v in (params or {}).items():
+        if v is None or str(v) == "":
+            continue
+        clean_params[k] = fmt_num_str(v)
+
     headers = {"X-BX-APIKEY": API_KEY}
 
     if signed:
         if not API_KEY or not API_SECRET:
             return {"code": -2, "msg": "Chiavi API BingX non impostate"}
-        query, sig = build_signed_query(clean_params)
-        url = f"{BASE_URL}{path}?{query}&signature={sig}"
+        encoded_query, sig = build_signed_query(clean_params)
+        url = f"{BASE_URL}{path}?{encoded_query}&signature={sig}"
     else:
-        query = urlencode(sorted(clean_params.items(), key=lambda x: x[0])) if clean_params else ""
+        sorted_items = sorted(clean_params.items(), key=lambda x: x[0])
+        query = urlencode(sorted_items) if sorted_items else ""
         url = f"{BASE_URL}{path}" + (f"?{query}" if query else "")
 
     try:
@@ -394,7 +414,7 @@ def format_price_smart(val, ref_price=None):
         return round(v, 5)
     if ref >= 0.001:
         return round(v, 6)
-    return round(v, 8)
+    return float(f"{v:.8f}")
 
 
 def compute_quant_brain(symbol: str, tf: str, side: str = None):
@@ -1186,7 +1206,48 @@ def api_account():
     })
 
 
-def submit_bingx_order(symbol: str, side: str, order_type: str, tf: str, qty: float, leverage: int, price=None, tp=None, sl=None, close_at_candle_end: bool = False):
+def _place_tp_sl_orders(symbol: str, side: str, pos_side: str, qty_val: float, clean_tp, clean_sl):
+    close_side = "SELL" if side == "BUY" else "BUY"
+    attached = {"tp_order": None, "sl_order": None}
+
+    if clean_tp not in (None, 0, 0.0):
+        attached["tp_order"] = bingx_req("POST", "/openApi/swap/v2/trade/order", {
+            "symbol": symbol,
+            "side": close_side,
+            "positionSide": pos_side,
+            "type": "TAKE_PROFIT_MARKET",
+            "stopPrice": fmt_num_str(clean_tp),
+            "quantity": fmt_num_str(qty_val),
+            "workingType": "MARK_PRICE"
+        }, signed=True)
+
+    if clean_sl not in (None, 0, 0.0):
+        attached["sl_order"] = bingx_req("POST", "/openApi/swap/v2/trade/order", {
+            "symbol": symbol,
+            "side": close_side,
+            "positionSide": pos_side,
+            "type": "STOP_MARKET",
+            "stopPrice": fmt_num_str(clean_sl),
+            "quantity": fmt_num_str(qty_val),
+            "workingType": "MARK_PRICE"
+        }, signed=True)
+
+    return attached
+
+
+def submit_bingx_order(
+    symbol: str,
+    side: str,
+    order_type: str,
+    tf: str,
+    qty: float,
+    leverage: int,
+    price=None,
+    tp=None,
+    sl=None,
+    close_at_candle_end: bool = False,
+    quant: dict = None
+):
     pos_side = "LONG" if side == "BUY" else "SHORT"
     qty_val = to_float(qty, 0.0)
     lev_val = int(to_float(leverage, 20))
@@ -1197,73 +1258,72 @@ def submit_bingx_order(symbol: str, side: str, order_type: str, tf: str, qty: fl
         "leverage": lev_val
     }, signed=True)
 
+    q_ref = quant if isinstance(quant, dict) and quant.get("price") else compute_quant_brain(symbol, tf, side)
+
     ticker = bingx_req("GET", "/openApi/swap/v2/quote/ticker", {"symbol": symbol})
     t_data = ticker.get("data") if isinstance(ticker.get("data"), dict) else {}
     mark_ref = to_float(t_data.get("lastPrice", 0), 0.0)
     if mark_ref <= 0:
-        q_tmp = compute_quant_brain(symbol, tf, side)
-        mark_ref = to_float(q_tmp.get("price", 0), 0.0)
+        mark_ref = to_float(q_ref.get("price", 0), 0.0)
 
-    clean_tp, clean_sl = sanitize_tp_sl_for_side(side, mark_ref, tp, sl)
+    eff_tp = tp if tp not in (None, "", 0, 0.0) else (q_ref.get("tp") or q_ref.get("tp2") or q_ref.get("tp1"))
+    eff_sl = sl if sl not in (None, "", 0, 0.0) else q_ref.get("sl")
+
+    clean_tp, clean_sl = sanitize_tp_sl_for_side(side, mark_ref, eff_tp, eff_sl)
 
     order_params = {
         "symbol": symbol,
         "side": side,
         "positionSide": pos_side,
         "type": order_type,
-        "quantity": qty_val
+        "quantity": fmt_num_str(qty_val)
     }
     if order_type == "LIMIT" and price not in (None, ""):
-        order_params["price"] = format_price_smart(to_float(price, mark_ref), mark_ref)
+        order_params["price"] = fmt_num_str(format_price_smart(to_float(price, mark_ref), mark_ref))
     if clean_tp not in (None, 0, 0.0):
         order_params["takeProfit"] = json.dumps({
             "type": "TAKE_PROFIT_MARKET",
-            "stopPrice": float(clean_tp),
+            "stopPrice": float(fmt_num_str(clean_tp)),
             "workingType": "MARK_PRICE"
         }, separators=(",", ":"))
     if clean_sl not in (None, 0, 0.0):
         order_params["stopLoss"] = json.dumps({
             "type": "STOP_MARKET",
-            "stopPrice": float(clean_sl),
+            "stopPrice": float(fmt_num_str(clean_sl)),
             "workingType": "MARK_PRICE"
         }, separators=(",", ":"))
 
     res = bingx_req("POST", "/openApi/swap/v2/trade/order", order_params, signed=True)
 
-    if res.get("code") != 0 and ("takeProfit" in order_params or "stopLoss" in order_params):
+    if res.get("code") == 0 and (clean_tp or clean_sl):
+        tp_sl_status = _place_tp_sl_orders(symbol, side, pos_side, qty_val, clean_tp, clean_sl)
+        res = {
+            **res,
+            "tp_applied": clean_tp,
+            "sl_applied": clean_sl,
+            "tp_sl_orders": tp_sl_status
+        }
+    elif res.get("code") != 0 and ("takeProfit" in order_params or "stopLoss" in order_params):
         base_params = {
             "symbol": symbol,
             "side": side,
             "positionSide": pos_side,
             "type": order_type,
-            "quantity": qty_val
+            "quantity": fmt_num_str(qty_val)
         }
         if "price" in order_params:
             base_params["price"] = order_params["price"]
         base_res = bingx_req("POST", "/openApi/swap/v2/trade/order", base_params, signed=True)
         if base_res.get("code") == 0:
             order_id = ((base_res.get("data") or {}).get("order") or {}).get("orderId")
-            if clean_tp:
-                bingx_req("POST", "/openApi/swap/v2/trade/order", {
-                    "symbol": symbol,
-                    "side": "SELL" if side == "BUY" else "BUY",
-                    "positionSide": pos_side,
-                    "type": "TAKE_PROFIT_MARKET",
-                    "stopPrice": float(clean_tp),
-                    "quantity": qty_val,
-                    "workingType": "MARK_PRICE"
-                }, signed=True)
-            if clean_sl:
-                bingx_req("POST", "/openApi/swap/v2/trade/order", {
-                    "symbol": symbol,
-                    "side": "SELL" if side == "BUY" else "BUY",
-                    "positionSide": pos_side,
-                    "type": "STOP_MARKET",
-                    "stopPrice": float(clean_sl),
-                    "quantity": qty_val,
-                    "workingType": "MARK_PRICE"
-                }, signed=True)
-            res = {**base_res, "orderId": order_id, "tp_applied": clean_tp, "sl_applied": clean_sl}
+            tp_sl_status = _place_tp_sl_orders(symbol, side, pos_side, qty_val, clean_tp, clean_sl)
+            res = {
+                **base_res,
+                "orderId": order_id,
+                "tp_applied": clean_tp,
+                "sl_applied": clean_sl,
+                "tp_sl_orders": tp_sl_status
+            }
 
     if res.get("code") == 0 and close_at_candle_end:
         timing = candle_timing_info(tf)
@@ -1281,7 +1341,7 @@ def submit_bingx_order(symbol: str, side: str, order_type: str, tf: str, qty: fl
         return {
             **res,
             "code": res.get("code", -1),
-            "msg": f"{bx_msg} (simbolo={symbol}, lato={pos_side}, qty={qty_val}, leva={lev_val}x)"
+            "msg": f"{bx_msg} (simbolo={symbol}, lato={pos_side}, qty={fmt_num_str(qty_val)}, leva={lev_val}x, tp={fmt_num_str(clean_tp) if clean_tp else '-'}, sl={fmt_num_str(clean_sl) if clean_sl else '-'})"
         }
 
     return res
@@ -1317,10 +1377,8 @@ def api_order():
     if is_exact_certain_signal(quant):
         engage_signal_lock(symbol, tf, quant)
 
-    if tp in (None, "") and quant.get("tp"):
-        tp = quant.get("tp")
-    if sl in (None, "") and quant.get("sl"):
-        sl = quant.get("sl")
+    eff_tp = tp if tp not in (None, "", 0, 0.0) else quant.get("tp")
+    eff_sl = sl if sl not in (None, "", 0, 0.0) else quant.get("sl")
 
     effective_override = allow_override or from_lock
     ok_filter, reason = check_anti_fakeout_and_breakout(
@@ -1340,7 +1398,10 @@ def api_order():
         })
         return jsonify({"code": -10, "msg": reason, "status": "NEUTRAL", "signal_lock": get_active_signal_lock(), "signals_log": SIGNAL_LOG}), 400
 
-    res = submit_bingx_order(symbol, side, order_type, tf, qty, leverage, price, tp, sl, close_at_candle_end)
+    res = submit_bingx_order(
+        symbol, side, order_type, tf, qty, leverage, price,
+        tp=eff_tp, sl=eff_sl, close_at_candle_end=close_at_candle_end, quant=quant
+    )
 
     record_signal({
         "symbol": symbol,
@@ -1348,9 +1409,9 @@ def api_order():
         "tf": tf,
         "certainty_label": quant.get("certainty_label"),
         "tp1": quant.get("tp1"),
-        "tp2": tp or quant.get("tp2"),
+        "tp2": res.get("tp_applied") or eff_tp or quant.get("tp2"),
         "tp3": quant.get("tp3"),
-        "sl": sl or quant.get("sl"),
+        "sl": res.get("sl_applied") or eff_sl or quant.get("sl"),
         "outcome": "APERTO SU BINGX" if res.get("code") == 0 else (res.get("msg") or "ERRORE_API")
     })
 
@@ -1427,7 +1488,8 @@ def api_auto_trade():
                 leverage=leverage,
                 tp=quant_side.get("tp"),
                 sl=quant_side.get("sl"),
-                close_at_candle_end=close_at_candle_end
+                close_at_candle_end=close_at_candle_end,
+                quant=quant_side
             )
             if res.get("code") == 0:
                 LAST_AUTO_ORDER_TS[cooldown_key] = now_ts
@@ -1437,9 +1499,9 @@ def api_auto_trade():
                     "tf": tf_use,
                     "certainty_label": f"AUTO-TRADE BLOCCATO • {quant_side.get('certainty_label')}",
                     "tp1": quant_side.get("tp1"),
-                    "tp2": quant_side.get("tp2"),
+                    "tp2": res.get("tp_applied") or quant_side.get("tp2"),
                     "tp3": quant_side.get("tp3"),
-                    "sl": quant_side.get("sl"),
+                    "sl": res.get("sl_applied") or quant_side.get("sl"),
                     "outcome": "APERTO SU BINGX"
                 })
                 return jsonify({
@@ -1530,7 +1592,8 @@ def api_auto_trade():
             leverage=leverage,
             tp=quant_side.get("tp"),
             sl=quant_side.get("sl"),
-            close_at_candle_end=close_at_candle_end
+            close_at_candle_end=close_at_candle_end,
+            quant=quant_side
         )
 
         if res.get("code") == 0:
@@ -1541,9 +1604,9 @@ def api_auto_trade():
                 "tf": tf,
                 "certainty_label": f"AUTO-TRADE [{category}] • {quant_side.get('certainty_label')}",
                 "tp1": quant_side.get("tp1"),
-                "tp2": quant_side.get("tp2"),
+                "tp2": res.get("tp_applied") or quant_side.get("tp2"),
                 "tp3": quant_side.get("tp3"),
-                "sl": quant_side.get("sl"),
+                "sl": res.get("sl_applied") or quant_side.get("sl"),
                 "outcome": "APERTO SU BINGX"
             })
             return jsonify({
