@@ -117,6 +117,78 @@
         <div class="sub" id="sync-indicator">Sincronizzato</div>
       </div>
 
+      <div class="tach-card" style="margin-top:10px; background:var(--panel-2); border:1px solid var(--border); border-radius:10px; padding:12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <strong id="tach-sym-title">BTC • WR --%</strong>
+            <div class="sub" id="tach-sub-dir">▲ --</div>
+          </div>
+          <span style="background:rgba(37,99,235,0.22); color:#60a5fa; border:1px solid rgba(96,165,250,0.4); font-size:10px; font-weight:800; padding:3px 7px; border-radius:6px;">TOP ASSET</span>
+        </div>
+
+        <div style="font-size:24px; font-weight:900; margin-top:6px;" id="tach-price-big">$--</div>
+
+        <canvas id="gaugeCanvas" width="460" height="165" style="height:155px; background:transparent; border:0; margin:4px auto 0;"></canvas>
+
+        <div style="margin-top:8px;">
+          <div style="display:flex; justify-content:space-between; font-size:11px; font-weight:700;">
+            <span>TREND HEALTH</span>
+            <span id="trend-health-val">0%</span>
+          </div>
+          <div style="height:6px; background:#1b283d; border-radius:99px; overflow:hidden; margin-top:4px;">
+            <div id="trend-health-bar" style="height:100%; width:0%; background:linear-gradient(90deg,#f5b942,#16c784);"></div>
+          </div>
+        </div>
+
+        <div style="margin-top:10px;">
+          <div style="display:flex; justify-content:space-between; font-size:11px; font-weight:700;">
+            <span>VALUE SCORE</span>
+            <span id="value-score-val">50% Balene / 50% Orsi</span>
+          </div>
+          <div style="height:6px; background:#1b283d; border-radius:99px; overflow:hidden; margin-top:4px;">
+            <div id="value-score-bar" style="height:100%; width:50%; background:var(--green);"></div>
+          </div>
+        </div>
+
+        <div id="risk-alert-box" style="margin-top:10px; padding:10px; border-radius:8px; background:rgba(234,57,67,0.12); border:1px solid rgba(234,57,67,0.45);">
+          <div style="font-size:12px; font-weight:800; color:#ff6b72;" id="risk-alert-title">ATTESA — CONFLUENZA INCOMPLETA</div>
+          <div class="sub" id="risk-alert-reason" style="margin-top:3px;">Calcolo indicatori in corso...</div>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; font-size:11px; font-weight:700;">
+            <span id="timer-sym-label">TEMPO RESIDUO</span>
+            <span class="tag-buy" id="timer-valid-label">VERIFICA REALTIME • 01:00</span>
+          </div>
+          <div style="height:5px; background:#1b283d; border-radius:99px; overflow:hidden; margin-top:4px;">
+            <div id="timer-progress-bar" style="height:100%; width:100%; background:var(--green);"></div>
+          </div>
+        </div>
+
+        <div style="margin-top:10px; padding:10px; border-radius:8px; background:var(--panel); border:1px solid var(--border);">
+          <div style="font-size:11px; font-weight:800; color:var(--green);" id="rec-title">RECOMMENDATION: WAIT</div>
+          <div class="sub" id="rec-desc" style="margin-top:3px;">In attesa di conferma tecnica.</div>
+        </div>
+
+        <div class="grid-4" style="margin-top:8px;">
+          <div class="kpi" style="text-align:center;">
+            <div class="kpi-val" id="m-rsi-val">--</div>
+            <div class="kpi-label">RSI</div>
+          </div>
+          <div class="kpi" style="text-align:center;">
+            <div class="kpi-val tag-buy" id="m-whales-val">--%</div>
+            <div class="kpi-label">BALENE</div>
+          </div>
+          <div class="kpi" style="text-align:center;">
+            <div class="kpi-val tag-sell" id="m-bears-val">--%</div>
+            <div class="kpi-label">ORSI</div>
+          </div>
+          <div class="kpi" style="text-align:center;">
+            <div class="kpi-val tag-warn" id="m-sent-val">ATTESA</div>
+            <div class="kpi-label">SENTIMENT</div>
+          </div>
+        </div>
+
+        <button type="button" class="btn-buy" id="btn-copy-bingx" style="width:100%; margin-top:10px; padding:12px;">COPIA XAUT-USDT PER APP BINGX</button>
+      </div>
+
       <div class="grid-2">
         <div class="kpi">
           <div class="kpi-label">API BingX</div>
@@ -135,7 +207,7 @@
         </div>
         <div class="kpi">
           <div class="kpi-label">Simbolo</div>
-          <div class="kpi-val" id="sym-txt">XAUT-USDT</div>
+          <div class="kpi-val" id="sym-txt">BTC-USDT</div>
         </div>
         <div class="kpi">
           <div class="kpi-label">Prezzo</div>
@@ -177,7 +249,7 @@
     <div class="card">
       <div style="display:flex; justify-content:space-between; align-items:center;">
         <strong id="mkt-title">MERCATI (0)</strong>
-        <span class="sub" id="mkt-cat-label">Tutti</span>
+        <span class="sub" id="mkt-cat-label">Materie Prime</span>
       </div>
 
       <div class="cat-bar" id="cat-bar">
@@ -401,6 +473,59 @@
       }
     }
 
+    function drawGauge(signal, confidence) {
+      const canvas = document.getElementById("gaugeCanvas");
+      if (!canvas) return;
+      const ctx = canvas.getContext("2d");
+      const w = canvas.width;
+      const h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+
+      const cx = w * 0.5;
+      const cy = h - 28;
+      const r = Math.min(w * 0.36, h - 42);
+
+      const stops = [
+        { s: Math.PI, e: Math.PI * 1.25, c: "#ea3943" },
+        { s: Math.PI * 1.25, e: Math.PI * 1.5, c: "#f5b942" },
+        { s: Math.PI * 1.5, e: Math.PI * 1.75, c: "#58d68d" },
+        { s: Math.PI * 1.75, e: Math.PI * 2.0, c: "#16c784" },
+      ];
+      ctx.lineWidth = 14;
+      ctx.lineCap = "round";
+      for (const st of stops) {
+        ctx.strokeStyle = st.c;
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, st.s, st.e);
+        ctx.stroke();
+      }
+
+      let norm = 0.5;
+      if (signal === "BUY") norm = Math.min(0.95, Math.max(0.58, (confidence || 70) / 100));
+      else if (signal === "SELL") norm = Math.min(0.42, Math.max(0.05, 1.0 - ((confidence || 70) / 100)));
+
+      const angle = Math.PI + norm * Math.PI;
+      const nx = cx + Math.cos(angle) * (r - 12);
+      const ny = cy + Math.sin(angle) * (r - 12);
+
+      ctx.strokeStyle = "#f8fafc";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(nx, ny);
+      ctx.stroke();
+
+      ctx.fillStyle = "#f8fafc";
+      ctx.beginPath();
+      ctx.arc(cx, cy, 5, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.font = "800 16px sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillStyle = signal === "BUY" ? "#16c784" : (signal === "SELL" ? "#ea3943" : "#f5b942");
+      ctx.fillText(signal === "BUY" ? "Buy" : (signal === "SELL" ? "Sell" : "Wait"), cx, h - 4);
+    }
+
     function renderData(data) {
       if (!data || !data.ok) return;
       const q = data.quant || {};
@@ -473,6 +598,58 @@
       }
 
       drawCandles(q.candles || [], `${activeSym} (${t.tf || "1m"})`);
+      drawGauge(q.signal || "NEUTRAL", q.confidence || 50);
+
+      const baseSym = activeSym.replace("-USDT", "");
+      document.getElementById("tach-sym-title").textContent = `${baseSym} • WR ${q.win_rate ?? "--"}%`;
+      const dirArrow = q.signal === "BUY" ? "▲ LONG" : (q.signal === "SELL" ? "▼ SHORT" : "• NEUTRAL");
+      document.getElementById("tach-sub-dir").textContent = `${dirArrow} ${q.confidence ?? "--"}%`;
+      document.getElementById("tach-price-big").textContent = q.price != null ? `$${q.price}` : "$--";
+
+      const th = Number(q.trend_health || 0);
+      document.getElementById("trend-health-val").textContent = `${th}%`;
+      document.getElementById("trend-health-bar").style.width = `${Math.min(100, Math.max(0, th))}%`;
+
+      const wPct = Number(q.whales_pct ?? 50);
+      const bPct = Number(q.bears_pct ?? 50);
+      document.getElementById("value-score-val").textContent = `${wPct}% Balene / ${bPct}% Orsi`;
+      document.getElementById("value-score-bar").style.width = `${Math.min(100, Math.max(5, q.value_score ?? wPct))}%`;
+
+      const riskBox = document.getElementById("risk-alert-box");
+      const riskTitle = document.getElementById("risk-alert-title");
+      const riskReason = document.getElementById("risk-alert-reason");
+      if (q.risk_blocked) {
+        riskBox.style.background = "rgba(234,57,67,0.12)";
+        riskBox.style.borderColor = "rgba(234,57,67,0.45)";
+        riskTitle.style.color = "#ff6b72";
+      } else {
+        riskBox.style.background = "rgba(22,199,132,0.12)";
+        riskBox.style.borderColor = "rgba(22,199,132,0.45)";
+        riskTitle.style.color = "#16c784";
+      }
+      riskTitle.textContent = q.risk_title || "VERIFICA IN CORSO";
+      riskReason.textContent = q.risk_reason || "";
+
+      const remSec = Number(t.remaining_sec || 0);
+      const durSec = Math.max(1, Number(t.duration_sec || 60));
+      document.getElementById("timer-sym-label").textContent = `TEMPO RESIDUO (${baseSym})`;
+      document.getElementById("timer-valid-label").textContent = `${q.risk_blocked ? "CAUTELA" : "CONFERMATO"} • ${fmtCountdown(remSec)}`;
+      document.getElementById("timer-progress-bar").style.width = `${Math.min(100, Math.max(0, (remSec / durSec) * 100))}%`;
+
+      document.getElementById("rec-title").textContent = `RECOMMENDATION: ${q.recommendation_side || "WAIT"}`;
+      document.getElementById("rec-desc").textContent = q.recommendation_text || "";
+      document.getElementById("m-rsi-val").textContent = q.rsi != null ? `${q.rsi} ↑` : "--";
+      document.getElementById("m-whales-val").textContent = `${wPct}%`;
+      document.getElementById("m-bears-val").textContent = `${bPct}%`;
+      document.getElementById("m-sent-val").textContent = q.sentiment || "ATTESA";
+
+      const copyBtn = document.getElementById("btn-copy-bingx");
+      copyBtn.textContent = `COPIA ${activeSym} PER APP BINGX`;
+      copyBtn.onclick = async () => {
+        const summary = `${activeSym} | ${q.signal || "NEUTRAL"} | Prezzo: ${q.price} | TP: ${q.tp ?? "-"} | SL: ${q.sl ?? "-"} | RSI: ${q.rsi} | MACD: ${q.macd_status}`;
+        try { await navigator.clipboard.writeText(summary); } catch (_) {}
+        document.getElementById("bingx-outcome-box").textContent = `COPIATO PER BINGX: ${summary}`;
+      };
 
       document.getElementById("pos-title").textContent = `POSIZIONI APERTE (${pos.length})`;
       const posTbody = document.getElementById("pos-tbody");
@@ -571,7 +748,7 @@
       btn.addEventListener("click", async () => {
         document.querySelectorAll("#cat-bar .cat-btn").forEach(b => b.classList.remove("active"));
         btn.classList.add("active");
-        activeCategory = btn.getAttribute("data-cat") || "Tutti";
+        activeCategory = btn.getAttribute("data-cat") || "Materie Prime";
         forceScanNext = true;
         await fetch("/api/auto-trade", {
           method: "POST",
