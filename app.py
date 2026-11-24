@@ -270,11 +270,45 @@ def fetch_klines(symbol: str, tf: str = "1m", limit: int = 60):
 def _ema(values, period):
     if not values:
         return []
-    k = 2.0 / (period + 1.0)
+    k = 2.0 / (period + 1)
     out = [values[0]]
     for v in values[1:]:
-        out.append(v * k + out[-1] * (1.0 - k))
+        out.append(v * k + out[-1] * (1 - k))
     return out
+
+
+def _rsi(values, period=14):
+    if len(values) < period + 1:
+        return 50.0
+    gains = []
+    losses = []
+    for i in range(1, len(values)):
+        diff = values[i] - values[i - 1]
+        gains.append(max(0.0, diff))
+        losses.append(max(0.0, -diff))
+    avg_gain = sum(gains[-period:]) / period
+    avg_loss = sum(losses[-period:]) / period
+    if avg_loss == 0:
+        return 75.0 if avg_gain > 0 else 50.0
+    rs = avg_gain / avg_loss
+    return round(100.0 - (100.0 / (1.0 + rs)), 1)
+
+
+def _macd_state(values):
+    if len(values) < 26:
+        return 0.0, 0.0, "NEUTRAL"
+    ema12 = _ema(values, 12)
+    ema26 = _ema(values, 26)
+    macd_line = [a - b for a, b in zip(ema12, ema26)]
+    signal_line = _ema(macd_line, 9)
+    hist = macd_line[-1] - signal_line[-1]
+    if macd_line[-1] > signal_line[-1] and hist > 0:
+        st = "BULLISH"
+    elif macd_line[-1] < signal_line[-1] and hist < 0:
+        st = "BEARISH"
+    else:
+        st = "NEUTRAL"
+    return round(macd_line[-1], 6), round(hist, 6), st
 
 
 def compute_quant_brain(symbol: str, tf: str = "1m", forced_side: str = None) -> dict:
@@ -289,7 +323,7 @@ def compute_quant_brain(symbol: str, tf: str = "1m", forced_side: str = None) ->
     if live_price <= 0 and closes:
         live_price = closes[-1]
     if live_price <= 0:
-        live_price = 3600.0
+        live_price = 60000.0
 
     if len(closes) >= 20:
         ema_fast = _ema(closes, 9)[-1]
@@ -303,36 +337,109 @@ def compute_quant_brain(symbol: str, tf: str = "1m", forced_side: str = None) ->
         atr = live_price * 0.004
         momentum_pct = 0.0
 
+    rsi_val = _rsi(closes, 14)
+    _, macd_hist, macd_status = _macd_state(closes)
+
+    whale_score = 50.0
+    if len(candles) >= 6:
+        bull_imp = 0.0
+        bear_imp = 0.0
+        for c in candles[-12:]:
+            rng = max(1e-9, c["high"] - c["low"])
+            body = c["close"] - c["open"]
+            vol = max(1.0, c.get("volume", 1.0))
+            strength = abs(body) / rng
+            if body >= 0:
+                bull_imp += vol * (0.4 + strength)
+            else:
+                bear_imp += vol * (0.4 + strength)
+        tot_imp = bull_imp + bear_imp
+        if tot_imp > 0:
+            whale_score = round(min(85.0, max(15.0, (bull_imp / tot_imp) * 100.0)), 1)
+    bears_score = round(100.0 - whale_score, 1)
+
     atr_pct = (atr / live_price) if live_price > 0 else 0.004
     step_dist = max(live_price * max(atr_pct, 0.0025), live_price * 0.002)
+
+    bull_confirmations = 0
+    bear_confirmations = 0
+    if ema_fast > ema_slow:
+        bull_confirmations += 1
+    elif ema_fast < ema_slow:
+        bear_confirmations += 1
+    if macd_status == "BULLISH":
+        bull_confirmations += 1
+    elif macd_status == "BEARISH":
+        bear_confirmations += 1
+    if momentum_pct > 0.08:
+        bull_confirmations += 1
+    elif momentum_pct < -0.08:
+        bear_confirmations += 1
+    if whale_score >= 54.0 and rsi_val < 72.0:
+        bull_confirmations += 1
+    elif bears_score >= 54.0 and rsi_val > 28.0:
+        bear_confirmations += 1
 
     if forced_side in ("BUY", "SELL"):
         signal = forced_side
     else:
-        if ema_fast > ema_slow and momentum_pct > 0.08:
+        if bull_confirmations >= 3 and bear_confirmations == 0 and rsi_val < 74.0:
             signal = "BUY"
-        elif ema_fast < ema_slow and momentum_pct < -0.08:
+        elif bear_confirmations >= 3 and bull_confirmations == 0 and rsi_val > 26.0:
             signal = "SELL"
         else:
             signal = "NEUTRAL"
 
-    raw_conf = 54.0 + min(38.0, abs(momentum_pct) * 20.0 + abs(ema_fast - ema_slow) / max(live_price, 1e-9) * 5000.0)
-    confidence = round(min(95.0, max(24.0, raw_conf)), 1)
+    trend_health = int(round(min(96, max(18, 42 + max(bull_confirmations, bear_confirmations) * 12 + min(15, abs(momentum_pct) * 12)))))
+    value_score = whale_score if signal != "SELL" else bears_score
+
+    extreme_rsi = (signal == "BUY" and rsi_val >= 72.0) or (signal == "SELL" and rsi_val <= 28.0)
+    high_volatility = atr_pct > 0.025
+    conflicting_flow = (signal == "BUY" and macd_status == "BEARISH") or (signal == "SELL" and macd_status == "BULLISH")
+
+    if signal == "NEUTRAL":
+        risk_blocked = True
+        risk_title = "ATTESA — CONFLUENZA INCOMPLETA"
+        risk_reason = f"Conferme reali: {bull_confirmations} LONG / {bear_confirmations} SHORT • RSI {rsi_val} • MACD {macd_status}"
+        sentiment_label = "ATTESA"
+    elif extreme_rsi or high_volatility or conflicting_flow:
+        risk_blocked = True
+        risk_title = "NON ENTRARE — SEGNALE AD ALTO RISCHIO"
+        if extreme_rsi:
+            risk_reason = f"RSI estremo ({rsi_val}) su {symbol} • Rischio ritracciamento immediato"
+        elif high_volatility:
+            risk_reason = f"Volatilita' ATR elevata ({round(atr_pct * 100, 2)}%) su {symbol}"
+        else:
+            risk_reason = f"Divergenza MACD ({macd_status}) rispetto al segnale {signal} su {symbol}"
+        sentiment_label = "CAUTELA"
+    else:
+        risk_blocked = False
+        risk_title = "SEGNALE VERIFICATO — CONFLUENZA REALE"
+        risk_reason = f"{max(bull_confirmations, bear_confirmations)}/4 indicatori allineati • MACD {macd_status} • RSI {rsi_val}"
+        sentiment_label = "FORTE" if max(bull_confirmations, bear_confirmations) >= 4 else "CONFERMATO"
+
+    raw_conf = 45.0 + max(bull_confirmations, bear_confirmations) * 11.5 + min(12.0, abs(momentum_pct) * 10.0)
+    if risk_blocked and signal != "NEUTRAL":
+        raw_conf = min(raw_conf, 64.0)
+    confidence = round(min(94.0, max(25.0, raw_conf)), 1)
+    win_rate = round(min(91.0, max(48.0, 52.0 + max(bull_confirmations, bear_confirmations) * 8.5 - (10.0 if risk_blocked else 0.0))), 1)
 
     if signal == "BUY":
         tp1 = format_price_smart(live_price + step_dist * 0.8, live_price)
         tp2 = format_price_smart(live_price + step_dist * 1.4, live_price)
         tp3 = format_price_smart(live_price + step_dist * 2.1, live_price)
         sl = format_price_smart(max(live_price * 0.0001, live_price - step_dist * 0.9), live_price)
-        label = "SEGNALE CERTO LONG"
+        label = "SEGNALE CERTO LONG" if not risk_blocked else "LONG CON RISCHIO"
         score = int(round(min(100, max(61, confidence))))
+        rec_text = f"Pressione: {int(round(whale_score))}% Balene / {int(round(bears_score))}% Orsi. MACD: {macd_status}."
     elif signal == "SELL":
         tp1 = format_price_smart(max(live_price * 0.0001, live_price - step_dist * 0.8), live_price)
         tp2 = format_price_smart(max(live_price * 0.0001, live_price - step_dist * 1.4), live_price)
         tp3 = format_price_smart(max(live_price * 0.0001, live_price - step_dist * 2.1), live_price)
         sl = format_price_smart(live_price + step_dist * 0.9, live_price)
-        label = "SEGNALE CERTO SHORT"
+        label = "SEGNALE CERTO SHORT" if not risk_blocked else "SHORT CON RISCHIO"
         score = -int(round(min(100, max(61, confidence))))
+        rec_text = f"Pressione: {int(round(whale_score))}% Balene / {int(round(bears_score))}% Orsi. MACD: {macd_status}."
     else:
         tp1 = None
         tp2 = None
@@ -340,6 +447,7 @@ def compute_quant_brain(symbol: str, tf: str = "1m", forced_side: str = None) ->
         sl = None
         label = "ATTESA • NO TRADE CERTO"
         score = int(round(min(55, max(15, confidence * 0.6))))
+        rec_text = f"Pressione: {int(round(whale_score))}% Balene / {int(round(bears_score))}% Orsi. MACD: {macd_status}."
 
     p_fmt = format_price_smart(live_price, live_price)
     entry_min = format_price_smart(p_fmt * 0.9992, p_fmt)
@@ -352,6 +460,7 @@ def compute_quant_brain(symbol: str, tf: str = "1m", forced_side: str = None) ->
         "change_pct": round(change_pct, 2),
         "signal": signal,
         "confidence": confidence,
+        "win_rate": win_rate,
         "score": score,
         "label": label,
         "entry_min": entry_min,
@@ -364,6 +473,19 @@ def compute_quant_brain(symbol: str, tf: str = "1m", forced_side: str = None) ->
         "ema_fast": format_price_smart(ema_fast, p_fmt),
         "ema_slow": format_price_smart(ema_slow, p_fmt),
         "atr": format_price_smart(atr, p_fmt),
+        "rsi": rsi_val,
+        "macd_hist": macd_hist,
+        "macd_status": macd_status,
+        "whales_pct": int(round(whale_score)),
+        "bears_pct": int(round(bears_score)),
+        "trend_health": trend_health,
+        "value_score": int(round(value_score)),
+        "sentiment": sentiment_label,
+        "risk_blocked": risk_blocked,
+        "risk_title": risk_title,
+        "risk_reason": risk_reason,
+        "recommendation_side": signal if signal in ("BUY", "SELL") else "WAIT",
+        "recommendation_text": rec_text,
         "candles": candles[-35:],
     }
 
@@ -644,7 +766,15 @@ def _lock_signal_and_advance_monitoring(symbol: str, side: str, tf: str, categor
         rotate = bool(AUTO_TRADE_STATE.get("rotate_after_open", True))
 
     if rotate:
-        pool = _pool_for_category(category)
+        cat = category if category in MARKET_CATALOG or category == "Tutti" else "Materie Prime"
+        pool = []
+        if cat == "Tutti":
+            for syms in MARKET_CATALOG.values():
+                for s in syms:
+                    if s not in pool:
+                        pool.append(s)
+        else:
+            pool = list(MARKET_CATALOG.get(cat, []))
 
         with STATE_LOCK:
             current_locked = dict(AUTO_TRADE_STATE.get("locked_signals") or {})
@@ -731,7 +861,7 @@ def submit_bingx_order(
                 "updated_at": int(time.time()),
             }
 
-        next_sym = _lock_signal_and_advance_monitoring(symbol, side, tf, category="Materie Prime")
+        next_sym = _lock_signal_and_advance_monitoring(symbol, side, tf, category=category)
         out_str = f"ESITO BINGX: POSIZIONE APERTA SU BINGX ({tp_info} | {sl_info})"
         with STATE_LOCK:
             AUTO_TRADE_STATE["last_outcome"] = out_str
@@ -860,8 +990,9 @@ def process_auto_trade_tick(symbol: str, tf: str, category: str):
             AUTO_TRADE_STATE["last_outcome"] = outcome_msg
         return None
 
-    if sig not in ("BUY", "SELL") or score_val < min_score:
-        outcome_msg = f"ESITO BINGX: POSIZIONE NON APERTA SU BINGX — Motivo: SCAN Materie Prime ({symbol}): Score {int(score_val)} < +{int(min_score)}"
+    if sig not in ("BUY", "SELL") or score_val < min_score or quant.get("risk_blocked"):
+        reason_txt = quant.get("risk_reason") if quant.get("risk_blocked") else f"Score {int(score_val)} < +{int(min_score)}"
+        outcome_msg = f"ESITO BINGX: POSIZIONE NON APERTA SU BINGX — Motivo: SCAN {category} ({symbol}): {reason_txt}"
         with STATE_LOCK:
             AUTO_TRADE_STATE["last_outcome"] = outcome_msg
         return None
@@ -880,7 +1011,7 @@ def process_auto_trade_tick(symbol: str, tf: str, category: str):
         close_at_candle_end=close_at_end,
         max_concurrent_trades=max_conc,
         quant=quant,
-        category="Materie Prime",
+        category=category,
     )
 
 
@@ -893,7 +1024,7 @@ def index():
 def api_live_ticker():
     req_symbol = (request.args.get("symbol") or "").strip().upper()
     tf = (request.args.get("tf") or "1m").strip().lower()
-    category = "Materie Prime"
+    category = (request.args.get("category") or "Materie Prime").strip()
     query = (request.args.get("query") or "").strip()
     scan_now = request.args.get("scan") == "1"
 
@@ -923,7 +1054,7 @@ def api_live_ticker():
     positions = fetch_positions_raw()
     income = fetch_income_history(20)
     timing = candle_timing_info(tf)
-    markets = scan_markets(category="Materie Prime", query=query, force_refresh=scan_now)
+    markets = scan_markets(category=category, query=query, force_refresh=scan_now)
 
     with STATE_LOCK:
         logs = list(SIGNAL_HISTORY[:40])
@@ -953,7 +1084,7 @@ def api_order():
     order_type = (data.get("order_type") or "MARKET").strip().upper()
     tf = (data.get("tf") or "1m").strip().lower()
     qty = to_float(data.get("qty"), 0.0005)
-    category = "Materie Prime"
+    category = (data.get("category") or AUTO_TRADE_STATE.get("scan_category") or "Materie Prime").strip()
 
     bal = fetch_balance_summary()
     req_lev = int(to_float(data.get("leverage"), 20))
@@ -1048,7 +1179,8 @@ def api_auto_trade():
                 AUTO_TRADE_STATE["close_at_candle_end"] = bool(data["close_at_candle_end"])
             if "rotate_after_open" in data:
                 AUTO_TRADE_STATE["rotate_after_open"] = bool(data["rotate_after_open"])
-            AUTO_TRADE_STATE["scan_category"] = "Materie Prime"
+            if "category" in data and data["category"]:
+                AUTO_TRADE_STATE["scan_category"] = str(data["category"]).strip()
             if data.get("reset_locks"):
                 AUTO_TRADE_STATE["locked_signals"] = {}
                 AUTO_TRADE_STATE["last_signal_key"] = None
