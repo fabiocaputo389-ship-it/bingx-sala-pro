@@ -66,6 +66,7 @@ MARKET_CATALOG = {
     ],
 }
 
+
 def to_float(val, default=0.0):
     if val is None or val == "":
         return default
@@ -262,6 +263,16 @@ def fetch_klines(symbol: str, tf: str = "1m", limit: int = 60):
             })
     candles.sort(key=lambda x: x["time"])
     return candles
+
+
+def _ema(values, period):
+    if not values:
+        return []
+    k = 2.0 / (max(1, int(period)) + 1.0)
+    out = [float(values[0])]
+    for v in values[1:]:
+        out.append(float(v) * k + out[-1] * (1.0 - k))
+    return out
 
 
 def _rsi(values, period=14):
@@ -476,6 +487,7 @@ def compute_quant_brain(symbol: str, tf: str = "1m", forced_side: str = None) ->
         "candles": candles[-35:],
     }
 
+
 def _extract_ticker_map(raw_tickers):
     out = {}
     if not isinstance(raw_tickers, list):
@@ -542,13 +554,6 @@ def _pool_for_category(category: str):
                     out.append(s)
         return out
     return list(MARKET_CATALOG.get(cat, []))
-
-
-def _category_for_symbol(sym: str) -> str:
-    for c_name, syms in MARKET_CATALOG.items():
-        if sym in syms:
-            return c_name
-    return "Materie Prime"
 
 
 def scan_markets(category: str = "Materie Prime", query: str = "", force_refresh: bool = False):
@@ -626,6 +631,7 @@ def scan_markets(category: str = "Materie Prime", query: str = "", force_refresh
         "total_catalog": total_cat_count,
         "rows": filtered,
     }
+
 
 def sanitize_tp_sl_for_side(side: str, ref_price: float, tp_val, sl_val):
     p = to_float(ref_price, 0.0)
@@ -1193,6 +1199,28 @@ def api_auto_trade():
     with STATE_LOCK:
         st = dict(AUTO_TRADE_STATE)
     return jsonify({"ok": True, "auto_trade": st})
+
+
+@app.after_request
+def add_no_cache_headers(response):
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
+
+
+@app.errorhandler(Exception)
+def handle_unexpected_error(exc):
+    if request.path.startswith("/api/"):
+        return jsonify({
+            "ok": False,
+            "error": str(exc),
+            "auto_trade": {
+                **dict(AUTO_TRADE_STATE),
+                "last_outcome": f"ESITO BINGX: Errore backend ({exc})",
+            },
+        }), 500
+    return f"Errore interno: {exc}", 500
 
 
 if __name__ == "__main__":
