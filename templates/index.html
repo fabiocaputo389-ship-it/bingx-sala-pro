@@ -109,22 +109,6 @@
     .warn { color: var(--blue-bright); }
     #chart { height: 340px; width: 100%; border-bottom: 1px solid var(--border); }
     .pos-box { padding: 8px; overflow-y: auto; border-top: 1px solid var(--border); }
-    .perf-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-      margin-top: 6px;
-    }
-    .perf-card {
-      background: #000000;
-      border: 1px solid var(--border);
-      border-radius: 4px;
-      padding: 8px;
-      font-size: 11px;
-      line-height: 1.55;
-      color: #ffffff;
-    }
-    .perf-card strong { color: #ffffff; }
     .mini-close {
       background: var(--red);
       color: #ffffff;
@@ -389,12 +373,11 @@
   <div class="top">
     <div class="brand">BINGX <span>PRO SIGNAL DESK</span></div>
     <div class="kpis">
+      <div class="kpi"><small>API BINGX</small><strong id="k-api" class="warn">DA IMPOSTARE</strong></div>
       <div class="kpi"><small>BLOCCO SEGNALE</small><strong id="k-lock" class="warn">LIBERO</strong></div>
       <div class="kpi"><small>MODALITÀ</small><strong id="k-mode" class="warn">MANUALE</strong></div>
       <div class="kpi"><small>SIMBOLO</small><strong id="k-sym">BTC-USDT</strong></div>
       <div class="kpi"><small>PREZZO</small><strong id="k-price">--</strong></div>
-      <div class="kpi"><small>PNL GIORNALIERO</small><strong id="k-pnl-day" class="warn">0.00% (0.00)</strong></div>
-      <div class="kpi"><small>PNL MENSILE</small><strong id="k-pnl-month" class="warn">0.00% (0.00)</strong></div>
       <div class="kpi"><small>AFFIDABILITÀ SEGNALE</small><strong id="k-cert" class="warn">--% • ATTESA</strong></div>
       <div class="kpi"><small>SCORE QUANT</small><strong id="k-score" class="warn">0 (NEUTRAL)</strong></div>
       <div class="kpi"><small>CANDELA TF</small><strong id="k-cd" class="warn">--:--</strong></div>
@@ -422,23 +405,6 @@
 
     <div class="panel">
       <div id="chart"></div>
-      <div class="pos-box">
-        <div class="p-head"><span>PERFORMANCE GIORNALIERA & MENSILE</span><button onclick="loadAccount()" style="background:none;color:#3b82f6;padding:0;">Aggiorna</button></div>
-        <div class="perf-grid">
-          <div class="perf-card">
-            <div><strong>OGGI (GIORNALIERO UTC)</strong></div>
-            <div>Var. Conto: <strong id="perf-day-pct" class="warn">0.00%</strong> (<span id="perf-day-usdt">0.0000</span> USDT)</div>
-            <div>Realizzato / Fee: <strong id="perf-day-real">0.0000</strong> / <span id="perf-day-fee">0.0000</span></div>
-            <div>Win / Loss: <strong id="perf-day-wl" class="pos">W 0.0%</strong> / <strong id="perf-day-l" class="neg">L 0.0%</strong> (<span id="perf-day-cnt">0</span> op.)</div>
-          </div>
-          <div class="perf-card">
-            <div><strong>MESE CORRENTE (MENSILE UTC)</strong></div>
-            <div>Var. Conto: <strong id="perf-month-pct" class="warn">0.00%</strong> (<span id="perf-month-usdt">0.0000</span> USDT)</div>
-            <div>Realizzato / Fee: <strong id="perf-month-real">0.0000</strong> / <span id="perf-month-fee">0.0000</span></div>
-            <div>Win / Loss: <strong id="perf-month-wl" class="pos">W 0.0%</strong> / <strong id="perf-month-l" class="neg">L 0.0%</strong> (<span id="perf-month-cnt">0</span> op.)</div>
-          </div>
-        </div>
-      </div>
       <div class="pos-box">
         <div class="p-head"><span>POSIZIONI APERTE (<span id="pos-cnt">0</span>)</span><button onclick="loadAccount()" style="background:none;color:#3b82f6;padding:0;">Aggiorna</button></div>
         <table>
@@ -473,6 +439,23 @@
       <div class="p-head"><span>APERTURA MANUALE / AUTOMATICA</span></div>
       <div class="form">
         <div class="lock-box">
+          <div class="p-head" style="padding:0 0 6px 0;border:none;background:transparent;">
+            <span>IMPOSTAZIONI API BINGX</span>
+            <span id="api-badge" class="warn">NON LETTE</span>
+          </div>
+          <div>
+            <label>BingX API Key</label>
+            <input id="cfg-api-key" type="password" placeholder="Incolla API Key..." autocomplete="off" />
+          </div>
+          <div>
+            <label>BingX Secret Key</label>
+            <input id="cfg-api-secret" type="password" placeholder="Incolla Secret Key..." autocomplete="off" />
+          </div>
+          <button class="calc-btn" onclick="saveApiCredentials()">SALVA & TESTA API</button>
+          <div id="api-cfg-status" style="font-size:11px;color:#cbd5e1;text-align:center;">Inserisci le chiavi e salva per attivarle</div>
+        </div>
+
+        <div class="lock-box">
           <div id="lock-badge" class="lock-badge">BLOCCO SEGNALE CERTO: IN ATTESA</div>
           <button id="btn-open-locked" class="lock-open-btn" onclick="openLockedPosition()" disabled>APRI POSIZIONE BLOCCATA</button>
           <button id="btn-unlock" class="unlock-btn" onclick="unlockSignal()">SBLOCCA SEGNALE</button>
@@ -496,8 +479,8 @@
               </select>
             </div>
             <div>
-              <label>Regola Profitto</label>
-              <input type="text" value="Scan Categoria + Exp > 0" readonly style="color:#ffffff;font-weight:700;" />
+              <label>Scansione Categoria</label>
+              <input type="text" value="Auto Scan + Blocco Certo" readonly style="color:#ffffff;font-weight:700;" />
             </div>
           </div>
           <div id="auto-st" style="font-size:11px;color:#cbd5e1;text-align:center;">Modalità MANUALE attiva</div>
@@ -640,6 +623,82 @@
       return { cat: "ALL", query: q };
     }
 
+    function renderApiStatus(stData) {
+      const kApi = document.getElementById("k-api");
+      const badge = document.getElementById("api-badge");
+      const stBox = document.getElementById("api-cfg-status");
+      if (!stData) return;
+
+      if (stData.valid) {
+        kApi.className = "pos";
+        kApi.innerText = stData.api_key_preview ? `ATTIVA (${stData.api_key_preview})` : "ATTIVA";
+        badge.className = "pos";
+        badge.innerText = "CONNESSA";
+        stBox.className = "pos";
+        stBox.innerText = stData.msg || "API BingX collegate e lette";
+      } else if (stData.configured) {
+        kApi.className = "neg";
+        kApi.innerText = "ERRORE FIRMA";
+        badge.className = "neg";
+        badge.innerText = "ERRORE";
+        stBox.className = "neg";
+        stBox.innerText = stData.msg || "Errore verifica API";
+      } else {
+        kApi.className = "warn";
+        kApi.innerText = "DA IMPOSTARE";
+        badge.className = "warn";
+        badge.innerText = "NON LETTE";
+        stBox.className = "warn";
+        stBox.innerText = "Inserisci le chiavi e salva per attivarle";
+      }
+    }
+
+    async function loadApiStatus() {
+      try {
+        const r = await fetch("/api/credentials");
+        const d = await r.json();
+        renderApiStatus(d);
+      } catch (e) {}
+    }
+
+    async function saveApiCredentials() {
+      const apiKey = document.getElementById("cfg-api-key").value.trim();
+      const apiSecret = document.getElementById("cfg-api-secret").value.trim();
+      const stBox = document.getElementById("api-cfg-status");
+      const topSt = document.getElementById("st-box");
+
+      if (!apiKey || !apiSecret) {
+        stBox.className = "neg";
+        stBox.innerText = "Inserisci sia API Key che Secret Key";
+        return;
+      }
+
+      stBox.className = "warn";
+      stBox.innerText = "Salvataggio e verifica firma su BingX...";
+
+      try {
+        const r = await fetch("/api/credentials", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ api_key: apiKey, api_secret: apiSecret })
+        });
+        const d = await r.json();
+        renderApiStatus(d);
+        if (d.valid) {
+          document.getElementById("cfg-api-key").value = "";
+          document.getElementById("cfg-api-secret").value = "";
+          topSt.innerText = "STATO: API BINGX SALVATE E ATTIVE";
+          speakText("Chiavi API BingX salvate e collegate");
+          loadAccount();
+        } else {
+          topSt.innerText = `STATO: ${d.msg || "Errore API BingX"}`;
+        }
+      } catch (e) {
+        stBox.className = "neg";
+        stBox.innerText = "Errore di rete durante il salvataggio";
+      }
+    }
+
     function renderSignalLock(lockInfo) {
       currentLockState = lockInfo || null;
       const badge = document.getElementById("lock-badge");
@@ -691,6 +750,7 @@
       const d = await r.json();
       renderSignalLock(d.signal_lock);
       speakText("Blocco segnale rimosso");
+      runContinuousMarketScan();
     }
 
     async function openLockedPosition() {
@@ -764,7 +824,7 @@
         autoBtn.innerText = "AUTO-TRADE: OFF";
         kMode.innerText = "MANUALE";
         kMode.className = "warn";
-        st.innerText = "Modalità MANUALE attiva: apertura solo tramite pulsanti BUY / SELL";
+        st.innerText = `Modalità MANUALE su ${eff.cat}: blocco automatico segnale, apertura manuale`;
       }
     }
 
@@ -852,6 +912,43 @@
       if (voiceOn) speakText("Avviso vocale attivato");
     }
 
+    async function runContinuousMarketScan() {
+      if (currentLockState && currentLockState.locked) return;
+      const eff = effectiveCategoryFilter();
+      document.getElementById("scan-cat-badge").innerText = eff.cat;
+      const tf = document.getElementById("o-tf").value;
+      try {
+        const r = await fetch(`/api/auto-scan?category=${encodeURIComponent(eff.cat)}&query=${encodeURIComponent(eff.query)}&tf=${encodeURIComponent(tf)}&symbol=${encodeURIComponent(sym)}`);
+        const d = await r.json();
+        if (d.signal_lock) renderSignalLock(d.signal_lock);
+        if (d.signals_log) renderSignalLog(d.signals_log);
+
+        if (d.locked_found && d.signal_lock && d.signal_lock.locked) {
+          const lSym = d.signal_lock.symbol;
+          if (lSym && lSym !== sym) {
+            sym = lSym;
+            document.getElementById("k-sym").innerText = sym;
+            renderChart(sym);
+            drawMarkets();
+            pollLive();
+          }
+          if (d.signal_lock.quant) {
+            renderQuant(d.signal_lock.quant);
+            if (d.signal_lock.quant.tp) document.getElementById("o-tp").value = d.signal_lock.quant.tp;
+            if (d.signal_lock.quant.sl) document.getElementById("o-sl").value = d.signal_lock.quant.sl;
+          }
+          document.getElementById("st-box").innerText =
+            autoTradeOn
+              ? `SEGNALE CERTO BLOCCATO ${d.signal_lock.side} ${lSym} — PARTENZA AUTOMATICA`
+              : `SEGNALE CERTO BLOCCATO ${d.signal_lock.side} ${lSym} — MODALITÀ MANUALE`;
+          if (autoTradeOn) runAutoTradeTick();
+        } else if (!autoTradeOn) {
+          const cnt = d.scan?.scanned_count || 0;
+          document.getElementById("auto-st").innerText = `SCAN ${eff.cat} (${cnt} coppie): nessun segnale certo bloccato (MANUALE)`;
+        }
+      } catch (e) {}
+    }
+
     async function scanActiveCategory(switchToBest = false) {
       const eff = effectiveCategoryFilter();
       document.getElementById("scan-cat-badge").innerText = eff.cat;
@@ -880,7 +977,6 @@
     }
 
     async function runAutoTradeTick() {
-      if (!autoTradeOn) return;
       const eff = effectiveCategoryFilter();
       try {
         const r = await fetch("/api/auto-trade", {
@@ -890,6 +986,7 @@
             category: eff.cat,
             query: eff.query,
             scan_category: true,
+            auto_trade_enabled: autoTradeOn,
             symbol: sym,
             tf: document.getElementById("o-tf").value,
             quantity: parseNum(document.getElementById("o-qty").value, 0.001),
@@ -952,50 +1049,6 @@
           <td class="${val >= 0 ? "pos" : "neg"}">${val.toFixed(4)}</td>
         </tr>`;
       }).join("");
-    }
-
-    function renderPnlStats(stats) {
-      if (!stats) return;
-      const dPct = Number(stats.daily_pnl_pct || 0);
-      const dUsdt = Number(stats.daily_pnl || 0);
-      const dReal = Number(stats.daily_realized_pnl || 0);
-      const dFee = Number(stats.daily_fees_funding || 0);
-
-      const mPct = Number(stats.monthly_pnl_pct || 0);
-      const mUsdt = Number(stats.monthly_pnl || 0);
-      const mReal = Number(stats.monthly_realized_pnl || 0);
-      const mFee = Number(stats.monthly_fees_funding || 0);
-
-      const dCls = dPct >= 0 ? "pos" : "neg";
-      const mCls = mPct >= 0 ? "pos" : "neg";
-
-      const kDay = document.getElementById("k-pnl-day");
-      kDay.className = dCls;
-      kDay.innerText = `${dPct > 0 ? "+" : ""}${dPct}% (${dUsdt >= 0 ? "+" : ""}${dUsdt.toFixed(2)})`;
-
-      const kMonth = document.getElementById("k-pnl-month");
-      kMonth.className = mCls;
-      kMonth.innerText = `${mPct > 0 ? "+" : ""}${mPct}% (${mUsdt >= 0 ? "+" : ""}${mUsdt.toFixed(2)})`;
-
-      const pDayPct = document.getElementById("perf-day-pct");
-      pDayPct.className = dCls;
-      pDayPct.innerText = `${dPct > 0 ? "+" : ""}${dPct}%`;
-      document.getElementById("perf-day-usdt").innerText = `${dUsdt >= 0 ? "+" : ""}${dUsdt.toFixed(4)}`;
-      document.getElementById("perf-day-real").innerText = `${dReal >= 0 ? "+" : ""}${dReal.toFixed(4)}`;
-      document.getElementById("perf-day-fee").innerText = `${dFee >= 0 ? "+" : ""}${dFee.toFixed(4)}`;
-      document.getElementById("perf-day-wl").innerText = `W ${Number(stats.daily_win_pct || 0).toFixed(1)}%`;
-      document.getElementById("perf-day-l").innerText = `L ${Number(stats.daily_loss_pct || 0).toFixed(1)}%`;
-      document.getElementById("perf-day-cnt").innerText = stats.daily_trades || 0;
-
-      const pMonthPct = document.getElementById("perf-month-pct");
-      pMonthPct.className = mCls;
-      pMonthPct.innerText = `${mPct > 0 ? "+" : ""}${mPct}%`;
-      document.getElementById("perf-month-usdt").innerText = `${mUsdt >= 0 ? "+" : ""}${mUsdt.toFixed(4)}`;
-      document.getElementById("perf-month-real").innerText = `${mReal >= 0 ? "+" : ""}${mReal.toFixed(4)}`;
-      document.getElementById("perf-month-fee").innerText = `${mFee >= 0 ? "+" : ""}${mFee.toFixed(4)}`;
-      document.getElementById("perf-month-wl").innerText = `W ${Number(stats.monthly_win_pct || 0).toFixed(1)}%`;
-      document.getElementById("perf-month-l").innerText = `L ${Number(stats.monthly_loss_pct || 0).toFixed(1)}%`;
-      document.getElementById("perf-month-cnt").innerText = stats.monthly_trades || 0;
     }
 
     function renderQuant(q) {
@@ -1172,7 +1225,6 @@
         document.getElementById("k-eq").innerText = Number(d.equity || 0).toFixed(2);
         document.getElementById("k-lev").innerText = (d.recommended_leverage || 20) + "x";
         document.getElementById("o-lev").value = d.recommended_leverage || 20;
-        renderPnlStats(d.pnl_stats);
         if (d.signals_log) renderSignalLog(d.signals_log);
         if (d.income_history) renderIncomeHistory(d.income_history);
         const body = document.getElementById("pos-body");
@@ -1243,13 +1295,22 @@
     }
 
     document.querySelectorAll(".cat-btn").forEach(btn => {
-      btn.addEventListener("click", () => {
+      btn.addEventListener("click", async () => {
         document.querySelectorAll(".cat-btn").forEach(b => b.classList.remove("active"));
         btn.classList.add("active");
         activeCat = btn.dataset.cat;
         drawMarkets();
         syncModeUI();
-        scanActiveCategory(true);
+        if (currentLockState && currentLockState.locked) {
+          await fetch("/api/signal-lock", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "UNLOCK" })
+          });
+          renderSignalLock(null);
+        }
+        await scanActiveCategory(true);
+        await runContinuousMarketScan();
       });
     });
 
@@ -1274,14 +1335,17 @@
     }, 1000);
 
     syncModeUI();
+    loadApiStatus();
     renderChart(sym);
     loadMarkets();
     pollLive();
     refreshTfPlan();
     loadAccount();
+    runContinuousMarketScan();
     setInterval(pollLive, 1500);
     setInterval(loadAccount, 5000);
-    setInterval(runAutoTradeTick, 4000);
+    setInterval(runContinuousMarketScan, 5000);
+    setInterval(() => { if (autoTradeOn) runAutoTradeTick(); }, 4000);
   </script>
 </body>
 </html>
