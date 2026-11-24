@@ -16,7 +16,7 @@
     .brand span { color: var(--blue); }
     .kpis { display: flex; flex-wrap: wrap; gap: 14px; }
     .kpi small { display: block; font-size: 10px; color: var(--muted); }
-    .grid { display: grid; grid-template-columns: 265px 1fr 230px 315px; min-height: calc(100vh - 46px); }
+    .grid { display: grid; grid-template-columns: 265px 1fr 230px 320px; min-height: calc(100vh - 46px); }
     @media (max-width: 1120px) { .grid { grid-template-columns: 1fr; } }
     .panel { background: var(--panel); border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); display: flex; flex-direction: column; }
     .p-head { padding: 8px 10px; font-size: 11px; font-weight: 600; color: var(--muted); border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
@@ -43,7 +43,7 @@
     input, select { width: 100%; padding: 7px; border-radius: 4px; border: 1px solid var(--border); background: #1e222d; color: #fff; }
     .score-card { background: #10141d; padding: 8px; border-radius: 4px; border: 1px solid var(--border); }
     .score-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
-    .score-val { font-size: 15px; font-weight: 800; }
+    .score-val { font-size: 14px; font-weight: 800; }
     .ind-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; font-size: 11px; color: var(--muted); }
     .ind-grid span strong { color: var(--text); float: right; }
     .chk-box { display: flex; flex-direction: column; gap: 5px; background: #10141d; padding: 8px; border-radius: 4px; border: 1px solid var(--border); font-size: 12px; }
@@ -65,7 +65,7 @@
     <div class="kpis">
       <div class="kpi"><small>SIMBOLO</small><strong id="k-sym">BTC-USDT</strong></div>
       <div class="kpi"><small>PREZZO</small><strong id="k-price">--</strong></div>
-      <div class="kpi"><small>SCORE TF</small><strong id="k-score" class="warn">0 (NEUTRAL)</strong></div>
+      <div class="kpi"><small>SCORE QUANT</small><strong id="k-score" class="warn">0 (NEUTRAL)</strong></div>
       <div class="kpi"><small>CANDELA TF</small><strong id="k-cd" class="warn">--:--</strong></div>
       <div class="kpi"><small>STIMA TP</small><strong id="k-eta" class="pos">--</strong></div>
       <div class="kpi"><small>FUNDING</small><strong id="k-fund">--</strong></div>
@@ -107,24 +107,24 @@
     </div>
 
     <div class="panel" style="border-right:none;">
-      <div class="p-head"><span>SCORE, EMA & ORDINI</span></div>
+      <div class="p-head"><span>CERVELLO QUANT & ORDINI</span></div>
       <div class="form">
         <div id="st-box" class="status">STATO: NEUTRAL</div>
 
         <div class="score-card">
           <div class="score-top">
-            <span style="font-size:11px;font-weight:700;color:#fff;">SCORE TECNICO</span>
+            <span style="font-size:11px;font-weight:700;color:#fff;">CERVELLO MATEMATICO</span>
             <span id="sc-badge" class="score-val warn">0 • NEUTRAL</span>
           </div>
           <div class="ind-grid">
-            <span>EMA 9<strong id="ind-ema9">--</strong></span>
-            <span>EMA 21<strong id="ind-ema21">--</strong></span>
-            <span>EMA 50<strong id="ind-ema50">--</strong></span>
-            <span>EMA 200<strong id="ind-ema200">--</strong></span>
-            <span>RSI (14)<strong id="ind-rsi">--</strong></span>
-            <span>MACD Hist<strong id="ind-macd">--</strong></span>
-            <span>ATR (14)<strong id="ind-atr">--</strong></span>
-            <span>Vol Ratio<strong id="ind-vol">--</strong></span>
+            <span>Expectancy<strong id="q-exp">--</strong></span>
+            <span>R:R / Win%<strong id="q-rr">--</strong></span>
+            <span>ADX Trend<strong id="q-adx">--</strong></span>
+            <span>Z-Score<strong id="q-z">--</strong></span>
+            <span>EMA 9 / 21<strong id="ind-ema921">--</strong></span>
+            <span>EMA 50 / 200<strong id="ind-ema50200">--</strong></span>
+            <span>RSI / MACD<strong id="ind-rsi">--</strong></span>
+            <span>ATR / Vol<strong id="ind-atr">--</strong></span>
           </div>
         </div>
 
@@ -148,12 +148,12 @@
           </div>
         </div>
 
-        <button class="calc-btn" onclick="refreshTfPlan()">CALCOLA SCORE, TP / SL & TEMPO STIMATO</button>
+        <button class="calc-btn" onclick="refreshTfPlan()">CALCOLA SEGNALE, TP / SL & TEMPO STIMATO</button>
 
         <div class="meta-box" id="tf-meta">
           Chiusura candela tra: <strong id="m-cd">--</strong><br/>
           Tempo stimato al TP: <strong id="m-eta">--</strong><br/>
-          Range medio candela: <strong id="m-rng">--</strong>
+          Target / Stop: <strong id="m-pct">--</strong>
         </div>
 
         <div id="p-wrap" style="display:none;"><label>Prezzo Limit</label><input id="o-price" type="number" step="any" /></div>
@@ -164,8 +164,8 @@
         </div>
 
         <div class="row2">
-          <div><label>Take Profit (TF)</label><input id="o-tp" type="number" step="any" placeholder="Auto / Manuale" /></div>
-          <div><label>Stop Loss (TF)</label><input id="o-sl" type="number" step="any" placeholder="Auto / Manuale" /></div>
+          <div><label>Take Profit (Quant)</label><input id="o-tp" type="number" step="any" placeholder="Auto / Manuale" /></div>
+          <div><label>Stop Loss (Quant)</label><input id="o-sl" type="number" step="any" placeholder="Auto / Manuale" /></div>
         </div>
 
         <div class="chk-box">
@@ -200,11 +200,11 @@
       return { "1m": "1", "5m": "5", "15m": "15", "1h": "60", "4h": "240" }[tf] || "5";
     }
 
-    function renderTechnical(tech) {
-      if (!tech) return;
-      const sc = Number(tech.score || 0);
-      const sig = tech.signal || "NEUTRAL";
-      const cls = sc >= 25 ? "pos" : (sc <= -25 ? "neg" : "warn");
+    function renderQuant(q) {
+      if (!q) return;
+      const sc = Number(q.score || 0);
+      const sig = q.signal || "NEUTRAL";
+      const cls = sig === "BUY" ? "pos" : (sig === "SELL" ? "neg" : "warn");
       const label = `${sc > 0 ? "+" : ""}${sc} • ${sig}`;
 
       const topEl = document.getElementById("k-score");
@@ -215,14 +215,27 @@
       badge.className = `score-val ${cls}`;
       badge.innerText = label;
 
-      document.getElementById("ind-ema9").innerText = tech.ema9 ?? "--";
-      document.getElementById("ind-ema21").innerText = tech.ema21 ?? "--";
-      document.getElementById("ind-ema50").innerText = tech.ema50 ?? "--";
-      document.getElementById("ind-ema200").innerText = tech.ema200 ?? "--";
-      document.getElementById("ind-rsi").innerText = tech.rsi14 ?? "--";
-      document.getElementById("ind-macd").innerText = tech.macd_hist ?? "--";
-      document.getElementById("ind-atr").innerText = tech.atr ?? "--";
-      document.getElementById("ind-vol").innerText = (tech.vol_ratio ?? "--") + "x";
+      const expVal = Number(q.expectancy_r || 0);
+      const expEl = document.getElementById("q-exp");
+      expEl.innerText = `${expVal > 0 ? "+" : ""}${expVal}R`;
+      expEl.className = expVal > 0 ? "pos" : "neg";
+
+      document.getElementById("q-rr").innerText = `${q.rr_ratio}R / ${Math.round((q.win_prob || 0.5) * 100)}%`;
+      document.getElementById("q-adx").innerText = q.adx ?? "--";
+      document.getElementById("q-z").innerText = q.z_score ?? "--";
+      document.getElementById("ind-ema921").innerText = `${q.ema9 ?? "--"} / ${q.ema21 ?? "--"}`;
+      document.getElementById("ind-ema50200").innerText = `${q.ema50 ?? "--"} / ${q.ema200 ?? "--"}`;
+      document.getElementById("ind-rsi").innerText = `${q.rsi14 ?? "--"} / ${q.macd_hist ?? "--"}`;
+      document.getElementById("ind-atr").innerText = `${q.atr ?? "--"} / ${q.vol_ratio ?? "--"}x`;
+
+      if (q.eta_tp_sec !== undefined) {
+        const etaStr = fmtSec(q.eta_tp_sec);
+        document.getElementById("k-eta").innerText = etaStr;
+        document.getElementById("m-eta").innerText = etaStr;
+      }
+      if (q.tp_pct !== undefined && q.sl_pct !== undefined) {
+        document.getElementById("m-pct").innerText = `TP +${q.tp_pct}% / SL -${q.sl_pct}%`;
+      }
     }
 
     function renderChart(s) {
@@ -281,13 +294,9 @@
       const d = await r.json();
       if (d.code === 0) {
         remainingSec = d.timing.remaining_sec;
-        const etaStr = fmtSec(d.plan.eta_tp_sec);
-        document.getElementById("k-eta").innerText = etaStr;
-        document.getElementById("m-eta").innerText = etaStr;
-        document.getElementById("m-rng").innerText = d.plan.avg_range;
-        document.getElementById("o-tp").value = d.plan.tp;
-        document.getElementById("o-sl").value = d.plan.sl;
-        renderTechnical(d.technical);
+        renderQuant(d.quant);
+        if (d.quant?.tp) document.getElementById("o-tp").value = d.quant.tp;
+        if (d.quant?.sl) document.getElementById("o-sl").value = d.quant.sl;
       }
     }
 
@@ -306,8 +315,8 @@
         if (d.funding?.lastFundingRate) {
           document.getElementById("k-fund").innerText = (parseFloat(d.funding.lastFundingRate) * 100).toFixed(4) + "%";
         }
-        if (d.technical) {
-          renderTechnical(d.technical);
+        if (d.quant) {
+          renderQuant(d.quant);
         }
         if (d.depth) {
           document.getElementById("ob-asks").innerHTML = (d.depth.asks || []).slice(0, 8).reverse().map(a =>
@@ -344,7 +353,7 @@
     async function placeOrder(side) {
       await refreshTfPlan(side);
       const st = document.getElementById("st-box");
-      st.innerText = `VERIFICA FILTRI & INVIO ${side}...`;
+      st.innerText = `VERIFICA CERVELLO QUANT & INVIO ${side}...`;
       const r = await fetch("/api/order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
