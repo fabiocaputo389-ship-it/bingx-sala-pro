@@ -496,6 +496,9 @@
 
         <div id="certainty-banner" class="certainty-banner banner-wait">0% • ATTESA • NO TRADE CERTO</div>
         <div id="st-box" class="status">STATO: NEUTRAL</div>
+        <div id="bingx-exec-box" class="status" style="text-align:left;line-height:1.45;border-color:#2563eb;">
+          <strong>ESITO BINGX:</strong> <span id="bingx-exec-msg" class="warn">In attesa di apertura posizione</span>
+        </div>
 
         <div class="sig-box">
           <div>Stato Setup: <strong id="sig-status">--</strong></div>
@@ -553,7 +556,7 @@
               <option value="LIMIT">LIMIT</option>
             </select>
           </div>
-          <div><label>Quantità</label><input id="o-qty" type="text" value="0.001" /></div>
+          <div><label>Quantità</label><input id="o-qty" type="text" value="0.0005" /></div>
         </div>
 
         <button class="calc-btn" onclick="refreshTfPlan()">CALCOLA SEGNALE, % CERTEZZA & TP1/TP2/TP3</button>
@@ -611,6 +614,26 @@
 
     function tvInterval(tf) {
       return { "1m": "1", "5m": "5", "15m": "15", "1h": "60", "4h": "240" }[tf] || "5";
+    }
+
+    function setBingxExecutionMessage(opened, detailText) {
+      const box = document.getElementById("bingx-exec-box");
+      const msgEl = document.getElementById("bingx-exec-msg");
+      if (!box || !msgEl) return;
+
+      if (opened === true) {
+        box.style.borderColor = "#22c55e";
+        msgEl.className = "pos";
+        msgEl.innerText = `POSIZIONE APERTA SU BINGX — ${detailText}`;
+      } else if (opened === false) {
+        box.style.borderColor = "#ef4444";
+        msgEl.className = "neg";
+        msgEl.innerText = `POSIZIONE NON APERTA SU BINGX — Motivo: ${detailText}`;
+      } else {
+        box.style.borderColor = "#2563eb";
+        msgEl.className = "warn";
+        msgEl.innerText = detailText;
+      }
     }
 
     function effectiveCategoryFilter() {
@@ -756,6 +779,7 @@
     async function openLockedPosition() {
       if (!currentLockState || !currentLockState.locked || !currentLockState.side) {
         document.getElementById("st-box").innerText = "STATO: NESSUN SEGNALE BLOCCATO";
+        setBingxExecutionMessage(false, "Nessun segnale certo bloccato disponibile");
         return;
       }
       const targetSym = currentLockState.symbol || sym;
@@ -766,36 +790,45 @@
 
       const st = document.getElementById("st-box");
       st.innerText = `INVIO ORDINE BLOCCATO ${targetSide} ${targetSym}...`;
+      setBingxExecutionMessage(null, `Invio ordine ${targetSide} su ${targetSym}...`);
 
-      const r = await fetch("/api/order", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          symbol: targetSym,
-          side: targetSide,
-          tf: targetTf,
-          type: document.getElementById("o-type").value,
-          quantity: parseNum(document.getElementById("o-qty").value, 0.001),
-          price: parseNum(document.getElementById("o-price").value, 0),
-          leverage: parseNum(document.getElementById("o-lev").value, 20),
-          tp: tpVal || "",
-          sl: slVal || "",
-          from_lock: true,
-          allow_override: true,
-          close_at_candle_end: document.getElementById("chk-close-tf").checked,
-          anti_fakeout: false,
-          anti_breakout: false
-        })
-      });
-      const res = await r.json();
-      if (res.signal_lock) renderSignalLock(res.signal_lock);
-      if (res.signals_log) renderSignalLog(res.signals_log);
-      if (res.code === 0) {
-        playBeep(targetSide === "SELL" ? "sell" : "buy");
-        speakText(`Posizione ${targetSide === "SELL" ? "short" : "long"} aperta da segnale bloccato su ${targetSym.replace("-", " ")}`);
-        st.innerText = `ORDINE ${targetSide} BLOCCATO INVIATO`;
-      } else {
-        st.innerText = `STATO: ${res.msg || "Errore firma / ordine"}`;
+      try {
+        const r = await fetch("/api/order", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            symbol: targetSym,
+            side: targetSide,
+            tf: targetTf,
+            type: document.getElementById("o-type").value,
+            quantity: parseNum(document.getElementById("o-qty").value, 0.0005),
+            price: parseNum(document.getElementById("o-price").value, 0),
+            leverage: parseNum(document.getElementById("o-lev").value, 20),
+            tp: tpVal || "",
+            sl: slVal || "",
+            from_lock: true,
+            allow_override: true,
+            close_at_candle_end: document.getElementById("chk-close-tf").checked,
+            anti_fakeout: false,
+            anti_breakout: false
+          })
+        });
+        const res = await r.json();
+        if (res.signal_lock) renderSignalLock(res.signal_lock);
+        if (res.signals_log) renderSignalLog(res.signals_log);
+        if (res.code === 0) {
+          const oid = res.orderId || res.data?.order?.orderId || "OK";
+          playBeep(targetSide === "SELL" ? "sell" : "buy");
+          speakText(`Posizione ${targetSide === "SELL" ? "short" : "long"} aperta su BingX per ${targetSym.replace("-", " ")}`);
+          st.innerText = `ORDINE ${targetSide} BLOCCATO INVIATO`;
+          setBingxExecutionMessage(true, `${targetSide === "SELL" ? "SHORT" : "LONG"} ${targetSym} (ID: ${oid})`);
+        } else {
+          const reason = res.msg || "Errore firma o ordine BingX";
+          st.innerText = `STATO: ${reason}`;
+          setBingxExecutionMessage(false, `[${res.code}] ${reason}`);
+        }
+      } catch (e) {
+        setBingxExecutionMessage(false, "Errore di connessione verso il server");
       }
       loadAccount();
       setTimeout(() => st.innerText = "STATO: NEUTRAL", 6000);
@@ -995,7 +1028,7 @@
             auto_trade_enabled: autoTradeOn,
             symbol: sym,
             tf: document.getElementById("o-tf").value,
-            quantity: parseNum(document.getElementById("o-qty").value, 0.001),
+            quantity: parseNum(document.getElementById("o-qty").value, 0.0005),
             leverage: parseNum(document.getElementById("o-lev").value, 20),
             score_threshold: parseNum(document.getElementById("o-auto-score").value, 60),
             close_at_candle_end: document.getElementById("chk-close-tf").checked,
@@ -1015,11 +1048,17 @@
         if (d.quant) renderQuant(d.quant);
         if (d.signals_log) renderSignalLog(d.signals_log);
         if (d.triggered) {
+          const oid = d.order_res?.orderId || d.order_res?.data?.order?.orderId || "OK";
           playBeep(d.side === "SELL" ? "sell" : "buy");
           speakText(`Auto trade eseguito ${d.side === "SELL" ? "short" : "long"} su ${sym.replace("-", " ")}`);
+          setBingxExecutionMessage(true, `AUTO ${d.side === "SELL" ? "SHORT" : "LONG"} ${d.selected_symbol || sym} (ID: ${oid})`);
           loadAccount();
+        } else if (d.msg) {
+          setBingxExecutionMessage(false, d.msg);
         }
-      } catch (e) {}
+      } catch (e) {
+        setBingxExecutionMessage(false, "Errore di rete durante l'auto-trade");
+      }
     }
 
     function renderSignalLog(logs) {
@@ -1260,34 +1299,44 @@
       await refreshTfPlan(side);
       const st = document.getElementById("st-box");
       st.innerText = `VERIFICA % CERTEZZA & FILTRI ${side}...`;
-      const r = await fetch("/api/order", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          symbol: sym, side,
-          tf: document.getElementById("o-tf").value,
-          type: document.getElementById("o-type").value,
-          quantity: parseNum(document.getElementById("o-qty").value, 0.001),
-          price: parseNum(document.getElementById("o-price").value, 0),
-          leverage: parseNum(document.getElementById("o-lev").value, 20),
-          tp: parseNum(document.getElementById("o-tp").value, 0) || "",
-          sl: parseNum(document.getElementById("o-sl").value, 0) || "",
-          min_certainty: parseNum(document.getElementById("o-min-cert").value, 70),
-          allow_override: document.getElementById("chk-override").checked,
-          close_at_candle_end: document.getElementById("chk-close-tf").checked,
-          anti_fakeout: document.getElementById("chk-fakeout").checked,
-          anti_breakout: document.getElementById("chk-breakout").checked
-        })
-      });
-      const res = await r.json();
-      if (res.signal_lock) renderSignalLock(res.signal_lock);
-      if (res.signals_log) renderSignalLog(res.signals_log);
-      if (res.code === 0) {
-        playBeep(side === "SELL" ? "sell" : "buy");
-        speakText(`Ordine ${side === "SELL" ? "short" : "long"} inviato su ${sym.replace("-", " ")}`);
-        st.innerText = `ORDINE ${side} INVIATO`;
-      } else {
-        st.innerText = `STATO: ${res.msg || "Bloccato / Errore"}`;
+      setBingxExecutionMessage(null, `Verifica ordine ${side} su ${sym}...`);
+
+      try {
+        const r = await fetch("/api/order", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            symbol: sym, side,
+            tf: document.getElementById("o-tf").value,
+            type: document.getElementById("o-type").value,
+            quantity: parseNum(document.getElementById("o-qty").value, 0.0005),
+            price: parseNum(document.getElementById("o-price").value, 0),
+            leverage: parseNum(document.getElementById("o-lev").value, 20),
+            tp: parseNum(document.getElementById("o-tp").value, 0) || "",
+            sl: parseNum(document.getElementById("o-sl").value, 0) || "",
+            min_certainty: parseNum(document.getElementById("o-min-cert").value, 70),
+            allow_override: document.getElementById("chk-override").checked,
+            close_at_candle_end: document.getElementById("chk-close-tf").checked,
+            anti_fakeout: document.getElementById("chk-fakeout").checked,
+            anti_breakout: document.getElementById("chk-breakout").checked
+          })
+        });
+        const res = await r.json();
+        if (res.signal_lock) renderSignalLock(res.signal_lock);
+        if (res.signals_log) renderSignalLog(res.signals_log);
+        if (res.code === 0) {
+          const oid = res.orderId || res.data?.order?.orderId || "OK";
+          playBeep(side === "SELL" ? "sell" : "buy");
+          speakText(`Ordine ${side === "SELL" ? "short" : "long"} aperto su BingX per ${sym.replace("-", " ")}`);
+          st.innerText = `ORDINE ${side} INVIATO`;
+          setBingxExecutionMessage(true, `${side === "SELL" ? "SHORT" : "LONG"} ${sym} (ID: ${oid})`);
+        } else {
+          const reason = res.msg || "Bloccato dai filtri o rifiutato da BingX";
+          st.innerText = `STATO: ${reason}`;
+          setBingxExecutionMessage(false, `[${res.code}] ${reason}`);
+        }
+      } catch (e) {
+        setBingxExecutionMessage(false, "Errore di rete durante l'invio ordine");
       }
       loadAccount();
       setTimeout(() => st.innerText = "STATO: NEUTRAL", 6000);
