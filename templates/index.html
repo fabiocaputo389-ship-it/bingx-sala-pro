@@ -253,9 +253,9 @@
       </div>
 
       <div class="cat-bar" id="cat-bar">
-        <button type="button" class="cat-btn active" data-cat="Tutti">Tutti</button>
+        <button type="button" class="cat-btn" data-cat="Tutti">Tutti</button>
         <button type="button" class="cat-btn" data-cat="Crypto Major">Crypto Major</button>
-        <button type="button" class="cat-btn" data-cat="Materie Prime">Materie Prime</button>
+        <button type="button" class="cat-btn active" data-cat="Materie Prime">Materie Prime</button>
         <button type="button" class="cat-btn" data-cat="Azioni">Azioni</button>
         <button type="button" class="cat-btn" data-cat="Forex">EUR-USDT</button>
       </div>
@@ -402,11 +402,12 @@
   </div>
 
   <script>
-    let activeCategory = "Tutti";
+    let activeCategory = "Materie Prime";
     let autoEnabled = true;
-    let forceScanNext = false;
+    let forceScanNext = true;
     let reqCounter = 0;
     let appliedReqId = 0;
+    let isPolling = false;
 
     function fmtCountdown(sec) {
       const s = Math.max(0, parseInt(sec || 0, 10));
@@ -587,14 +588,6 @@
             <td class="${sigCls}">${sigTxt}</td>
           </tr>`;
         }).join("");
-
-        mktTbody.querySelectorAll("tr[data-sym]").forEach(tr => {
-          tr.addEventListener("click", () => {
-            const clickedSym = tr.getAttribute("data-sym");
-            document.getElementById("symbol-input").value = clickedSym;
-            pollNow(clickedSym);
-          });
-        });
       }
 
       drawCandles(q.candles || [], `${activeSym} (${t.tf || "1m"})`);
@@ -699,7 +692,18 @@
       }
     }
 
+    document.getElementById("markets-tbody").addEventListener("click", (e) => {
+      const tr = e.target.closest("tr[data-sym]");
+      if (!tr) return;
+      const clickedSym = tr.getAttribute("data-sym");
+      if (!clickedSym) return;
+      document.getElementById("symbol-input").value = clickedSym;
+      pollNow(clickedSym);
+    });
+
     async function pollNow(overrideSymbol = null) {
+      if (isPolling && !overrideSymbol && !forceScanNext) return;
+      isPolling = true;
       const thisReq = ++reqCounter;
       const v = getFormValues();
       const targetSym = overrideSymbol || v.symbol;
@@ -717,6 +721,8 @@
         }
       } catch (err) {
         document.getElementById("bingx-outcome-box").textContent = `ESITO BINGX: Errore connessione (${err})`;
+      } finally {
+        isPolling = false;
       }
     }
 
