@@ -389,9 +389,38 @@ def _extract_ticker_map(raw_tickers):
     return out
 
 
+CATEGORY_ALIASES = {
+    "TUTTI": "Tutti",
+    "ALL": "Tutti",
+    "CRYPTO": "Crypto Major",
+    "CRYPTO MAJOR": "Crypto Major",
+    "MEME/ALT": "Meme/Alt",
+    "MEME": "Meme/Alt",
+    "ALT": "Meme/Alt",
+    "AZIONI": "Azioni",
+    "STOCKS": "Azioni",
+    "MATERIE PRIME": "Materie Prime",
+    "COMMODITIES": "Materie Prime",
+}
+
+
+def normalize_category(category: str) -> str:
+    raw = (category or "").strip()
+    if raw in MARKET_CATALOG or raw == "Tutti":
+        return raw
+    mapped = CATEGORY_ALIASES.get(raw.upper())
+    if mapped:
+        return mapped
+    for k in MARKET_CATALOG.keys():
+        if k.upper() == raw.upper():
+            return k
+    return "Tutti"
+
+
 def scan_markets(category: str = "Materie Prime", query: str = "", force_refresh: bool = False):
-    cat = category if category in MARKET_CATALOG or category == "Tutti" else "Materie Prime"
+    cat = normalize_category(category)
     q = (query or "").strip().upper()
+    search_cat = CATEGORY_ALIASES[q] if (q and q in CATEGORY_ALIASES) else None
 
     with STATE_LOCK:
         cache_age = time.time() - MARKET_SCAN_CACHE.get("updated_at", 0)
@@ -436,18 +465,19 @@ def scan_markets(category: str = "Materie Prime", query: str = "", force_refresh
             MARKET_SCAN_CACHE["category"] = cat
             MARKET_SCAN_CACHE["updated_at"] = time.time()
 
+    effective_cat = search_cat if search_cat else cat
     filtered = []
     for r in all_rows:
-        if cat != "Tutti" and r["category"] != cat:
+        if effective_cat != "Tutti" and r["category"] != effective_cat:
             continue
-        if q and q not in r["symbol"] and q not in r["category"].upper():
+        if q and not search_cat and q not in r["symbol"] and q not in r["category"].upper():
             continue
         row_copy = dict(r)
         row_copy["locked_side"] = locked_map.get(r["symbol"])
         filtered.append(row_copy)
 
     return {
-        "category": cat,
+        "category": effective_cat,
         "query": q,
         "total_catalog": len(all_rows),
         "rows": filtered,
@@ -594,7 +624,7 @@ def _lock_signal_and_advance_monitoring(symbol: str, side: str, tf: str, categor
         rotate = bool(AUTO_TRADE_STATE.get("rotate_after_open", True))
 
     if rotate:
-        cat = category if category in MARKET_CATALOG or category == "Tutti" else "Materie Prime"
+        cat = normalize_category(category)
         pool = []
         if cat == "Tutti":
             for syms in MARKET_CATALOG.values():
@@ -855,11 +885,17 @@ def api_live_ticker():
     query = (request.args.get("query") or "").strip()
     scan_now = request.args.get("scan") == "1"
 
+    norm_cat = normalize_category(category)
     with STATE_LOCK:
         if category:
-            AUTO_TRADE_STATE["scan_category"] = category
+            AUTO_TRADE_STATE["scan_category"] = norm_cat
         if req_symbol:
             AUTO_TRADE_STATE["symbol"] = req_symbol
+        else:
+            cur_sym = AUTO_TRADE_STATE.get("symbol", "BTC-USDT")
+            cat_pool = MARKET_CATALOG.get(norm_cat, [])
+            if norm_cat != "Tutti" and cat_pool and cur_sym not in cat_pool:
+                AUTO_TRADE_STATE["symbol"] = cat_pool[0]
         active_symbol = AUTO_TRADE_STATE.get("symbol", "BTC-USDT")
         locked_signals = dict(AUTO_TRADE_STATE.get("locked_signals") or {})
 
@@ -1001,7 +1037,7 @@ def api_auto_trade():
             if "rotate_after_open" in data:
                 AUTO_TRADE_STATE["rotate_after_open"] = bool(data["rotate_after_open"])
             if "category" in data and data["category"]:
-                AUTO_TRADE_STATE["scan_category"] = str(data["category"]).strip()
+                AUTO_TRADE_STATE["scan_category"] = normalize_category(str(data["category"]).strip())
             if data.get("reset_locks"):
                 AUTO_TRADE_STATE["locked_signals"] = {}
                 AUTO_TRADE_STATE["last_signal_key"] = None
