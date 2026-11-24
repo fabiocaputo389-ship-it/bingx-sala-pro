@@ -1,1227 +1,1044 @@
 import os
+import re
+import time
 import hmac
 import hashlib
-import time
-import math
-import threading
-from decimal import Decimal, ROUND_DOWN
-from urllib.parse import urlencode
+import urllib.parse
 import requests
-from flask import Flask, render_template, request, jsonify
+from datetime import datetime, timezone
+import pytz
+from flask import Flask, render_template, render_template_string, request, jsonify
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder="templates")
 
-BINGX_BASE_URL = os.environ.get("BINGX_BASE_URL", "https://open-api.bingx.com")
-BINGX_API_KEY = os.environ.get("BINGX_API_KEY", "").strip()
-BINGX_SECRET_KEY = os.environ.get("BINGX_SECRET_KEY", "").strip()
-
-STATE_LOCK = threading.RLock()
-
-AUTO_TRADE_STATE = {
-    "enabled": True,
-    "mode": "AUTOMATICO",
-    "symbol": "XAUT-USDT",
-    "tf": "1m",
-    "qty": 0.0005,
-    "leverage": 20,
-    "min_score": 60,
-    "min_confidence": 70.0,
-    "max_concurrent_trades": 2,
-    "close_at_candle_end": True,
-    "rotate_after_open": True,
-    "scan_category": "Materie Prime",
-    "sound_on": True,
-    "voice_on": True,
-    "last_signal_key": None,
-    "last_check_ts": 0,
-    "last_action": "In attesa",
-    "last_outcome": "In attesa di scansione",
-    "locked_signals": {},
-}
-
-AUTO_CLOSE_WATCHLIST = {}
-SIGNAL_HISTORY = []
-SEEN_SIGNAL_KEYS = set()
-ACTIVE_TPSL_REGISTRY = {}
-MARKET_SCAN_CACHE = {
-    "updated_at": 0,
-    "category": None,
-    "rows": [],
-}
-
-MARKET_CATALOG = {
-    "Crypto Major": [
-        "BTC-USDT", "ETH-USDT", "SOL-USDT", "BNB-USDT", "XRP-USDT",
-    ],
-    "Materie Prime": [
-        "XAUT-USDT", "PAXG-USDT", "GOLD-USDT", "SILVER-USDT",
-        "XAG-USDT", "WTI-USDT", "BRENT-USDT", "NATGAS-USDT", "COPPER-USDT",
-    ],
-    "Azioni": [
-        "AAPL-USDT", "MSFT-USDT", "NVDA-USDT", "AMZN-USDT",
-        "GOOGL-USDT", "META-USDT", "TSLA-USDT",
-    ],
-    "Forex": [
-        "EUR-USDT",
-    ],
-}
+# ==========================================
+# CREDENZIALI DA VARIABILI D'AMBIENTE RENDER
+# ==========================================
+def _leggi_env_chiave(nomi: list[str]) -> str:
+    for nome in nomi:
+        val = os.environ.get(nome)
+        if val and val.strip():
+            return val.strip()
+    return ""
 
 
-def to_float(val, default=0.0):
-    if val is None or val == "":
-        return default
+DEFAULT_API_KEY = _leggi_env_chiave(["BINGX_API_KEY", "API_KEY", "BINGX_KEY"])
+DEFAULT_SECRET_KEY = _leggi_env_chiave(["BINGX_SECRET_KEY", "BINGX_API_SECRET", "SECRET_KEY"])
+BASE_URL = "https://open-api.bingx.com"
+
+MIN_ORDER_USDT = 2.0
+TRADING_MODE = "MANUAL"
+MARKET_TYPE = "FUTURES"  # "FUTURES", "SPOT" o "STANDARD_FUTURES"
+
+
+def _normalizza_importo_minimo(valore) -> float:
     try:
-        f = float(val)
-        return default if (math.isnan(f) or math.isinf(f)) else f
-    except (ValueError, TypeError):
-        return default
+        num = float(valore if valore is not None else MIN_ORDER_USDT)
+    except (TypeError, ValueError):
+        num = MIN_ORDER_USDT
+    if num != num:  # NaN check
+        return MIN_ORDER_USDT
+    return max(MIN_ORDER_USDT, num)
 
 
-def fmt_num_str(val, decimals=None):
-    if val is None:
-        return "0"
-    try:
-        d = Decimal(str(val))
-        if d.is_nan() or d.is_infinite():
-            return "0"
-        if decimals is not None:
-            q = Decimal("10") ** (-int(decimals))
-            d = d.quantize(q, rounding=ROUND_DOWN)
-        s = format(d, "f")
-        if "." in s:
-            s = s.rstrip("0").rstrip(".")
-        return s if s else "0"
-    except Exception:
-        return str(val)
+def _risolvi_credenziali(api_key: str = "", secret_key: str = "") -> tuple[str, str, str]:
+    env_api = _leggi_env_chiave(["BINGX_API_KEY", "API_KEY", "BINGX_KEY"]) or DEFAULT_API_KEY
+    env_secret = _leggi_env_chiave(["BINGX_SECRET_KEY", "BINGX_API_SECRET", "SECRET_KEY"]) or DEFAULT_SECRET_KEY
+
+    clean_api = (api_key or "").strip()
+    clean_secret = (secret_key or "").strip()
+
+    if clean_api and clean_secret:
+        return clean_api, clean_secret, "custom"
+    if env_api and env_secret:
+        return env_api, env_secret, "render_env"
+    return "", "", "none"
 
 
-def format_price_smart(price: float, ref_price: float = None) -> float:
-    p = to_float(price, 0.0)
-    ref = to_float(ref_price if ref_price else p, p)
-    if p <= 0:
-        return 0.0
-    if ref >= 10000:
-        step = 0.1
-    elif ref >= 1000:
-        step = 0.01
-    elif ref >= 10:
-        step = 0.001
-    elif ref >= 1:
-        step = 0.0001
-    elif ref >= 0.01:
-        step = 0.00001
-    else:
-        step = 0.0000001
-    d_price = Decimal(str(p))
-    d_step = Decimal(str(step))
-    floored = (d_price / d_step).to_integral_value(rounding=ROUND_DOWN) * d_step
-    return float(floored)
-
-
-def get_dynamic_leverage(capital_usdt: float, requested_leverage: int = None) -> int:
-    cap = to_float(capital_usdt, 0.0)
-    lev = int(to_float(requested_leverage if requested_leverage else 20, 20))
-    if cap > 0 and cap <= 2.0:
-        return max(lev, 20)
-    return max(1, min(lev, 125))
-
-
-def normalize_max_concurrent_trades(val, default=2) -> int:
-    n = int(to_float(val, default))
-    return max(1, min(n, 20))
-
-
-def tf_to_seconds(tf: str) -> int:
-    mapping = {
-        "1m": 60,
-        "3m": 180,
-        "5m": 300,
-        "15m": 900,
-        "30m": 1800,
-        "1h": 3600,
-        "4h": 14400,
-        "1d": 86400,
-    }
-    return mapping.get((tf or "1m").lower(), 60)
-
-
-def candle_timing_info(tf: str) -> dict:
-    clean_tf = (tf or "1m").lower()
-    sec = tf_to_seconds(clean_tf)
-    now_ts = int(time.time())
-    candle_start_ts = (now_ts // sec) * sec
-    candle_end_ts = candle_start_ts + sec
-    remaining_sec = max(0, candle_end_ts - now_ts)
-    return {
-        "tf": clean_tf,
-        "duration_sec": sec,
-        "now_ts": now_ts,
-        "candle_start_ts": candle_start_ts,
-        "candle_end_ts": candle_end_ts,
-        "remaining_sec": remaining_sec,
-    }
-
-
-def _sign_params(params: dict) -> str:
-    sorted_items = []
-    for k in sorted(params.keys()):
-        v = params[k]
-        if v is None or v == "":
-            continue
-        sorted_items.append((
-            str(k),
-            fmt_num_str(v) if isinstance(v, (int, float, Decimal)) and not isinstance(v, bool) else str(v),
-        ))
-    query_string = urlencode(sorted_items)
+def _genera_firma(payload: dict, secret_key: str) -> str:
+    query_string = urllib.parse.urlencode(payload)
     signature = hmac.new(
-        BINGX_SECRET_KEY.encode("utf-8"),
+        secret_key.encode("utf-8"),
         query_string.encode("utf-8"),
-        hashlib.sha256,
+        hashlib.sha256
     ).hexdigest()
-    return f"{query_string}&signature={signature}"
+    return query_string + "&signature=" + signature
 
 
-def bingx_req(method: str, path: str, params: dict = None, signed: bool = False):
-    p = dict(params or {})
-    headers = {}
-    if BINGX_API_KEY:
-        headers["X-BX-APIKEY"] = BINGX_API_KEY
+def _signed_get(endpoint: str, extra_params: dict, api_key: str, secret_key: str) -> dict:
+    payload = dict(extra_params or {})
+    payload["timestamp"] = str(int(time.time() * 1000))
+    query_string = _genera_firma(payload, secret_key)
+    headers = {"X-BX-APIKEY": api_key}
+    resp = requests.get(f"{BASE_URL}{endpoint}?{query_string}", headers=headers, timeout=6)
+    return resp.json()
 
-    if signed:
-        if not BINGX_API_KEY or not BINGX_SECRET_KEY:
-            return {"code": -100, "msg": "Chiavi API BingX non configurate"}
-        p["timestamp"] = int(time.time() * 1000)
-        p.setdefault("recvWindow", 10000)
-        signed_qs = _sign_params(p)
-        url = f"{BINGX_BASE_URL}{path}?{signed_qs}"
-    else:
-        qs = urlencode({k: v for k, v in p.items() if v is not None and v != ""})
-        url = f"{BINGX_BASE_URL}{path}" + (f"?{qs}" if qs else "")
 
+def _signed_post(endpoint: str, payload_ordine: dict, active_api: str, active_secret: str) -> dict:
+    url = BASE_URL + endpoint
+    query_string = _genera_firma(payload_ordine, active_secret)
+    headers = {"X-BX-APIKEY": active_api}
+    response = requests.post(f"{url}?{query_string}", headers=headers, timeout=6)
+    return response.json()
+
+
+# ==========================================
+# GESTIONE ORARIA & ORARIO SICURO
+# ==========================================
+def verifica_finestra_temporale_sicura() -> tuple[bool, str, str, str, str]:
     try:
-        m = method.upper()
-        if m == "GET":
-            resp = requests.get(url, headers=headers, timeout=6)
-        elif m == "POST":
-            resp = requests.post(url, headers=headers, timeout=6)
-        elif m == "DELETE":
-            resp = requests.delete(url, headers=headers, timeout=6)
-        else:
-            resp = requests.request(m, url, headers=headers, timeout=6)
-        data = resp.json()
-        return data if isinstance(data, dict) else {"code": resp.status_code, "msg": "Risposta non JSON"}
-    except Exception as exc:
-        return {"code": -200, "msg": f"Errore rete BingX: {exc}"}
+        tz_roma = pytz.timezone("Europe/Rome")
+        adesso = datetime.now(tz_roma)
+        ora_minuto = adesso.strftime("%H:%M")
+
+        if "01:00" <= ora_minuto < "09:00":
+            return True, "🟢 Sessione Asiatica (Accumulazione)", "Borsa di Tokyo / Sydney (01:00 - 09:00)", "01:00", "09:00"
+        if "08:45" <= ora_minuto < "09:30":
+            return True, "🟡 Apertura Borse Europee", "Borsa Italiana / Europa (09:00 - 09:01)", "09:00", "14:30"
+        if "09:30" <= ora_minuto < "14:15":
+            return True, "🟡 Mattinata Europea: Trend Puliti [Orario Sicuro]", "Borsa di Londra & Milano (09:30 - 14:30)", "09:30", "14:30"
+        if "14:15" <= ora_minuto < "15:20":
+            return True, "🟡 Sovrapposizione Forex Londra/NY & Pre-Market USA", "Mercato Forex (14:00-17:00) / Pre-Market USA", "14:00", "17:00"
+        if "15:20" <= ora_minuto <= "16:00":
+            return True, "🟡 Apertura Wall Street", "Mercati USA - NYSE & NASDAQ (15:30)", "15:30", "22:00"
+        if "16:00" <= ora_minuto < "21:30":
+            return True, "🟡 Sessione Pomeridiana USA: Consolidamento Trend", "Mercati USA NYSE/NASDAQ (16:00 - 22:00)", "16:00", "22:00"
+
+        return True, "🟢 Sessione Globale 24/7", "Mercati 24/7", "22:00", "01:00"
+    except Exception:
+        return True, "🟡 Finestra operativa standard", "Mercato Globale 24/7", "09:30", "22:00"
 
 
-def fetch_klines(symbol: str, tf: str = "1m", limit: int = 60):
-    interval_map = {
-        "1m": "1m", "3m": "3m", "5m": "5m", "15m": "15m",
-        "30m": "30m", "1h": "1h", "4h": "4h", "1d": "1d",
-    }
-    interval = interval_map.get((tf or "1m").lower(), "1m")
-    res = bingx_req("GET", "/openApi/swap/v3/quote/klines", {
-        "symbol": symbol,
-        "interval": interval,
-        "limit": limit,
-    })
-    raw_list = res.get("data")
-    if not isinstance(raw_list, list) or not raw_list:
-        res_v2 = bingx_req("GET", "/openApi/swap/v2/quote/klines", {
-            "symbol": symbol,
-            "interval": interval,
-            "limit": limit,
-        })
-        raw_list = res_v2.get("data") if isinstance(res_v2.get("data"), list) else []
-
-    candles = []
-    for item in raw_list:
-        if isinstance(item, dict):
-            c_open = to_float(item.get("open"), 0.0)
-            c_high = to_float(item.get("high"), 0.0)
-            c_low = to_float(item.get("low"), 0.0)
-            c_close = to_float(item.get("close"), 0.0)
-            c_vol = to_float(item.get("volume"), 0.0)
-            c_time = int(to_float(item.get("time"), 0))
-        elif isinstance(item, (list, tuple)) and len(item) >= 5:
-            c_time = int(to_float(item[0], 0))
-            c_open = to_float(item[1], 0.0)
-            c_high = to_float(item[2], 0.0)
-            c_low = to_float(item[3], 0.0)
-            c_close = to_float(item[4], 0.0)
-            c_vol = to_float(item[5] if len(item) > 5 else 0.0, 0.0)
-        else:
-            continue
-        if c_close > 0:
-            candles.append({
-                "time": c_time,
-                "open": c_open,
-                "high": c_high,
-                "low": c_low,
-                "close": c_close,
-                "volume": c_vol,
-            })
-    candles.sort(key=lambda x: x["time"])
-    return candles
+# ==========================================
+# MOTORE QUANTISTICO, TELEMETRIA & ANTI-FALSI
+# ==========================================
+def _calcola_ema_serie(valori: list, periodo: int) -> float:
+    if not valori:
+        return 0.0
+    k = 2.0 / (periodo + 1)
+    ema = valori[0]
+    for v in valori[1:]:
+        ema = v * k + ema * (1.0 - k)
+    return ema
 
 
-def _ema(values, period):
-    if not values:
-        return []
-    k = 2.0 / (max(1, int(period)) + 1.0)
-    out = [float(values[0])]
-    for v in values[1:]:
-        out.append(float(v) * k + out[-1] * (1.0 - k))
-    return out
-
-
-def _rsi(values, period=14):
-    if len(values) < period + 1:
+def _calcola_rsi_wilder(closes: list, periodo: int = 14) -> float:
+    if len(closes) < periodo + 1:
         return 50.0
     gains = []
     losses = []
-    for i in range(1, len(values)):
-        diff = values[i] - values[i - 1]
-        gains.append(max(0.0, diff))
-        losses.append(max(0.0, -diff))
-    avg_gain = sum(gains[-period:]) / period
-    avg_loss = sum(losses[-period:]) / period
+    for i in range(1, len(closes)):
+        diff = closes[i] - closes[i - 1]
+        gains.append(max(diff, 0.0))
+        losses.append(max(-diff, 0.0))
+
+    avg_gain = sum(gains[:periodo]) / periodo
+    avg_loss = sum(losses[:periodo]) / periodo
+
+    for i in range(periodo, len(gains)):
+        avg_gain = (avg_gain * (periodo - 1) + gains[i]) / periodo
+        avg_loss = (avg_loss * (periodo - 1) + losses[i]) / periodo
+
     if avg_loss == 0:
-        return 75.0 if avg_gain > 0 else 50.0
+        return 100.0
     rs = avg_gain / avg_loss
-    return round(100.0 - (100.0 / (1.0 + rs)), 1)
+    return 100.0 - (100.0 / (1.0 + rs))
 
 
-def _macd_state(values):
-    if len(values) < 26:
-        return 0.0, 0.0, "NEUTRAL"
-    ema12 = _ema(values, 12)
-    ema26 = _ema(values, 26)
-    macd_line = [a - b for a, b in zip(ema12, ema26)]
-    signal_line = _ema(macd_line, 9)
-    hist = macd_line[-1] - signal_line[-1]
-    if macd_line[-1] > signal_line[-1] and hist > 0:
-        st = "BULLISH"
-    elif macd_line[-1] < signal_line[-1] and hist < 0:
-        st = "BEARISH"
-    else:
-        st = "NEUTRAL"
-    return round(macd_line[-1], 6), round(hist, 6), st
+def _calcola_atr_reale(highs: list, lows: list, closes: list, periodo: int = 14) -> float:
+    if len(closes) < 2:
+        return 0.0
+    trs = []
+    for i in range(1, len(closes)):
+        tr = max(
+            highs[i] - lows[i],
+            abs(highs[i] - closes[i - 1]),
+            abs(lows[i] - closes[i - 1])
+        )
+        trs.append(tr)
+    if len(trs) < periodo:
+        return sum(trs) / len(trs)
+    atr = sum(trs[:periodo]) / periodo
+    for tr in trs[periodo:]:
+        atr = (atr * (periodo - 1) + tr) / periodo
+    return atr
 
 
-def compute_quant_brain(symbol: str, tf: str = "1m", forced_side: str = None) -> dict:
-    clean_tf = (tf or "1m").lower()
-    candles = fetch_klines(symbol, tf=clean_tf, limit=60)
-    ticker = bingx_req("GET", "/openApi/swap/v2/quote/ticker", {"symbol": symbol})
-    t_data = ticker.get("data") if isinstance(ticker.get("data"), dict) else {}
-    live_price = to_float(t_data.get("lastPrice"), 0.0)
-    change_pct = to_float(t_data.get("priceChangePercent"), 0.0)
+def _classifica_categoria_e_label(symbol: str, market_type: str) -> tuple[str, str]:
+    sym_upper = (symbol or "").upper()
+    if any(k in sym_upper for k in ["PAXG", "XAU", "GOLD"]):
+        return "Materie Prime", f"Oro / Gold ({symbol})"
+    if any(k in sym_upper for k in ["XPT", "PLATINUM"]):
+        return "Materie Prime", f"Platino / Platinum ({symbol})"
+    if any(k in sym_upper for k in ["XAG", "SILVER"]):
+        return "Materie Prime", f"Argento / Silver ({symbol})"
+    if any(k in sym_upper for k in ["WTI", "BRENT", "OIL", "NATGAS", "COPPER"]):
+        return "Materie Prime", f"Commodity ({symbol})"
+    if any(fx in sym_upper for fx in ["EUR", "GBP", "JPY", "AUD", "NZD", "CAD", "CHF"]):
+        return "Forex / Valute", f"Forex ({symbol})"
+    if any(st in sym_upper for st in ["NASDAQ", "SP500", "AAPL", "TSLA", "NVDA", "AMZN", "MSFT", "US30", "COIN", "META", "GOOG"]):
+        return "Azioni & Indici (TradFi)", f"TradFi ({symbol})"
+    return "Criptovalute", symbol
 
-    closes = [c["close"] for c in candles]
-    if live_price <= 0 and closes:
-        live_price = closes[-1]
-    if live_price <= 0:
-        live_price = 60000.0
 
-    if len(closes) >= 20:
-        ema_fast = _ema(closes, 9)[-1]
-        ema_slow = _ema(closes, 21)[-1]
-        recent_ranges = [max(1e-9, c["high"] - c["low"]) for c in candles[-14:]]
-        atr = sum(recent_ranges) / len(recent_ranges)
-        momentum_pct = ((closes[-1] - closes[-6]) / closes[-6] * 100.0) if len(closes) >= 6 and closes[-6] > 0 else 0.0
-    else:
-        ema_fast = live_price * 1.0005
-        ema_slow = live_price * 0.9995
-        atr = live_price * 0.004
-        momentum_pct = 0.0
+def _calcola_finestra_candela(tf_str: str = "15m", now_ts: float | None = None) -> dict:
+    ts = int(now_ts if now_ts is not None else time.time())
+    tf_map = {"5m": 300, "15m": 900, "1h": 3600, "4h": 14400}
+    durata = tf_map.get(tf_str, 900)
+    apertura_ts = (ts // durata) * durata
+    chiusura_ts = apertura_ts + durata
+    residuo_sec = max(1, chiusura_ts - ts)
+    return {
+        "timeframe": tf_str,
+        "tfSeconds": durata,
+        "openUtc": datetime.fromtimestamp(apertura_ts, tz=timezone.utc).strftime("%H:%M:%S"),
+        "closeUtc": datetime.fromtimestamp(chiusura_ts, tz=timezone.utc).strftime("%H:%M:%S"),
+        "remainingSec": residuo_sec,
+    }
 
-    rsi_val = _rsi(closes, 14)
-    _, macd_hist, macd_status = _macd_state(closes)
 
-    whale_score = 50.0
-    if len(candles) >= 6:
-        bull_imp = 0.0
-        bear_imp = 0.0
-        for c in candles[-12:]:
-            rng = max(1e-9, c["high"] - c["low"])
-            body = c["close"] - c["open"]
-            vol = max(1.0, c.get("volume", 1.0))
-            strength = abs(body) / rng
-            if body >= 0:
-                bull_imp += vol * (0.4 + strength)
-            else:
-                bear_imp += vol * (0.4 + strength)
-        tot_imp = bull_imp + bear_imp
-        if tot_imp > 0:
-            whale_score = round(min(85.0, max(15.0, (bull_imp / tot_imp) * 100.0)), 1)
-    bears_score = round(100.0 - whale_score, 1)
+def analizza_tf(simbolo, market_type, interval, limit=100):
+    url = (
+        f"{BASE_URL}/openApi/spot/v1/market/kline"
+        if market_type == "SPOT"
+        else f"{BASE_URL}/openApi/swap/v3/quote/klines"
+    )
+    try:
+        resp = requests.get(
+            url, params={"symbol": simbolo, "interval": interval, "limit": limit}, timeout=4.0
+        )
+        raw = resp.json().get("data", [])
+        candles = []
+        for k in raw:
+            if isinstance(k, dict):
+                candles.append({
+                    "time": int(k.get("time", 0)),
+                    "open": float(k["open"]),
+                    "high": float(k["high"]),
+                    "low": float(k["low"]),
+                    "close": float(k["close"]),
+                    "volume": float(k.get("volume", 0)),
+                })
+            elif isinstance(k, list) and len(k) >= 6:
+                candles.append({
+                    "time": int(k[0]),
+                    "open": float(k[1]),
+                    "high": float(k[2]),
+                    "low": float(k[3]),
+                    "close": float(k[4]),
+                    "volume": float(k[5]),
+                })
+        candles.sort(key=lambda c: c["time"])
+        if len(candles) < 30:
+            return None
 
-    atr_pct = (atr / live_price) if live_price > 0 else 0.004
-    step_dist = max(live_price * max(atr_pct, 0.0025), live_price * 0.002)
+        closes = [c["close"] for c in candles]
+        highs = [c["high"] for c in candles]
+        lows = [c["low"] for c in candles]
+        volumes = [c["volume"] for c in candles]
 
-    bull_confirmations = 0
-    bear_confirmations = 0
-    if ema_fast > ema_slow:
-        bull_confirmations += 1
-    elif ema_fast < ema_slow:
-        bear_confirmations += 1
-    if macd_status == "BULLISH":
-        bull_confirmations += 1
-    elif macd_status == "BEARISH":
-        bear_confirmations += 1
-    if momentum_pct > 0.08:
-        bull_confirmations += 1
-    elif momentum_pct < -0.08:
-        bear_confirmations += 1
-    if whale_score >= 54.0 and rsi_val < 72.0:
-        bull_confirmations += 1
-    elif bears_score >= 54.0 and rsi_val > 28.0:
-        bear_confirmations += 1
+        ema9 = _calcola_ema_serie(closes, 9)
+        ema21 = _calcola_ema_serie(closes, 21)
+        ema50 = _calcola_ema_serie(closes, 50)
+        rsi = _calcola_rsi_wilder(closes, 14)
+        atr = _calcola_atr_reale(highs, lows, closes, 14)
 
-    if forced_side in ("BUY", "SELL"):
-        signal = forced_side
-    else:
-        if bull_confirmations >= 3 and bear_confirmations == 0 and rsi_val < 74.0:
-            signal = "BUY"
-        elif bear_confirmations >= 3 and bull_confirmations == 0 and rsi_val > 26.0:
-            signal = "SELL"
+        avg_vol = sum(volumes[-20:]) / 20 if len(volumes) >= 20 else sum(volumes) / len(volumes)
+        current_vol = volumes[-1]
+        is_volume_confirmed = current_vol >= (avg_vol * 0.65)
+
+        last_candle = candles[-1]
+        candle_range = last_candle["high"] - last_candle["low"]
+        body_range = abs(last_candle["close"] - last_candle["open"])
+        is_clean_breakout = candle_range == 0 or (body_range / candle_range >= 0.25)
+
+        anti_false_valid = is_volume_confirmed and is_clean_breakout
+
+        if market_type == "SPOT":
+            bull = ema9 > ema21 and rsi >= 48.0 and anti_false_valid
+            bear = False
         else:
-            signal = "NEUTRAL"
+            bull = ema9 > ema21 and rsi >= 48.0 and anti_false_valid
+            bear = ema9 < ema21 and rsi <= 52.0 and anti_false_valid
 
-    trend_health = int(round(min(96, max(18, 42 + max(bull_confirmations, bear_confirmations) * 12 + min(15, abs(momentum_pct) * 12)))))
-    value_score = whale_score if signal != "SELL" else bears_score
+        trend = "BUY" if bull else ("SELL" if bear else "NEUTRO")
+        return {
+            "interval": interval,
+            "trend": trend,
+            "ema9": ema9,
+            "ema21": ema21,
+            "ema50": ema50,
+            "rsi14": round(rsi, 2),
+            "atr14": atr,
+            "highs": highs,
+            "lows": lows,
+            "volumes": volumes,
+            "last": candles[-1],
+            "antiFalseValid": anti_false_valid,
+        }
+    except Exception as e:
+        print(f"[TF ERROR {interval}] {e}")
+        return None
 
-    extreme_rsi = (signal == "BUY" and rsi_val >= 72.0) or (signal == "SELL" and rsi_val <= 28.0)
-    high_volatility = atr_pct > 0.025
-    conflicting_flow = (signal == "BUY" and macd_status == "BEARISH") or (signal == "SELL" and macd_status == "BULLISH")
 
-    if signal == "NEUTRAL":
-        risk_blocked = True
-        risk_title = "ATTESA — CONFLUENZA INCOMPLETA"
-        risk_reason = f"Conferme reali: {bull_confirmations} LONG / {bear_confirmations} SHORT • RSI {rsi_val} • MACD {macd_status}"
-        sentiment_label = "ATTESA"
-    elif extreme_rsi or high_volatility or conflicting_flow:
-        risk_blocked = True
-        risk_title = "NON ENTRARE — SEGNALE AD ALTO RISCHIO"
-        if extreme_rsi:
-            risk_reason = f"RSI estremo ({rsi_val}) su {symbol} • Rischio ritracciamento immediato"
-        elif high_volatility:
-            risk_reason = f"Volatilita' ATR elevata ({round(atr_pct * 100, 2)}%) su {symbol}"
+def _calcola_certezza_reale(tfs: dict, side: str, base_tf: str) -> float:
+    all_trends = [tfs[k]["trend"] for k in ("5m", "15m", "1h", "4h")]
+    concordi_all = sum(1 for tr in all_trends if tr == side)
+    htf_concordi = sum(1 for tr in (tfs["1h"]["trend"], tfs["4h"]["trend"]) if tr == side)
+    rsi_val = float(tfs[base_tf]["rsi14"])
+    rsi_aligned = (rsi_val >= 52.0) if side == "BUY" else (rsi_val <= 48.0)
+    anti_false_count = sum(1 for k in ("5m", "15m", "1h", "4h") if tfs[k].get("antiFalseValid"))
+
+    score = 52.0 + (concordi_all * 8.0) + (htf_concordi * 5.0) + (3.5 if rsi_aligned else 0.0) + (anti_false_count * 1.5)
+    return round(min(97.5, max(54.0, score)), 1)
+
+
+def _formatta_quantita_contratto(qty: float, price: float) -> str:
+    q = max(0.001, float(qty or 0.0))
+    if price >= 5000:
+        return f"{q:.3f}"
+    if price >= 50:
+        return f"{q:.2f}"
+    if price >= 1:
+        return f"{q:.1f}"
+    return f"{int(max(1, round(q)))}"
+
+
+def calcola_parametri_quantistici_unificati(simbolo, market_type, style="Scalping", margin_usdt=2.0, leverage=10):
+    fetch_type = "FUTURES" if market_type == "STANDARD_FUTURES" else market_type
+    try:
+        tfs = {iv: analizza_tf(simbolo, fetch_type, iv) for iv in ("5m", "15m", "1h", "4h")}
+    except Exception:
+        tfs = None
+
+    if not tfs or any(v is None for v in tfs.values()):
+        return None
+
+    style_base_tf = {
+        "Scalping": "5m",
+        "Day Trading": "15m",
+        "Swing Trading": "1h",
+        "Long Term": "4h",
+    }.get(style, "15m")
+
+    trend_5m = tfs["5m"]["trend"]
+    trend_15m = tfs["15m"]["trend"]
+    trend_1h = tfs["1h"]["trend"]
+    trend_4h = tfs["4h"]["trend"]
+
+    # Richiede allineamento reale tra 1h e 4h (no forzatura RSI quando 1h e 4h divergono o sono neutri)
+    if trend_1h == trend_4h and trend_1h in ("BUY", "SELL"):
+        side = trend_1h
+        if trend_5m == trend_15m == side:
+            score_precisione = 100.0
+            favorabilita = 88.0
+        elif trend_15m == side or trend_5m == side:
+            score_precisione = 84.0
+            favorabilita = 80.0
         else:
-            risk_reason = f"Divergenza MACD ({macd_status}) rispetto al segnale {signal} su {symbol}"
-        sentiment_label = "CAUTELA"
+            score_precisione = 76.0
+            favorabilita = 75.0
     else:
-        risk_blocked = False
-        risk_title = "SEGNALE VERIFICATO — CONFLUENZA REALE"
-        risk_reason = f"{max(bull_confirmations, bear_confirmations)}/4 indicatori allineati • MACD {macd_status} • RSI {rsi_val}"
-        sentiment_label = "FORTE" if max(bull_confirmations, bear_confirmations) >= 4 else "CONFERMATO"
+        side = "NEUTRO"
+        score_precisione = 50.0
+        favorabilita = 50.0
 
-    raw_conf = 45.0 + max(bull_confirmations, bear_confirmations) * 11.5 + min(12.0, abs(momentum_pct) * 10.0)
-    if risk_blocked and signal != "NEUTRAL":
-        raw_conf = min(raw_conf, 64.0)
-    confidence = round(min(94.0, max(25.0, raw_conf)), 1)
-    win_rate = round(min(91.0, max(48.0, 52.0 + max(bull_confirmations, bear_confirmations) * 8.5 - (10.0 if risk_blocked else 0.0))), 1)
+    certainty = _calcola_certezza_reale(tfs, side if side in ("BUY", "SELL") else "BUY", style_base_tf) if side in ("BUY", "SELL") else 50.0
+    base = tfs[style_base_tf]
+    price = tfs["5m"]["last"]["close"]
+    atr_reale = base["atr14"] if base["atr14"] > 0 else (price * 0.01)
+    dec = 2 if price >= 1000 else 3 if price >= 10 else 4 if price >= 1 else 5 if price >= 0.01 else 7
 
-    if signal == "BUY":
-        tp1 = format_price_smart(live_price + step_dist * 0.8, live_price)
-        tp2 = format_price_smart(live_price + step_dist * 1.4, live_price)
-        tp3 = format_price_smart(live_price + step_dist * 2.1, live_price)
-        sl = format_price_smart(max(live_price * 0.0001, live_price - step_dist * 0.9), live_price)
-        label = "SEGNALE CERTO LONG" if not risk_blocked else "LONG CON RISCHIO"
-        score = int(round(min(100, max(61, confidence))))
-        rec_text = f"Pressione: {int(round(whale_score))}% Balene / {int(round(bears_score))}% Orsi. MACD: {macd_status}."
-    elif signal == "SELL":
-        tp1 = format_price_smart(max(live_price * 0.0001, live_price - step_dist * 0.8), live_price)
-        tp2 = format_price_smart(max(live_price * 0.0001, live_price - step_dist * 1.4), live_price)
-        tp3 = format_price_smart(max(live_price * 0.0001, live_price - step_dist * 2.1), live_price)
-        sl = format_price_smart(live_price + step_dist * 0.9, live_price)
-        label = "SEGNALE CERTO SHORT" if not risk_blocked else "SHORT CON RISCHIO"
-        score = -int(round(min(100, max(61, confidence))))
-        rec_text = f"Pressione: {int(round(whale_score))}% Balene / {int(round(bears_score))}% Orsi. MACD: {macd_status}."
+    if side == "BUY":
+        min_recente = min(base["lows"][-5:])
+        sl = round(min(min_recente, price - (atr_reale * 1.8)), dec)
+        rischio_unit = max(price - sl, price * 0.003)
+        tp1 = round(price + (rischio_unit * 1.5), dec)
+        tp2 = round(price + (rischio_unit * 2.1), dec)
+        tp3 = round(price + (rischio_unit * 3.2), dec)
+        reward_unit = max(tp2 - price, rischio_unit * 1.5)
+
+        counter_side = "SELL"
+        counter_sl = round(price + (atr_reale * 1.8), dec)
+        counter_tp = round(price - (rischio_unit * 1.5), dec)
+        counter_desc = (
+            f"La vendita sarebbe contro il trend 1h/4h rialzista ({price}) "
+            f"e quindi un setup a bassa probabilità e più rischioso."
+        )
+    elif side == "SELL":
+        max_recente = max(base["highs"][-5:])
+        sl = round(max(max_recente, price + (atr_reale * 1.8)), dec)
+        rischio_unit = max(sl - price, price * 0.003)
+        tp1 = round(price - (rischio_unit * 1.5), dec)
+        tp2 = round(price - (rischio_unit * 2.1), dec)
+        tp3 = round(price - (rischio_unit * 3.2), dec)
+        reward_unit = max(price - tp2, rischio_unit * 1.5)
+
+        counter_side = "BUY"
+        counter_sl = round(price - (atr_reale * 1.8), dec)
+        counter_tp = round(price + (rischio_unit * 1.5), dec)
+        counter_desc = (
+            f"L'acquisto sarebbe contro il trend 1h/4h ribassista ({price}) "
+            f"e quindi un setup a bassa probabilità e più rischioso."
+        )
     else:
-        tp1 = None
-        tp2 = None
-        tp3 = None
-        sl = None
-        label = "ATTESA • NO TRADE CERTO"
-        score = int(round(min(55, max(15, confidence * 0.6))))
-        rec_text = f"Pressione: {int(round(whale_score))}% Balene / {int(round(bears_score))}% Orsi. MACD: {macd_status}."
+        sl = round(price - (atr_reale * 1.8), dec)
+        tp1 = round(price + (atr_reale * 1.5), dec)
+        tp2 = round(price + (atr_reale * 2.1), dec)
+        tp3 = round(price + (atr_reale * 3.2), dec)
+        rischio_unit = max(price - sl, price * 0.003)
+        reward_unit = max(tp2 - price, rischio_unit * 1.5)
 
-    p_fmt = format_price_smart(live_price, live_price)
-    entry_min = format_price_smart(p_fmt * 0.9992, p_fmt)
-    entry_max = format_price_smart(p_fmt * 1.0008, p_fmt)
+        counter_side = "NEUTRO"
+        counter_sl = sl
+        counter_tp = tp1
+        counter_desc = (
+            "Timeframe 1h e 4h non allineati o in fase neutra: attendere conferma strutturale "
+            "prima di aprire posizioni direzionali."
+        )
+
+    eff_margin = _normalizza_importo_minimo(margin_usdt)
+    eff_lev = _calcola_leva_dinamica(eff_margin, leverage, market_type)
+    notional = eff_margin * eff_lev
+    raw_qty = (notional / price) if price > 0 else 0.0
+    size_qty = float(_formatta_quantita_contratto(raw_qty, price))
+
+    rr_ratio = round(reward_unit / rischio_unit, 2) if rischio_unit > 0 else 1.5
+    p_win = min(0.95, max(0.51, certainty / 100.0)) if side != "NEUTRO" else 0.50
+    p_loss = 1.0 - p_win
+    payoff_win = notional * (reward_unit / price)
+    payoff_loss = notional * (rischio_unit / price)
+    ev_usd = round((p_win * payoff_win) - (p_loss * payoff_loss), 4) if side != "NEUTRO" else 0.0
+    kelly_pct = round(max(1.0, min(25.0, ((p_win * rr_ratio - p_loss) / max(rr_ratio, 0.1)) * 100.0)), 1) if side != "NEUTRO" else 0.0
+
+    candele_eta = max(2, min(8, int(round((rr_ratio * 1.6)))))
+    minuti_eta = candele_eta * 15
+    target_eta_ts = int(time.time()) + (minuti_eta * 60)
+    target_eta_utc = datetime.fromtimestamp(target_eta_ts, tz=timezone.utc).strftime("%H:%M UTC")
+
+    entry_zone_min = round(price - (atr_reale * 0.2), dec)
+    entry_zone_max = round(price + (atr_reale * 0.2), dec)
+
+    candle_sec = {"5m": 300, "15m": 900, "1h": 3600, "4h": 14400}.get(style_base_tf, 900)
+    ultima_candela = base["last"]
+    velocita_reale = max(atr_reale * 0.25 / candle_sec, price * 0.000015)
+    dist_tp_val = abs(tp2 - price)
+    tempo_esatto_sec = int(max(60, min(14400, round(dist_tp_val / velocita_reale))))
+    timestamp_ultima_candela = int(ultima_candela["time"])
+
+    category, display_label = _classifica_categoria_e_label(simbolo, market_type)
+    candle_window = _calcola_finestra_candela(style_base_tf)
+    is_safe, time_msg, borsa_rif, start_t, end_t = verifica_finestra_temporale_sicura()
+    momento_giusto = is_safe and (side != "NEUTRO")
 
     return {
-        "symbol": symbol,
-        "tf": clean_tf,
-        "price": p_fmt,
-        "change_pct": round(change_pct, 2),
-        "signal": signal,
-        "confidence": confidence,
-        "win_rate": win_rate,
-        "score": score,
-        "label": label,
-        "entry_min": entry_min,
-        "entry_max": entry_max,
+        "symbol": simbolo,
+        "displayLabel": display_label,
+        "category": category,
+        "marketType": market_type,
+        "style": style,
+        "price": round(price, dec),
+        "side": side,
+        "htfBias": "BULLISH" if side == "BUY" else ("BEARISH" if side == "SELL" else "NEUTRAL"),
+        "size": size_qty,
+        "leverage": eff_lev,
+        "marginUsdt": round(eff_margin, 2),
+        "rr": rr_ratio,
+        "evUsd": ev_usd,
+        "kellyPct": kelly_pct,
+        "certaintyPct": certainty,
+        "etaMinutes": minuti_eta,
+        "etaCandles": candele_eta,
+        "etaUtc": target_eta_utc,
+        "candle15m": candle_window,
+        "entryZoneMin": entry_zone_min,
+        "entryZoneMax": entry_zone_max,
+        "sentiment": f"Filtro 1h/4h Attivo ({side})" if side != "NEUTRO" else "In attesa di allineamento 1h/4h (NEUTRO)",
+        "favorability": favorabilita,
+        "confluenza": f"{time_msg}",
+        "borsaRif": borsa_rif,
+        "momentoGiusto": momento_giusto,
+        "exactTf": style_base_tf,
+        "precisionScore": score_precisione,
+        "ema9": round(base["ema9"], dec),
+        "ema21": round(base["ema21"], dec),
+        "rsi14": base["rsi14"],
+        "atr14": round(atr_reale, dec),
+        "sl": sl,
         "tp1": tp1,
         "tp2": tp2,
         "tp3": tp3,
-        "tp": tp2 or tp1,
-        "sl": sl,
-        "ema_fast": format_price_smart(ema_fast, p_fmt),
-        "ema_slow": format_price_smart(ema_slow, p_fmt),
-        "atr": format_price_smart(atr, p_fmt),
-        "rsi": rsi_val,
-        "macd_hist": macd_hist,
-        "macd_status": macd_status,
-        "whales_pct": int(round(whale_score)),
-        "bears_pct": int(round(bears_score)),
-        "trend_health": trend_health,
-        "value_score": int(round(value_score)),
-        "sentiment": sentiment_label,
-        "risk_blocked": risk_blocked,
-        "risk_title": risk_title,
-        "risk_reason": risk_reason,
-        "recommendation_side": signal if signal in ("BUY", "SELL") else "WAIT",
-        "recommendation_text": rec_text,
-        "candles": candles[-35:],
+        "tp": tp2,
+        "counterTrade": {
+            "side": counter_side,
+            "entry": round(price, dec),
+            "sl": counter_sl,
+            "tp": counter_tp,
+            "description": counter_desc,
+        },
+        "decimals": dec,
+        "tempoSec": tempo_esatto_sec,
+        "candleTime": timestamp_ultima_candela,
+        "tfs": tfs,
+        "isSafeTime": is_safe,
+        "sessionStart": start_t,
+        "sessionEnd": end_t,
     }
 
 
-def _extract_ticker_map(raw_tickers):
+def get_live_market_data(market_type: str = "FUTURES"):
+    if market_type == "SPOT":
+        url = f"{BASE_URL}/openApi/spot/v1/ticker/24hr"
+    else:
+        url = f"{BASE_URL}/openApi/swap/v2/quote/ticker"
+
+    try:
+        response = requests.get(url, timeout=5)
+        data = response.json()
+        if data.get("code") == 0 and "data" in data:
+            tickers = data["data"]
+            market_map = {}
+            for t in tickers:
+                symbol = t.get("symbol")
+                if not symbol or not symbol.endswith("-USDT"):
+                    continue
+
+                price = float(t.get("lastPrice", 0))
+                if price <= 0:
+                    continue
+
+                quote_vol = float(t.get("quoteVolume", t.get("volume", 0)))
+
+                if market_type == "SPOT":
+                    raw_chg = t.get("priceChangePercent", "0")
+                    if isinstance(raw_chg, str):
+                        raw_chg = raw_chg.replace("%", "")
+                    change = float(raw_chg)
+                else:
+                    change = float(t.get("priceChangePercent", 0)) * 100
+
+                category, display_label = _classifica_categoria_e_label(symbol, market_type)
+
+                market_map[symbol] = {
+                    "price": price,
+                    "change24h": change,
+                    "volume": quote_vol,
+                    "category": category,
+                    "displayLabel": display_label,
+                    "marketType": market_type,
+                }
+            return market_map
+    except Exception as e:
+        print(f"[MARKET ERROR] {e}")
+    return {}
+
+
+def _calcola_leva_dinamica(capitale: float, leva_richiesta: int, market_type: str) -> int:
+    if market_type == "SPOT":
+        return 1
+    if capitale > 0 and capitale <= 2.0 and int(leva_richiesta or 0) == 10:
+        return 20
+    return max(1, int(leva_richiesta or 10))
+
+
+def imposta_leva_bingx(simbolo: str, leva: int, lato: str, api_key: str, secret_key: str):
+    position_side = "LONG" if lato == "BUY" else "SHORT"
+    for pos_side in (position_side, "BOTH"):
+        try:
+            _signed_post(
+                "/openApi/swap/v2/trade/leverage",
+                {
+                    "symbol": simbolo,
+                    "leverage": str(leva),
+                    "positionSide": pos_side,
+                    "timestamp": str(int(time.time() * 1000)),
+                },
+                api_key,
+                secret_key,
+            )
+        except Exception as e:
+            print(f"[LEVERAGE EXCEPT] {e}")
+
+
+def _piazza_sl_tp_swap_reali(
+    simbolo: str,
+    lato_ingresso: str,
+    quantita_str: str,
+    prezzo_sl: float,
+    prezzo_tp: float,
+    active_api: str,
+    active_secret: str,
+) -> dict:
+    close_side = "SELL" if lato_ingresso == "BUY" else "BUY"
+    position_side = "LONG" if lato_ingresso == "BUY" else "SHORT"
     out = {}
-    if not isinstance(raw_tickers, list):
-        return out
-    for item in raw_tickers:
-        if not isinstance(item, dict):
-            continue
-        sym = str(item.get("symbol") or "").strip().upper()
-        if not sym:
-            continue
-        last_p = to_float(item.get("lastPrice") or item.get("price"), 0.0)
-        chg = to_float(item.get("priceChangePercent") or item.get("changeRate"), 0.0)
-        if abs(chg) <= 1.0 and "%" not in str(item.get("priceChangePercent") or ""):
-            if item.get("priceChangePercent") is None and item.get("changeRate") is not None:
-                chg = chg * 100.0
-        out[sym] = {
-            "price": format_price_smart(last_p, last_p) if last_p > 0 else 0.0,
-            "change_pct": round(chg, 2),
-        }
+
+    if prezzo_sl and float(prezzo_sl) > 0:
+        try:
+            sl_res = _signed_post(
+                "/openApi/swap/v2/trade/order",
+                {
+                    "symbol": simbolo,
+                    "side": close_side,
+                    "positionSide": position_side,
+                    "type": "STOP_MARKET",
+                    "stopPrice": str(prezzo_sl),
+                    "quantity": quantita_str,
+                    "workingType": "MARK_PRICE",
+                    "timestamp": str(int(time.time() * 1000)),
+                },
+                active_api,
+                active_secret,
+            )
+            out["slOrder"] = sl_res
+        except Exception as e:
+            out["slOrderError"] = str(e)
+
+    if prezzo_tp and float(prezzo_tp) > 0:
+        try:
+            tp_res = _signed_post(
+                "/openApi/swap/v2/trade/order",
+                {
+                    "symbol": simbolo,
+                    "side": close_side,
+                    "positionSide": position_side,
+                    "type": "TAKE_PROFIT_MARKET",
+                    "stopPrice": str(prezzo_tp),
+                    "quantity": quantita_str,
+                    "workingType": "MARK_PRICE",
+                    "timestamp": str(int(time.time() * 1000)),
+                },
+                active_api,
+                active_secret,
+            )
+            out["tpOrder"] = tp_res
+        except Exception as e:
+            out["tpOrderError"] = str(e)
+
     return out
 
 
-CATEGORY_ALIASES = {
-    "TUTTI": "Tutti",
-    "ALL": "Tutti",
-    "CRYPTO": "Crypto Major",
-    "CRYPTO MAJOR": "Crypto Major",
-    "CRIPTO": "Crypto Major",
-    "MATERIE PRIME": "Materie Prime",
-    "COMMODITIES": "Materie Prime",
-    "ORO": "Materie Prime",
-    "GOLD": "Materie Prime",
-    "AZIONI": "Azioni",
-    "STOCKS": "Azioni",
-    "FOREX": "Forex",
-    "EUR": "Forex",
-    "EURUSDT": "Forex",
-    "EUR-USDT": "Forex",
-}
+def _scala_quantita_fallback(qty_val: float, prezzo_ingresso: float, tentativo: int) -> str:
+    step_table = [1.0, 0.5, 0.25, 0.1, 0.05]
+    fattore = step_table[min(tentativo, len(step_table) - 1)]
+    nuova_qty = qty_val * fattore
+    if prezzo_ingresso >= 5000:
+        return f"{max(0.001, round(nuova_qty, 3)):.3f}"
+    if prezzo_ingresso >= 50:
+        return f"{max(0.01, round(nuova_qty, 2)):.2f}"
+    if prezzo_ingresso >= 1:
+        return f"{max(0.1, round(nuova_qty, 1)):.1f}"
+    return f"{int(max(1, round(nuova_qty)))}"
 
 
-def normalize_category(category: str) -> str:
-    raw = (category or "").strip()
-    if raw in MARKET_CATALOG or raw == "Tutti":
-        return raw
-    mapped = CATEGORY_ALIASES.get(raw.upper())
-    if mapped:
-        return mapped
-    for k in MARKET_CATALOG.keys():
-        if k.upper() == raw.upper():
-            return k
-    return "Tutti"
-
-
-def _pool_for_category(category: str):
-    cat = normalize_category(category)
-    if cat == "Tutti":
-        out = []
-        seen = set()
-        for syms in MARKET_CATALOG.values():
-            for s in syms:
-                if s not in seen:
-                    seen.add(s)
-                    out.append(s)
-        return out
-    return list(MARKET_CATALOG.get(cat, []))
-
-
-def scan_markets(category: str = "Materie Prime", query: str = "", force_refresh: bool = False):
-    cat = normalize_category(category)
-    q = (query or "").strip().upper()
-    q_alt = "EUR-USDT" if q == "EURUSDT" else q
-    search_cat = CATEGORY_ALIASES[q] if (q and q in CATEGORY_ALIASES and q not in ("EURUSDT", "EUR-USDT")) else None
-    effective_cat = search_cat if search_cat else cat
-
-    with STATE_LOCK:
-        cache_age = time.time() - MARKET_SCAN_CACHE.get("updated_at", 0)
-        cached_rows = list(MARKET_SCAN_CACHE.get("rows") or [])
-        cached_cat = MARKET_SCAN_CACHE.get("category")
-        locked_map = dict(AUTO_TRADE_STATE.get("locked_signals") or {})
-
-    if not force_refresh and cached_rows and cache_age < 5 and cached_cat == effective_cat:
-        base_rows = cached_rows
-    else:
-        target_pairs = []
-        seen = set()
-        if effective_cat == "Tutti":
-            for c_name, syms in MARKET_CATALOG.items():
-                for s in syms:
-                    if s not in seen:
-                        seen.add(s)
-                        target_pairs.append((c_name, s))
-        else:
-            for s in MARKET_CATALOG.get(effective_cat, []):
-                if s not in seen:
-                    seen.add(s)
-                    target_pairs.append((effective_cat, s))
-
-        bulk = bingx_req("GET", "/openApi/swap/v2/quote/ticker")
-        t_map = _extract_ticker_map(bulk.get("data"))
-
-        base_rows = []
-        for c_name, s in target_pairs:
-            t_info = t_map.get(s)
-            if not t_info or t_info.get("price", 0.0) <= 0:
-                single = bingx_req("GET", "/openApi/swap/v2/quote/ticker", {"symbol": s})
-                s_data = single.get("data") if isinstance(single.get("data"), dict) else {}
-                lp = to_float(s_data.get("lastPrice"), 0.0)
-                cp = to_float(s_data.get("priceChangePercent"), 0.0)
-                t_info = {
-                    "price": format_price_smart(lp, lp) if lp > 0 else 0.0,
-                    "change_pct": round(cp, 2),
-                }
-            chg = to_float(t_info.get("change_pct"), 0.0)
-            sig = "BUY" if chg >= 0.6 else ("SELL" if chg <= -0.6 else "NEUTRAL")
-            base_rows.append({
-                "symbol": s,
-                "category": c_name,
-                "price": t_info.get("price", 0.0),
-                "change_pct": chg,
-                "signal": sig,
-            })
-
-        with STATE_LOCK:
-            MARKET_SCAN_CACHE["rows"] = list(base_rows)
-            MARKET_SCAN_CACHE["category"] = effective_cat
-            MARKET_SCAN_CACHE["updated_at"] = time.time()
-
-    filtered = []
-    for r in base_rows:
-        if q and not search_cat and (q not in r["symbol"] and q_alt not in r["symbol"]) and q not in r["category"].upper():
-            continue
-        row_copy = dict(r)
-        row_copy["locked_side"] = locked_map.get(r["symbol"])
-        filtered.append(row_copy)
-
-    total_cat_count = len(_pool_for_category(effective_cat))
-    return {
-        "category": effective_cat,
-        "query": q,
-        "total_catalog": total_cat_count,
-        "rows": filtered,
-    }
-
-
-def sanitize_tp_sl_for_side(side: str, ref_price: float, tp_val, sl_val):
-    p = to_float(ref_price, 0.0)
-    if p <= 0:
-        return None, None
-    min_buf = max(p * 0.0015, format_price_smart(p * 0.001, p))
-    if min_buf <= 0:
-        min_buf = p * 0.0015
-
-    tp_f = to_float(tp_val, 0.0)
-    sl_f = to_float(sl_val, 0.0)
-
-    if side == "BUY":
-        if tp_f <= 0 or tp_f <= p + min_buf:
-            tp_f = p + max(min_buf * 1.4, p * 0.004)
-        clean_tp = format_price_smart(tp_f, p)
-
-        if sl_f <= 0 or sl_f >= p - min_buf:
-            sl_f = max(p * 0.0001, p - max(min_buf * 1.4, p * 0.004))
-        clean_sl = format_price_smart(sl_f, p)
-    else:
-        if tp_f <= 0 or tp_f >= p - min_buf:
-            tp_f = max(p * 0.0001, p - max(min_buf * 1.4, p * 0.004))
-        clean_tp = format_price_smart(tp_f, p)
-
-        if sl_f <= 0 or sl_f <= p + min_buf:
-            sl_f = p + max(min_buf * 1.4, p * 0.004)
-        clean_sl = format_price_smart(sl_f, p)
-
-    return clean_tp, clean_sl
-
-
-def _place_tp_sl_orders(symbol: str, side: str, pos_side: str, qty_val: float, clean_tp, clean_sl):
-    close_side = "SELL" if side == "BUY" else "BUY"
-    attached = {
-        "tp_order": {"code": None, "msg": "Non impostato"},
-        "sl_order": {"code": None, "msg": "Non impostato"},
-    }
-    if clean_tp is not None and to_float(clean_tp, 0.0) > 0:
-        attached["tp_order"] = bingx_req("POST", "/openApi/swap/v2/trade/order", {
-            "symbol": symbol,
-            "side": close_side,
-            "positionSide": pos_side,
-            "type": "TAKE_PROFIT_MARKET",
-            "stopPrice": fmt_num_str(clean_tp),
-            "price": fmt_num_str(clean_tp),
-            "quantity": fmt_num_str(qty_val),
-            "workingType": "MARK_PRICE",
-        }, signed=True)
-    if clean_sl is not None and to_float(clean_sl, 0.0) > 0:
-        attached["sl_order"] = bingx_req("POST", "/openApi/swap/v2/trade/order", {
-            "symbol": symbol,
-            "side": close_side,
-            "positionSide": pos_side,
-            "type": "STOP_MARKET",
-            "stopPrice": fmt_num_str(clean_sl),
-            "price": fmt_num_str(clean_sl),
-            "quantity": fmt_num_str(qty_val),
-            "workingType": "MARK_PRICE",
-        }, signed=True)
-    return attached
-
-
-def _record_signal_log(symbol: str, tf: str, signal: str, confidence: float, label: str, tp1, tp2, sl, outcome: str, dedup_key: str = None):
-    with STATE_LOCK:
-        if dedup_key and dedup_key in SEEN_SIGNAL_KEYS:
-            return
-        if dedup_key:
-            SEEN_SIGNAL_KEYS.add(dedup_key)
-            if len(SEEN_SIGNAL_KEYS) > 2000:
-                SEEN_SIGNAL_KEYS.clear()
-                SEEN_SIGNAL_KEYS.add(dedup_key)
-
-        entry = {
-            "ora": time.strftime("%H:%M:%S"),
-            "coppia": symbol,
-            "tf": tf,
-            "segnale": signal,
-            "confidenza": confidence,
-            "label": label,
-            "tp1": tp1,
-            "tp2": tp2,
-            "sl": sl,
-            "esito": outcome,
-        }
-        SIGNAL_HISTORY.insert(0, entry)
-        if len(SIGNAL_HISTORY) > 120:
-            del SIGNAL_HISTORY[120:]
-
-
-def fetch_positions_raw():
-    res = bingx_req("GET", "/openApi/swap/v2/user/positions", signed=True)
-    if res.get("code") != 0 or not isinstance(res.get("data"), list):
-        return []
-    positions = []
-    for p in res["data"]:
-        amt = abs(to_float(p.get("positionAmt"), 0.0))
-        if amt > 0:
-            sym = p.get("symbol", "")
-            p_side = p.get("positionSide", "LONG")
-            reg = ACTIVE_TPSL_REGISTRY.get(f"{sym}_{p_side}", {})
-            positions.append({
-                "symbol": sym,
-                "positionSide": p_side,
-                "positionAmt": amt,
-                "entryPrice": to_float(p.get("avgPrice") or p.get("entryPrice"), 0.0),
-                "markPrice": to_float(p.get("markPrice"), 0.0),
-                "unrealizedProfit": to_float(p.get("unrealizedProfit"), 0.0),
-                "leverage": int(to_float(p.get("leverage"), 20)),
-                "tp": reg.get("tp"),
-                "sl": reg.get("sl"),
-            })
-    return positions
-
-
-def check_concurrency_limit(max_concurrent: int, symbol: str = None, pos_side: str = None, current_positions=None):
-    limit_val = normalize_max_concurrent_trades(max_concurrent, 2)
-    positions = current_positions if current_positions is not None else fetch_positions_raw()
-    open_count = len(positions)
-    already_same_slot = any(
-        (symbol and p.get("symbol") == symbol and (not pos_side or p.get("positionSide") == pos_side))
-        for p in positions
-    )
-    if open_count >= limit_val and not already_same_slot:
-        return False, f"Limite operazioni contemporanee raggiunto ({open_count}/{limit_val} aperte)"
-    return True, f"Slot disponibile ({open_count}/{limit_val} aperte)"
-
-
-def _lock_signal_and_advance_monitoring(symbol: str, side: str, tf: str, category: str = "Materie Prime"):
-    timing = candle_timing_info(tf)
-    lock_key = f"{symbol}_{tf}_{timing['candle_start_ts']}_{side}"
-    next_symbol = None
-
-    with STATE_LOCK:
-        locked = dict(AUTO_TRADE_STATE.get("locked_signals") or {})
-        locked[symbol] = side
-        AUTO_TRADE_STATE["locked_signals"] = locked
-        AUTO_TRADE_STATE["last_signal_key"] = lock_key
-        rotate = bool(AUTO_TRADE_STATE.get("rotate_after_open", True))
-
-    if rotate:
-        cat = category if category in MARKET_CATALOG or category == "Tutti" else "Materie Prime"
-        pool = []
-        if cat == "Tutti":
-            for syms in MARKET_CATALOG.values():
-                for s in syms:
-                    if s not in pool:
-                        pool.append(s)
-        else:
-            pool = list(MARKET_CATALOG.get(cat, []))
-
-        with STATE_LOCK:
-            current_locked = dict(AUTO_TRADE_STATE.get("locked_signals") or {})
-        candidates = [s for s in pool if s != symbol and current_locked.get(s) != side]
-        if not candidates:
-            candidates = [s for s in pool if s != symbol]
-        if candidates:
-            next_symbol = candidates[0]
-            with STATE_LOCK:
-                AUTO_TRADE_STATE["symbol"] = next_symbol
-
-    return next_symbol
-
-
-def submit_bingx_order(
-    symbol: str,
-    side: str,
-    order_type: str,
-    tf: str,
-    qty: float,
-    leverage: int,
-    price=None,
-    tp=None,
-    sl=None,
-    close_at_candle_end: bool = True,
-    max_concurrent_trades: int = 2,
-    quant: dict = None,
-    category: str = "Materie Prime",
+def esegui_ordine_bingx(
+    simbolo: str,
+    lato: str,
+    quantita: float,
+    prezzo_ingresso: float,
+    prezzo_tp: float,
+    prezzo_sl: float,
+    leva: int = 10,
+    timeframe: str = "15m",
+    market_type: str = "FUTURES",
+    api_key: str = "",
+    secret_key: str = "",
+    margin_usdt: float = MIN_ORDER_USDT,
 ):
-    pos_side = "LONG" if side == "BUY" else "SHORT"
-    qty_val = to_float(qty, 0.0)
-    lev_val = int(to_float(leverage, 20))
-    max_conc = normalize_max_concurrent_trades(max_concurrent_trades, 2)
+    active_api, active_secret, _ = _risolvi_credenziali(api_key, secret_key)
 
-    if qty_val <= 0:
-        return {"code": -10, "msg": "Quantita' ordine non valida (deve essere > 0)"}
+    if not active_api or not active_secret:
+        return {"code": -1, "msg": "API Key o Secret Key BingX mancanti (verifica variabili d'ambiente su Render)."}
 
-    can_open, slot_msg = check_concurrency_limit(max_conc, symbol=symbol, pos_side=pos_side)
-    if not can_open:
-        return {"code": -11, "msg": slot_msg}
+    eff_margin = _normalizza_importo_minimo(margin_usdt)
+    eff_lev = _calcola_leva_dinamica(eff_margin, leva, market_type)
 
-    bingx_req("POST", "/openApi/swap/v2/trade/leverage", {
-        "symbol": symbol,
-        "side": pos_side,
-        "leverage": lev_val,
-    }, signed=True)
+    base_qty = float(quantita or 0.0)
+    if base_qty <= 0 and prezzo_ingresso > 0:
+        base_qty = (eff_margin * eff_lev) / float(prezzo_ingresso)
 
-    q_ref = quant if isinstance(quant, dict) and quant.get("price") else compute_quant_brain(symbol, tf, side)
-    ticker = bingx_req("GET", "/openApi/swap/v2/quote/ticker", {"symbol": symbol})
-    t_data = ticker.get("data") if isinstance(ticker.get("data"), dict) else {}
-    mark_ref = to_float(t_data.get("lastPrice", 0), 0.0) or to_float(q_ref.get("price", 0), 0.0)
+    qty_str = _formatta_quantita_contratto(base_qty, float(prezzo_ingresso or 0.0))
 
-    eff_tp = tp if tp not in (None, "", 0, 0.0) else (q_ref.get("tp") or q_ref.get("tp2") or q_ref.get("tp1"))
-    eff_sl = sl if sl not in (None, "", 0, 0.0) else q_ref.get("sl")
-    clean_tp, clean_sl = sanitize_tp_sl_for_side(side, mark_ref, eff_tp, eff_sl)
-
-    order_params = {
-        "symbol": symbol,
-        "side": side,
-        "positionSide": pos_side,
-        "type": order_type,
-        "quantity": fmt_num_str(qty_val),
-    }
-    if order_type == "LIMIT" and price not in (None, ""):
-        order_params["price"] = fmt_num_str(format_price_smart(to_float(price, mark_ref), mark_ref))
-
-    res = bingx_req("POST", "/openApi/swap/v2/trade/order", order_params, signed=True)
-    if res.get("code") == 0:
-        tp_sl_status = _place_tp_sl_orders(symbol, side, pos_side, qty_val, clean_tp, clean_sl)
-        tp_ok = tp_sl_status["tp_order"].get("code") == 0 if clean_tp else True
-        sl_ok = tp_sl_status["sl_order"].get("code") == 0 if clean_sl else True
-
-        tp_info = f"TP {fmt_num_str(clean_tp)} ({'OK' if tp_ok else tp_sl_status['tp_order'].get('msg', 'ERR')})" if clean_tp else "TP -"
-        sl_info = f"SL {fmt_num_str(clean_sl)} ({'OK' if sl_ok else tp_sl_status['sl_order'].get('msg', 'ERR')})" if clean_sl else "SL -"
-
-        with STATE_LOCK:
-            ACTIVE_TPSL_REGISTRY[f"{symbol}_{pos_side}"] = {
-                "symbol": symbol,
-                "positionSide": pos_side,
-                "tp": clean_tp if tp_ok else None,
-                "sl": clean_sl if sl_ok else None,
-                "tp_ok": tp_ok,
-                "sl_ok": sl_ok,
-                "updated_at": int(time.time()),
-            }
-
-        next_sym = _lock_signal_and_advance_monitoring(symbol, side, tf, category=category)
-        out_str = f"ESITO BINGX: POSIZIONE APERTA SU BINGX ({tp_info} | {sl_info})"
-        with STATE_LOCK:
-            AUTO_TRADE_STATE["last_outcome"] = out_str
-
-        if close_at_candle_end:
-            timing = candle_timing_info(tf)
-            watch_key = f"{symbol}_{pos_side}_{timing['candle_end_ts']}"
-            with STATE_LOCK:
-                AUTO_CLOSE_WATCHLIST[watch_key] = {
-                    "symbol": symbol,
-                    "side": pos_side,
-                    "qty": qty_val,
-                    "tf": tf,
-                    "close_at": timing["candle_end_ts"],
-                }
-
-        _record_signal_log(
-            symbol=symbol,
-            tf=tf,
-            signal=side,
-            confidence=to_float(q_ref.get("confidence", 80.0), 80.0),
-            label=q_ref.get("label", "ORDINE ESEGUITO"),
-            tp1=q_ref.get("tp1", clean_tp),
-            tp2=clean_tp,
-            sl=clean_sl,
-            outcome="APERTO SU BINGX",
-        )
-        return {
-            **res,
-            "tp_applied": clean_tp if tp_ok else None,
-            "sl_applied": clean_sl if sl_ok else None,
-            "tp_sl_orders": tp_sl_status,
-            "tpsl_summary": f"{tp_info} | {sl_info}",
-            "locked_signal": f"{symbol}_{side}",
-            "next_symbol": next_sym,
-            "outcome_text": out_str,
+    if market_type == "STANDARD_FUTURES":
+        endpoint = "/openApi/futures/v1/trade/order"
+        payload_ordine = {
+            "symbol": simbolo,
+            "side": lato,
+            "type": "MARKET",
+            "quantity": qty_str,
+            "leverage": str(eff_lev),
+            "timestamp": str(int(time.time() * 1000)),
+        }
+    elif market_type == "FUTURES":
+        imposta_leva_bingx(simbolo, eff_lev, lato, active_api, active_secret)
+        endpoint = "/openApi/swap/v2/trade/order"
+        position_side = "LONG" if lato == "BUY" else "SHORT"
+        payload_ordine = {
+            "symbol": simbolo,
+            "side": lato,
+            "positionSide": position_side,
+            "type": "MARKET",
+            "quantity": qty_str,
+            "timestamp": str(int(time.time() * 1000)),
+        }
+    else:
+        endpoint = "/openApi/spot/v1/trade/order"
+        payload_ordine = {
+            "symbol": simbolo,
+            "side": lato,
+            "type": "MARKET",
+            "quantity": qty_str,
+            "timestamp": str(int(time.time() * 1000)),
         }
 
-    bx_msg = res.get("msg") or res.get("message") or "Ordine rifiutato da BingX"
-    out_err = f"ESITO BINGX: POSIZIONE NON APERTA SU BINGX — Motivo: {bx_msg}"
-    with STATE_LOCK:
-        AUTO_TRADE_STATE["last_outcome"] = out_err
-    return {
-        **res,
-        "code": res.get("code", -1),
-        "msg": bx_msg,
-        "outcome_text": out_err,
-    }
+    try:
+        res = _signed_post(endpoint, payload_ordine, active_api, active_secret)
+        last_err_msg = str(res.get("msg", "")) if isinstance(res, dict) else ""
 
-
-def fetch_balance_summary():
-    res = bingx_req("GET", "/openApi/swap/v2/user/balance", signed=True)
-    if res.get("code") != 0 or not isinstance(res.get("data"), dict):
-        return {"balance": 0.0, "available": 0.0, "unrealized": 0.0, "equity": 0.0, "funding": 0.0048}
-    bal = res["data"].get("balance") or {}
-    total_bal = to_float(bal.get("balance"), 0.0)
-    avail = to_float(bal.get("availableMargin") or bal.get("free"), total_bal)
-    unreal = to_float(bal.get("unrealizedProfit"), 0.0)
-    return {
-        "balance": total_bal,
-        "available": avail,
-        "unrealized": unreal,
-        "equity": total_bal + unreal,
-        "funding": 0.0048,
-    }
-
-
-def fetch_income_history(limit: int = 25):
-    res = bingx_req("GET", "/openApi/swap/v2/user/income", {"limit": limit}, signed=True)
-    if res.get("code") != 0 or not isinstance(res.get("data"), list):
-        return []
-    return [
-        {
-            "type": item.get("incomeType", "REALIZED_PNL"),
-            "symbol": item.get("symbol", "-"),
-            "income": to_float(item.get("income"), 0.0),
-            "asset": item.get("asset", "USDT"),
-            "time": int(to_float(item.get("time"), 0)),
-        }
-        for item in res["data"][:limit]
-    ]
-
-
-def process_auto_close_expired():
-    now_ts = int(time.time())
-    with STATE_LOCK:
-        due_keys = [k for k, v in AUTO_CLOSE_WATCHLIST.items() if now_ts >= int(v.get("close_at", 0))]
-        due_items = [(k, dict(AUTO_CLOSE_WATCHLIST[k])) for k in due_keys]
-        for k in due_keys:
-            del AUTO_CLOSE_WATCHLIST[k]
-
-    for _, item in due_items:
-        sym = item["symbol"]
-        tf = item.get("tf", "1m")
-        bingx_req("POST", "/openApi/swap/v2/trade/closeAllPositions", {"symbol": sym}, signed=True)
-        with STATE_LOCK:
-            locked = dict(AUTO_TRADE_STATE.get("locked_signals") or {})
-            locked.pop(sym, None)
-            AUTO_TRADE_STATE["locked_signals"] = locked
-        _record_signal_log(
-            symbol=sym, tf=tf, signal="CLOSE_TF", confidence=100.0,
-            label="CHIUSURA AUTOMATICA FINE CANDELA",
-            tp1="-", tp2="-", sl="-", outcome="CHIUSO",
-        )
-
-
-def process_auto_trade_tick(symbol: str, tf: str, category: str):
-    with STATE_LOCK:
-        if not AUTO_TRADE_STATE.get("enabled"):
-            return None
-        min_score = to_float(AUTO_TRADE_STATE.get("min_score"), 60.0)
-        locked_map = dict(AUTO_TRADE_STATE.get("locked_signals") or {})
-        qty = to_float(AUTO_TRADE_STATE.get("qty"), 0.0005)
-        lev = int(to_float(AUTO_TRADE_STATE.get("leverage"), 20))
-        max_conc = normalize_max_concurrent_trades(AUTO_TRADE_STATE.get("max_concurrent_trades"), 2)
-        close_at_end = bool(AUTO_TRADE_STATE.get("close_at_candle_end", True))
-        AUTO_TRADE_STATE["last_check_ts"] = int(time.time())
-
-    quant = compute_quant_brain(symbol, tf)
-    sig = quant.get("signal", "NEUTRAL")
-    score_val = abs(to_float(quant.get("score"), 0.0))
-
-    if locked_map.get(symbol) == sig and sig in ("BUY", "SELL"):
-        outcome_msg = f"ESITO BINGX: POSIZIONE NON APERTA SU BINGX — Motivo: Segnale {sig} bloccato su {symbol}"
-        with STATE_LOCK:
-            AUTO_TRADE_STATE["last_outcome"] = outcome_msg
-        return None
-
-    if sig not in ("BUY", "SELL") or score_val < min_score or quant.get("risk_blocked"):
-        reason_txt = quant.get("risk_reason") if quant.get("risk_blocked") else f"Score {int(score_val)} < +{int(min_score)}"
-        outcome_msg = f"ESITO BINGX: POSIZIONE NON APERTA SU BINGX — Motivo: SCAN {category} ({symbol}): {reason_txt}"
-        with STATE_LOCK:
-            AUTO_TRADE_STATE["last_outcome"] = outcome_msg
-        return None
-
-    bal = fetch_balance_summary()
-    eff_lev = get_dynamic_leverage(bal.get("available", 0.0), lev)
-    return submit_bingx_order(
-        symbol=symbol,
-        side=sig,
-        order_type="MARKET",
-        tf=tf,
-        qty=qty,
-        leverage=eff_lev,
-        tp=quant.get("tp"),
-        sl=quant.get("sl"),
-        close_at_candle_end=close_at_end,
-        max_concurrent_trades=max_conc,
-        quant=quant,
-        category=category,
-    )
-
-
-@app.route("/")
-def index():
-    return render_template("index.html")
-
-
-@app.route("/api/live-ticker")
-def api_live_ticker():
-    req_symbol = (request.args.get("symbol") or "").strip().upper()
-    tf = (request.args.get("tf") or "1m").strip().lower()
-    category = (request.args.get("category") or "Materie Prime").strip()
-    query = (request.args.get("query") or "").strip()
-    scan_now = request.args.get("scan") == "1"
-
-    norm_cat = normalize_category(category)
-    with STATE_LOCK:
-        if category:
-            AUTO_TRADE_STATE["scan_category"] = norm_cat
-        cat_pool = _pool_for_category(norm_cat)
-        if req_symbol:
-            if not cat_pool or req_symbol in cat_pool:
-                AUTO_TRADE_STATE["symbol"] = req_symbol
+        for tentativo in range(1, 5):
+            if res.get("code") == 0:
+                break
+            msg = str(res.get("msg", "")).lower()
+            last_err_msg = str(res.get("msg", ""))
+            match_min = re.search(r"(?:minimum order amount is|is)\s+([0-9.]+)", msg, re.IGNORECASE)
+            if match_min:
+                min_qty = float(match_min.group(1))
+                qty_str = _formatta_quantita_contratto(min_qty * 1.05, float(prezzo_ingresso or 0.0))
+            elif any(k in msg for k in ["insufficient", "balance", "margin", "precision", "step", "amount"]):
+                qty_str = _scala_quantita_fallback(base_qty, float(prezzo_ingresso or 0.0), tentativo)
             else:
-                AUTO_TRADE_STATE["symbol"] = cat_pool[0]
-        else:
-            cur_sym = AUTO_TRADE_STATE.get("symbol", "XAUT-USDT")
-            if cat_pool and cur_sym not in cat_pool:
-                AUTO_TRADE_STATE["symbol"] = cat_pool[0]
-        active_symbol = AUTO_TRADE_STATE.get("symbol", "XAUT-USDT")
-        locked_signals = dict(AUTO_TRADE_STATE.get("locked_signals") or {})
+                break
 
-    process_auto_close_expired()
-    process_auto_trade_tick(active_symbol, tf, norm_cat)
+            payload_ordine["quantity"] = qty_str
+            payload_ordine["timestamp"] = str(int(time.time() * 1000))
+            res = _signed_post(endpoint, payload_ordine, active_api, active_secret)
 
-    with STATE_LOCK:
-        locked_signals = dict(AUTO_TRADE_STATE.get("locked_signals") or {})
-        auto_state = dict(AUTO_TRADE_STATE)
-
-    quant = compute_quant_brain(active_symbol, tf)
-    balance = fetch_balance_summary()
-    positions = fetch_positions_raw()
-    income = fetch_income_history(20)
-    timing = candle_timing_info(tf)
-    markets = scan_markets(category=category, query=query, force_refresh=scan_now)
-
-    with STATE_LOCK:
-        logs = list(SIGNAL_HISTORY[:40])
-        auto_state["locked_signals"] = locked_signals
-        auto_state["open_positions_count"] = len(positions)
-
-    return jsonify({
-        "ok": True,
-        "quant": quant,
-        "balance": balance,
-        "positions": positions,
-        "income": income,
-        "timing": timing,
-        "markets": markets,
-        "logs": logs,
-        "auto_trade": auto_state,
-    })
+        if isinstance(res, dict):
+            res["appliedLeverage"] = eff_lev
+            res["appliedMarginUsdt"] = eff_margin
+            res["appliedQuantity"] = qty_str
+            res["bingxRaw"] = {
+                "code": res.get("code"),
+                "msg": res.get("msg") or last_err_msg,
+                "endpoint": endpoint,
+                "quantitySent": qty_str,
+            }
+            if res.get("code") != 0 and res.get("msg"):
+                res["msg"] = f"BingX [{res.get('code')}]: {res.get('msg')} (Qty tentata: {qty_str}, Importo: ${eff_margin:.2f}, Leva: {eff_lev}x)"
+            if res.get("code") == 0 and market_type == "FUTURES":
+                res["protectionOrders"] = _piazza_sl_tp_swap_reali(
+                    simbolo, lato, qty_str, prezzo_sl, prezzo_tp, active_api, active_secret
+                )
+        return res
+    except Exception as e:
+        return {"code": -1, "msg": f"Errore esecuzione BingX: {e}", "bingxRaw": {"error": str(e)}}
 
 
-@app.route("/api/order", methods=["POST"])
-def api_order():
-    data = request.get_json(silent=True) or {}
-    symbol = (data.get("symbol") or "XAUT-USDT").strip().upper()
-    side = (data.get("side") or "BUY").strip().upper()
-    if side not in ("BUY", "SELL"):
-        side = "BUY"
-    order_type = (data.get("order_type") or "MARKET").strip().upper()
-    tf = (data.get("tf") or "1m").strip().lower()
-    qty = to_float(data.get("qty"), 0.0005)
-    category = (data.get("category") or AUTO_TRADE_STATE.get("scan_category") or "Materie Prime").strip()
+def chiudi_posizione_bingx_reale(
+    simbolo: str,
+    lato_posizione: str = "",
+    quantita: float = 0.0,
+    market_type: str = "FUTURES",
+    api_key: str = "",
+    secret_key: str = "",
+) -> dict:
+    active_api, active_secret, _ = _risolvi_credenziali(api_key, secret_key)
 
-    bal = fetch_balance_summary()
-    req_lev = int(to_float(data.get("leverage"), 20))
-    lev = get_dynamic_leverage(bal.get("available", 0.0), req_lev)
+    if not active_api or not active_secret:
+        return {"code": -1, "msg": "API Key o Secret Key BingX mancanti per chiudere la posizione."}
 
-    with STATE_LOCK:
-        default_max_conc = AUTO_TRADE_STATE.get("max_concurrent_trades", 2)
-    max_conc = normalize_max_concurrent_trades(data.get("max_concurrent_trades"), default_max_conc)
+    if market_type == "SPOT":
+        return {"code": -1, "msg": "Chiusura automatica swap non applicabile a SPOT."}
 
-    result = submit_bingx_order(
-        symbol=symbol,
-        side=side,
-        order_type=order_type,
-        tf=tf,
-        qty=qty,
-        leverage=lev,
-        price=data.get("price"),
-        tp=data.get("tp"),
-        sl=data.get("sl"),
-        close_at_candle_end=bool(data.get("close_at_candle_end", True)),
-        max_concurrent_trades=max_conc,
-        category=category,
+    target_side = lato_posizione.upper()
+    target_qty = float(quantita or 0.0)
+
+    if not target_side or target_qty <= 0:
+        try:
+            pos_res = _signed_get("/openApi/swap/v2/user/positions", {}, active_api, active_secret)
+            if pos_res.get("code") == 0 and isinstance(pos_res.get("data"), list):
+                for p in pos_res["data"]:
+                    if p.get("symbol") == simbolo:
+                        amt = abs(float(p.get("positionAmt", 0) or 0))
+                        if amt > 0:
+                            target_qty = amt
+                            target_side = str(p.get("positionSide", "LONG")).upper()
+                            break
+        except Exception as e:
+            return {"code": -1, "msg": f"Errore lettura posizione: {e}"}
+
+    if target_qty <= 0:
+        return {"code": 0, "msg": f"Nessuna posizione aperta trovata su BingX per {simbolo}."}
+
+    close_side = "SELL" if target_side in ("BUY", "LONG") else "BUY"
+    pos_side = "LONG" if target_side in ("BUY", "LONG") else "SHORT"
+
+    return _signed_post(
+        "/openApi/swap/v2/trade/order",
+        {
+            "symbol": simbolo,
+            "side": close_side,
+            "positionSide": pos_side,
+            "type": "MARKET",
+            "quantity": str(target_qty),
+            "reduceOnly": "true",
+            "timestamp": str(int(time.time() * 1000)),
+        },
+        active_api,
+        active_secret,
     )
-    return jsonify({
-        "ok": result.get("code") == 0,
-        "result": result,
-        "positions": fetch_positions_raw(),
-        "balance": fetch_balance_summary(),
-        "logs": list(SIGNAL_HISTORY[:40]),
-        "auto_trade": dict(AUTO_TRADE_STATE),
-    })
+
+
+def get_bingx_account_telemetry(api_key: str, secret_key: str) -> dict:
+    active_api, active_secret, source = _risolvi_credenziali(api_key, secret_key)
+    if not active_api or not active_secret:
+        return {
+            "connected": False,
+            "keySource": "none",
+            "walletBalance": 0.0,
+            "availableMargin": 0.0,
+            "unrealizedPnl": 0.0,
+            "netPnlToday": 0.0,
+            "feesFundingToday": 0.0,
+            "grossPnlToday": 0.0,
+            "netPnlMonth": 0.0,
+            "positions": [],
+            "msg": "Imposta BINGX_API_KEY e BINGX_SECRET_KEY su Render oppure inseriscile in Chiavi API.",
+        }
+
+    wallet_balance = 0.0
+    available_margin = 0.0
+    unrealized_pnl = 0.0
+    positions_list = []
+
+    try:
+        bal_res = _signed_get("/openApi/swap/v2/user/balance", {}, active_api, active_secret)
+        if bal_res.get("code") == 0:
+            bal_obj = bal_res.get("data", {}).get("balance", bal_res.get("data", {}))
+            if isinstance(bal_obj, list):
+                bal_obj = next((b for b in bal_obj if b.get("asset") == "USDT"), bal_obj[0] if bal_obj else {})
+            if isinstance(bal_obj, dict):
+                wallet_balance = float(bal_obj.get("balance", bal_obj.get("equity", 0)) or 0)
+                raw_avail = bal_obj.get("availableMargin", bal_obj.get("crossWalletBalance", bal_obj.get("free", None)))
+                available_margin = float(raw_avail if raw_avail is not None else wallet_balance)
+                unrealized_pnl = float(bal_obj.get("unrealizedProfit", 0) or 0)
+    except Exception as e:
+        print(f"[BALANCE ERROR] {e}")
+
+    try:
+        pos_res = _signed_get("/openApi/swap/v2/user/positions", {}, active_api, active_secret)
+        if pos_res.get("code") == 0 and isinstance(pos_res.get("data"), list):
+            for p in pos_res["data"]:
+                amt = abs(float(p.get("positionAmt", 0) or 0))
+                if amt > 0:
+                    upnl = float(p.get("unrealizedProfit", 0) or 0)
+                    positions_list.append({
+                        "symbol": p.get("symbol"),
+                        "side": p.get("positionSide", "LONG"),
+                        "size": amt,
+                        "leverage": int(float(p.get("leverage", 1) or 1)),
+                        "entryPrice": float(p.get("avgPrice", p.get("entryPrice", 0)) or 0),
+                        "markPrice": float(p.get("markPrice", 0) or 0),
+                        "unrealizedPnl": round(upnl, 4),
+                    })
+            if unrealized_pnl == 0.0 and positions_list:
+                unrealized_pnl = sum(x["unrealizedPnl"] for x in positions_list)
+    except Exception as e:
+        print(f"[POSITIONS ERROR] {e}")
+
+    now_utc = datetime.now(timezone.utc)
+    start_day_ms = int(datetime(now_utc.year, now_utc.month, now_utc.day, tzinfo=timezone.utc).timestamp() * 1000)
+    start_month_ms = int(datetime(now_utc.year, now_utc.month, 1, tzinfo=timezone.utc).timestamp() * 1000)
+
+    realized_today = 0.0
+    fees_funding_today = 0.0
+    realized_month = 0.0
+    fees_funding_month = 0.0
+
+    try:
+        inc_res = _signed_get(
+            "/openApi/swap/v2/user/income",
+            {"startTime": start_month_ms, "limit": 500},
+            active_api,
+            active_secret,
+        )
+        if inc_res.get("code") == 0 and isinstance(inc_res.get("data"), list):
+            for item in inc_res["data"]:
+                inc_val = float(item.get("income", 0) or 0)
+                inc_type = str(item.get("incomeType", "")).upper()
+                ts_val = int(item.get("time", 0) or 0)
+                is_fee_or_funding = any(k in inc_type for k in ["FEE", "FUNDING", "COMMISSION"])
+
+                if ts_val >= start_month_ms:
+                    if is_fee_or_funding:
+                        fees_funding_month += inc_val
+                    else:
+                        realized_month += inc_val
+
+                if ts_val >= start_day_ms:
+                    if is_fee_or_funding:
+                        fees_funding_today += inc_val
+                    else:
+                        realized_today += inc_val
+    except Exception as e:
+        print(f"[INCOME ERROR] {e}")
+
+    gross_pnl_today = round(realized_today, 4)
+    fees_today_rounded = round(fees_funding_today, 4)
+    net_pnl_today = round(realized_today + fees_funding_today, 4)
+    net_pnl_month = round(realized_month + fees_funding_month, 4)
+
+    return {
+        "connected": True,
+        "keySource": source,
+        "walletBalance": round(wallet_balance, 4),
+        "availableMargin": round(available_margin, 4),
+        "unrealizedPnl": round(unrealized_pnl, 4),
+        "netPnlToday": net_pnl_today,
+        "feesFundingToday": fees_today_rounded,
+        "grossPnlToday": gross_pnl_today,
+        "netPnlMonth": net_pnl_month,
+        "positions": positions_list,
+    }
+
+
+# ==========================================
+# ENDPOINT API FLASK
+# ==========================================
+@app.route("/api/live-ticker", methods=["GET"])
+@app.route("/api/market-data", methods=["GET"])
+def api_market_data():
+    mtype = request.args.get("marketType", MARKET_TYPE).upper()
+    if mtype not in ["FUTURES", "SPOT", "STANDARD_FUTURES"]:
+        mtype = "FUTURES"
+    fetch_type = "FUTURES" if mtype == "STANDARD_FUTURES" else mtype
+    data = get_live_market_data(fetch_type)
+    return jsonify({"code": 0, "marketType": mtype, "data": data})
+
+
+@app.route("/api/deep-scan", methods=["GET"])
+def api_deep_scan():
+    simbolo = request.args.get("symbol", "BTC-USDT")
+    mtype = request.args.get("marketType", MARKET_TYPE).upper()
+    style = request.args.get("style", "Scalping")
+    margin_usdt = _normalizza_importo_minimo(request.args.get("margin", MIN_ORDER_USDT))
+    leverage = int(float(request.args.get("leverage", 10) or 10))
+    res_data = calcola_parametri_quantistici_unificati(
+        simbolo, mtype, style=style, margin_usdt=margin_usdt, leverage=leverage
+    )
+    if not res_data:
+        return jsonify({"code": -1, "msg": "Candele multi-TF non disponibili"})
+    return jsonify({"code": 0, "data": res_data})
+
+
+@app.route("/api/account-telemetry", methods=["POST"])
+def api_account_telemetry():
+    dati = request.json or {}
+    telemetry = get_bingx_account_telemetry(dati.get("apiKey", ""), dati.get("secretKey", ""))
+    return jsonify({"code": 0, "data": telemetry})
 
 
 @app.route("/api/close-position", methods=["POST"])
 def api_close_position():
-    data = request.get_json(silent=True) or {}
-    symbol = (data.get("symbol") or "").strip().upper()
-    if symbol:
-        res = bingx_req("POST", "/openApi/swap/v2/trade/closeAllPositions", {"symbol": symbol}, signed=True)
-        with STATE_LOCK:
-            locked = dict(AUTO_TRADE_STATE.get("locked_signals") or {})
-            locked.pop(symbol, None)
-            AUTO_TRADE_STATE["locked_signals"] = locked
-        return jsonify({
-            "ok": res.get("code") == 0,
-            "result": res,
-            "positions": fetch_positions_raw(),
-            "balance": fetch_balance_summary(),
-        })
+    dati = request.json or {}
+    res = chiudi_posizione_bingx_reale(
+        simbolo=dati.get("symbol", ""),
+        lato_posizione=dati.get("side", ""),
+        quantita=float(dati.get("size", 0.0) or 0.0),
+        market_type=dati.get("marketType", MARKET_TYPE).upper(),
+        api_key=dati.get("apiKey", ""),
+        secret_key=dati.get("secretKey", ""),
+    )
+    return jsonify(res)
 
-    positions = fetch_positions_raw()
-    closed_any = []
-    for p in positions:
-        s = p.get("symbol")
-        if s:
-            r = bingx_req("POST", "/openApi/swap/v2/trade/closeAllPositions", {"symbol": s}, signed=True)
-            closed_any.append({"symbol": s, "res": r})
-    with STATE_LOCK:
-        AUTO_TRADE_STATE["locked_signals"] = {}
+
+@app.route("/api/esegui-segnale", methods=["POST"])
+def webhook_esegui_segnale():
+    dati = request.json or {}
+    simbolo = dati.get("symbol")
+    lato = dati.get("action")
+    quantita = float(dati.get("size", 0.0) or 0.0)
+    prezzo_ingresso = float(dati.get("entry", dati.get("price", 0)) or 0.0)
+    tp = float(dati.get("tp", 0) or 0.0)
+    sl = float(dati.get("sl", 0) or 0.0)
+    leva = int(dati.get("leverage", 10) or 10)
+    timeframe = dati.get("timeframe", "15m")
+    mtype = dati.get("marketType", MARKET_TYPE).upper()
+    is_auto = dati.get("is_auto", False)
+    margin_usdt = _normalizza_importo_minimo(dati.get("marginUsdt", MIN_ORDER_USDT))
+
+    if is_auto and TRADING_MODE != "AUTO":
+        return jsonify({"code": -99, "msg": "Modalità Automatica disattivata."})
+
+    if lato not in ("BUY", "SELL"):
+        return jsonify({"code": -98, "msg": "Segnale NEUTRO o direzione non valida: ordine bloccato."})
+
+    risultato = esegui_ordine_bingx(
+        simbolo,
+        lato,
+        quantita,
+        prezzo_ingresso,
+        tp,
+        sl,
+        leva,
+        timeframe,
+        mtype,
+        dati.get("apiKey", ""),
+        dati.get("secretKey", ""),
+        margin_usdt=margin_usdt,
+    )
+    return jsonify(risultato)
+
+
+@app.route("/api/set-mode", methods=["POST"])
+def set_trading_mode():
+    global TRADING_MODE
+    dati = request.json or {}
+    if dati.get("mode") in ["MANUAL", "AUTO"]:
+        TRADING_MODE = dati.get("mode")
+        return jsonify({"code": 0, "mode": TRADING_MODE})
+    return jsonify({"code": -1, "msg": "Modalità non valida"})
+
+
+@app.route("/api/get-mode", methods=["GET"])
+def get_trading_mode():
+    is_safe, time_msg, borsa_rif, start_t, end_t = verifica_finestra_temporale_sicura()
+    _, _, key_source = _risolvi_credenziali("", "")
+    now_utc = datetime.now(timezone.utc).strftime("%H:%M:%S UTC")
     return jsonify({
-        "ok": True,
-        "closed": closed_any,
-        "positions": fetch_positions_raw(),
-        "balance": fetch_balance_summary(),
+        "code": 0,
+        "mode": TRADING_MODE,
+        "marketType": MARKET_TYPE,
+        "minOrderUsdt": MIN_ORDER_USDT,
+        "envKeysConfigured": key_source == "render_env",
+        "keySource": key_source,
+        "utcNow": now_utc,
+        "isSafeTime": is_safe,
+        "timeMsg": time_msg,
+        "borsaRif": borsa_rif,
+        "sessionStart": start_t,
+        "sessionEnd": end_t,
     })
 
 
-@app.route("/api/auto-trade", methods=["GET", "POST"])
-def api_auto_trade():
-    if request.method == "POST":
-        data = request.get_json(silent=True) or {}
-        with STATE_LOCK:
-            if "enabled" in data:
-                AUTO_TRADE_STATE["enabled"] = bool(data["enabled"])
-            if "mode" in data and data["mode"]:
-                AUTO_TRADE_STATE["mode"] = str(data["mode"]).strip().upper()
-            if "symbol" in data and data["symbol"]:
-                AUTO_TRADE_STATE["symbol"] = str(data["symbol"]).strip().upper()
-            if "tf" in data and data["tf"]:
-                AUTO_TRADE_STATE["tf"] = str(data["tf"]).strip().lower()
-            if "qty" in data:
-                AUTO_TRADE_STATE["qty"] = max(0.0001, to_float(data["qty"], 0.0005))
-            if "leverage" in data:
-                AUTO_TRADE_STATE["leverage"] = max(1, min(125, int(to_float(data["leverage"], 20))))
-            if "min_score" in data:
-                AUTO_TRADE_STATE["min_score"] = max(10, min(95, int(to_float(data["min_score"], 60))))
-            if "max_concurrent_trades" in data:
-                AUTO_TRADE_STATE["max_concurrent_trades"] = normalize_max_concurrent_trades(
-                    data["max_concurrent_trades"], AUTO_TRADE_STATE.get("max_concurrent_trades", 2)
-                )
-            if "close_at_candle_end" in data:
-                AUTO_TRADE_STATE["close_at_candle_end"] = bool(data["close_at_candle_end"])
-            if "rotate_after_open" in data:
-                AUTO_TRADE_STATE["rotate_after_open"] = bool(data["rotate_after_open"])
-            if "category" in data and data["category"]:
-                AUTO_TRADE_STATE["scan_category"] = str(data["category"]).strip()
-            if data.get("reset_locks"):
-                AUTO_TRADE_STATE["locked_signals"] = {}
-                AUTO_TRADE_STATE["last_signal_key"] = None
-                AUTO_TRADE_STATE["last_outcome"] = "Blocco segnali resettato"
-
-    with STATE_LOCK:
-        st = dict(AUTO_TRADE_STATE)
-    return jsonify({"ok": True, "auto_trade": st})
+@app.route("/api/set-market-type", methods=["POST"])
+def set_market_type():
+    global MARKET_TYPE
+    dati = request.json or {}
+    if dati.get("marketType") in ["FUTURES", "SPOT", "STANDARD_FUTURES"]:
+        MARKET_TYPE = dati.get("marketType")
+        return jsonify({"code": 0, "marketType": MARKET_TYPE})
+    return jsonify({"code": -1, "msg": "Mercato non valido"})
 
 
-@app.after_request
-def add_no_cache_headers(response):
-    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
-    response.headers["Pragma"] = "no-cache"
-    response.headers["Expires"] = "0"
-    return response
-
-
-@app.errorhandler(Exception)
-def handle_unexpected_error(exc):
-    if request.path.startswith("/api/"):
-        return jsonify({
-            "ok": False,
-            "error": str(exc),
-            "auto_trade": {
-                **dict(AUTO_TRADE_STATE),
-                "last_outcome": f"ESITO BINGX: Errore backend ({exc})",
-            },
-        }), 500
-    return f"Errore interno: {exc}", 500
+@app.route("/")
+def home():
+    template_path = os.path.join(app.template_folder or "templates", "index.html")
+    if os.path.exists(template_path):
+        return render_template("index.html")
+    return render_template_string("<h1>Crea il file templates/index.html per visualizzare la dashboard.</h1>")
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=False)
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
