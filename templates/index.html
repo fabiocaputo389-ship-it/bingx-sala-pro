@@ -1,1245 +1,641 @@
 <!DOCTYPE html>
-<html lang="it" class="dark">
+<html lang="it">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ApexScan Pro Live - Segnali Reali, Posizioni BingX &amp; Tutti i Mercati</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <script>
-    tailwind.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          fontFamily: { sans: ['Inter', 'sans-serif'], mono: ['JetBrains Mono', 'monospace'] },
-          colors: {
-            obsidian: { 950: '#000000', 900: '#08080A', 850: '#0E0E11', 800: '#141418', 700: '#1E1E24' },
-            emeraldNeon: '#00FF66',
-            rubyNeon: '#FF334B',
-            goldNeon: '#FFD700'
-          }
-        }
-      }
-    }
-  </script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>BINGX PRO SIGNAL DESK</title>
   <style>
-    body { background-color: #000000; color: #FFFFFF; font-family: 'Inter', sans-serif; overflow-x: hidden; }
-    button, [role="button"] { touch-action: manipulation; }
-    ::-webkit-scrollbar { width: 6px; height: 6px; }
-    ::-webkit-scrollbar-track { background: #000000; }
-    ::-webkit-scrollbar-thumb { background: rgba(255, 215, 0, 0.35); border-radius: 9999px; }
-    @keyframes neonGlowPulse {
-      0%, 100% { box-shadow: 0 0 25px rgba(255, 215, 0, 0.45), inset 0 0 12px rgba(255, 215, 0, 0.15); border-color: rgba(255, 215, 0, 0.85); }
-      50% { box-shadow: 0 0 40px rgba(255, 215, 0, 0.8), inset 0 0 20px rgba(255, 215, 0, 0.3); border-color: #FFD700; }
+    :root {
+      --bg: #070b12;
+      --panel: #0d1420;
+      --panel-2: #131d2f;
+      --border: #1e2d46;
+      --text: #e8eef8;
+      --muted: #8fa1bd;
+      --green: #16c784;
+      --red: #ea3943;
+      --amber: #f5b942;
+      --blue: #2563eb;
     }
-    .priority-signal-box { background: linear-gradient(180deg, rgba(20, 17, 7, 0.98) 0%, rgba(10, 9, 4, 0.99) 100%); border: 2px solid #FFD700; animation: neonGlowPulse 3s infinite ease-in-out; }
-    .terminal-card { background: linear-gradient(180deg, rgba(14, 14, 17, 0.98) 0%, rgba(8, 8, 10, 0.99) 100%); border: 1px solid rgba(255, 255, 255, 0.16); box-shadow: 0 8px 32px -6px rgba(0, 0, 0, 0.95); }
-    .tabular-nums { font-variant-numeric: tabular-nums; }
-    @keyframes tickerScroll { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
-    .ticker-wrapper { display: flex; width: max-content; animation: tickerScroll 28s linear infinite; }
-    .ticker-wrapper:hover { animation-play-state: paused; }
+    * { box-sizing: border-box; touch-action: manipulation; }
+    body {
+      margin: 0;
+      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 10px;
+    }
+    .container { max-width: 1080px; margin: 0 auto; display: flex; flex-direction: column; gap: 10px; }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px;
+    }
+    .brand-title { font-size: 16px; font-weight: 800; letter-spacing: 0.4px; }
+    .sub { font-size: 11px; color: var(--muted); }
+    .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 8px; }
+    .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 8px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 8px; }
+    @media (max-width: 640px) {
+      .grid-4 { grid-template-columns: repeat(2, 1fr); }
+      .grid-3 { grid-template-columns: repeat(2, 1fr); }
+    }
+    .kpi {
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 10px;
+    }
+    .kpi-label { font-size: 10px; color: var(--muted); text-transform: uppercase; font-weight: 700; }
+    .kpi-val { font-size: 15px; font-weight: 800; margin-top: 3px; }
+    .cat-bar { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+    .cat-btn {
+      padding: 7px 12px;
+      font-size: 12px;
+      font-weight: 700;
+      border-radius: 7px;
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      cursor: pointer;
+    }
+    .cat-btn.active { background: var(--blue); border-color: var(--blue); color: #fff; }
+    input, select {
+      width: 100%;
+      background: var(--panel-2);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 9px 10px;
+      font-size: 13px;
+    }
+    label { display: block; font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+    button {
+      border: 0;
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-weight: 800;
+      font-size: 12px;
+      cursor: pointer;
+      color: #fff;
+    }
+    .btn-primary { background: var(--blue); }
+    .btn-buy { background: var(--green); color: #03190f; }
+    .btn-sell { background: var(--red); }
+    .btn-warn { background: var(--amber); color: #191202; }
+    .btn-ghost { background: var(--panel-2); border: 1px solid var(--border); color: var(--text); }
+    .market-row { cursor: pointer; }
+    .market-row:hover { background: var(--panel-2); }
+    .market-row.selected { background: rgba(37, 99, 235, 0.18); }
+    .tag-buy { color: var(--green); font-weight: 800; }
+    .tag-sell { color: var(--red); font-weight: 800; }
+    .tag-warn { color: var(--amber); font-weight: 800; }
+    .table-wrap { overflow-x: auto; max-height: 280px; overflow-y: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th, td { padding: 7px 6px; border-bottom: 1px solid var(--border); text-align: left; }
+    th { color: var(--muted); font-size: 10px; text-transform: uppercase; position: sticky; top: 0; background: var(--panel); }
+    .outcome-box {
+      margin-top: 8px;
+      padding: 10px;
+      border-radius: 8px;
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .check-row { display: flex; align-items: center; gap: 6px; font-size: 12px; margin-top: 6px; }
+    .check-row input { width: auto; }
+    canvas { width: 100%; height: 210px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; display: block; margin-top: 8px; }
   </style>
 </head>
-<body class="min-h-screen flex flex-col selection:bg-[#FFD700]/30 selection:text-white pb-16 sm:pb-6">
+<body>
+  <div class="container">
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div class="brand-title">BINGX PRO SIGNAL DESK</div>
+        <div class="sub" id="sync-indicator">Sincronizzato</div>
+      </div>
 
-  <!-- HEADER -->
-  <header class="sticky top-0 z-30 bg-[#000000]/95 backdrop-blur-md border-b border-white/15 px-3 sm:px-5 py-2.5">
-    <div class="max-w-[1920px] mx-auto flex flex-wrap items-center justify-between gap-3">
-      <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-[#FFD700] via-[#FFA500] to-[#CC8400] text-black flex items-center justify-center font-extrabold text-lg border border-[#FFD700]">📊</div>
+      <div class="grid-2">
+        <div class="kpi">
+          <div class="kpi-label">API BingX</div>
+          <div class="kpi-val tag-buy" id="api-status-txt">ATTIVA</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Blocco Segnale</div>
+          <div class="kpi-val tag-warn" id="lock-status-txt">LIBERO</div>
+        </div>
+      </div>
+
+      <div class="grid-3">
+        <div class="kpi">
+          <div class="kpi-label">Modalita'</div>
+          <div class="kpi-val" id="mode-txt">AUTOMATICO</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Simbolo</div>
+          <div class="kpi-val" id="sym-txt">XAUT-USDT</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Prezzo</div>
+          <div class="kpi-val" id="price-txt">--</div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="kpi">
+          <div class="kpi-label">Affidabilita' Segnale</div>
+          <div class="kpi-val" id="conf-txt">--% ATTESA • NO TRADE CERTO</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Score Quant</div>
+          <div class="kpi-val" id="score-txt">0 (NEUTRAL)</div>
+        </div>
+      </div>
+
+      <div class="grid-4">
+        <div class="kpi">
+          <div class="kpi-label">Candela TF</div>
+          <div class="kpi-val" id="tf-countdown-txt">01:00</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Stima TP</div>
+          <div class="kpi-val" id="tp-est-txt">--</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Funding</div>
+          <div class="kpi-val" id="funding-txt">0.0048%</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Equity / Leva</div>
+          <div class="kpi-val" id="eq-lev-txt">0.00 | 20x</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <strong id="mkt-title">MERCATI (0)</strong>
+        <span class="sub" id="mkt-cat-label">Tutti</span>
+      </div>
+
+      <div class="cat-bar" id="cat-bar">
+        <button type="button" class="cat-btn active" data-cat="Tutti">Tutti</button>
+        <button type="button" class="cat-btn" data-cat="Crypto Major">Crypto Major</button>
+        <button type="button" class="cat-btn" data-cat="Materie Prime">Materie Prime</button>
+        <button type="button" class="cat-btn" data-cat="Azioni">Azioni</button>
+        <button type="button" class="cat-btn" data-cat="Forex">EUR-USDT</button>
+      </div>
+
+      <input id="mkt-search" placeholder="Cerca coppia o categoria (es. BTC, SOL, XAUT, TSLA, EUR-USDT)..." style="margin-bottom:8px;" />
+      <button type="button" class="btn-primary" id="btn-scan-cat" style="width:100%;">SCANSIONA CATEGORIA ATTIVA</button>
+
+      <div class="table-wrap" style="margin-top:8px;">
+        <table>
+          <thead>
+            <tr>
+              <th>Coppia / Categoria</th>
+              <th>Prezzo Live</th>
+              <th>Var. 24h</th>
+              <th>Segnale</th>
+            </tr>
+          </thead>
+          <tbody id="markets-tbody">
+            <tr><td colspan="4">Caricamento...</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <canvas id="chartCanvas" width="900" height="210"></canvas>
+    </div>
+
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+        <strong id="pos-title">POSIZIONI APERTE (0)</strong>
+        <button type="button" class="btn-ghost" id="btn-refresh-top">Aggiorna</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Simbolo</th>
+              <th>Lato</th>
+              <th>Size</th>
+              <th>Entry</th>
+              <th>PnL / %</th>
+              <th>Azioni</th>
+            </tr>
+          </thead>
+          <tbody id="pos-tbody">
+            <tr><td colspan="6">Nessuna posizione aperta</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <strong style="display:block; margin-bottom:6px;">REGISTRO SEGNALI & ESECUZIONI SALA</strong>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Ora</th>
+              <th>Coppia</th>
+              <th>TF</th>
+              <th>Segnale / %</th>
+              <th>TP1 / TP2 / SL</th>
+              <th>Esito</th>
+            </tr>
+          </thead>
+          <tbody id="logs-tbody">
+            <tr><td colspan="6">Nessun evento</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <strong style="display:block; margin-bottom:6px;">STORICO PNL CHIUSO (BINGX INCOME)</strong>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Tipo</th>
+              <th>Simbolo</th>
+              <th>Importo USDT</th>
+            </tr>
+          </thead>
+          <tbody id="income-tbody">
+            <tr><td colspan="3">Nessun movimento</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <strong style="display:block; margin-bottom:8px;">APERTURA MANUALE / AUTOMATICA</strong>
+      <div class="grid-2">
+        <button type="button" class="btn-ghost" id="btn-unlock-signal">SBLOCCA SEGNALE</button>
+        <button type="button" class="btn-primary" id="btn-auto-toggle">AUTO-TRADE: ON (ATTIVO)</button>
+      </div>
+
+      <div class="outcome-box" id="bingx-outcome-box">ESITO BINGX: In attesa di scansione</div>
+
+      <div class="grid-2" style="margin-top:10px;">
         <div>
-          <div class="flex items-center gap-2">
-            <h1 class="text-sm sm:text-base font-extrabold tracking-tight text-white">APEXSCAN <span class="text-[#FFD700]">Live BingX &amp; Tutti i Mercati</span></h1>
-            <span id="modeStatusBadge" class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-white/10 text-white/80 border border-white/20">
-              <span id="modeDot" class="w-1.5 h-1.5 rounded-full bg-[#FFD700]"></span> <span id="modeText">MANUALE</span>
-            </span>
-          </div>
-          <div class="flex items-center gap-2 text-[11px] font-mono text-white/70 mt-0.5">
-            <span id="liveCetClock" class="text-white font-semibold tabular-nums">--:--:-- CET</span>
-            <span>|</span>
-            <span id="liveUtcClock" class="text-cyan-300 font-semibold tabular-nums">--:--:-- UTC</span>
-            <span>|</span>
-            <span class="text-[#00FF66]">FEED REALE BINGX</span>
-          </div>
+          <label for="symbol-input">Simbolo</label>
+          <input id="symbol-input" value="XAUT-USDT" />
         </div>
-      </div>
-
-      <div class="flex items-center gap-2 flex-wrap">
-        <div class="flex items-center bg-[#08080A] p-1 rounded-xl border border-white/20 gap-1">
-          <span class="text-[11px] font-mono font-bold text-white/70 px-1.5">Mercato:</span>
-          <button id="btnMarketFutures" onclick="switchMarketType('FUTURES')" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-[#0066FF] text-white">FUTURES</button>
-          <button id="btnMarketStandard" onclick="switchMarketType('STANDARD_FUTURES')" class="px-2.5 py-1 rounded-lg text-xs font-bold text-white/60 hover:text-white">STD FUTURES</button>
-          <button id="btnMarketSpot" onclick="switchMarketType('SPOT')" class="px-2.5 py-1 rounded-lg text-xs font-bold text-white/60 hover:text-white">SPOT</button>
-        </div>
-
-        <button onclick="toggleApiModal()" class="px-3 py-1.5 rounded-xl text-xs font-mono font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/50 hover:bg-cyan-500/30 transition-all flex items-center gap-1.5">
-          <span>🔑</span> <span id="apiStatusText">Collega API</span>
-        </button>
-
-        <div class="flex items-center bg-[#08080A] p-1 rounded-xl border border-white/20 gap-1">
-          <button id="btnModeManual" onclick="switchMode('MANUAL')" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-white/20 text-white">MANUALE</button>
-          <button id="btnModeAuto" onclick="switchMode('AUTO')" class="px-2.5 py-1 rounded-lg text-xs font-bold text-white/60 hover:text-white">AUTO ⚡</button>
-        </div>
-      </div>
-    </div>
-  </header>
-
-  <!-- TICKER MARQUEE -->
-  <div class="bg-[#08080A] border-b border-white/10 overflow-hidden py-2 px-2">
-    <div class="max-w-[1920px] mx-auto flex items-center gap-3">
-      <span class="text-[10px] font-mono font-extrabold uppercase bg-[#FFD700]/20 text-[#FFD700] px-2 py-1 rounded border border-[#FFD700]/40 shrink-0">
-        🔥 Feed Live:
-      </span>
-      <div class="overflow-hidden w-full relative">
-        <div id="liveTickerMarquee" class="ticker-wrapper font-mono text-xs text-white flex items-center gap-6">
-          <span class="text-white/50">Caricamento ticker reale...</span>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- MAIN -->
-  <main class="flex-1 max-w-[1920px] w-full mx-auto px-3 sm:px-5 py-4 flex flex-col gap-4">
-
-    <!-- TABELLA IN CIMA: MODIFICA IMPORTO (MIN 2$) E SCORE SEGNALI -->
-    <div class="terminal-card rounded-2xl p-3 font-mono text-xs overflow-x-auto">
-      <table class="w-full text-left border-collapse">
-        <thead>
-          <tr class="border-b border-white/15 text-[10px] uppercase text-white/60">
-            <th class="py-1.5 px-2">Parametro</th>
-            <th class="py-1.5 px-2">Controllo Rapido</th>
-            <th class="py-1.5 px-2">Valore Attivo</th>
-            <th class="py-1.5 px-2">Effetto sul Terminale</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-white/10">
-          <tr>
-            <td class="py-2 px-2 font-bold text-[#FFD700] whitespace-nowrap">Importo Operativo (Min 2 USDT)</td>
-            <td class="py-2 px-2">
-              <div class="flex items-center gap-1.5 flex-wrap">
-                <input type="number" id="topTableAmountInput" min="2" step="0.5" value="2" oninput="onTopTableAmountChange(this.value)" onblur="onTopTableAmountBlur(this.value)" class="w-24 bg-black border border-[#FFD700]/50 rounded-lg px-2 py-1 text-xs font-extrabold text-white tabular-nums outline-none focus:border-[#FFD700]" />
-                <button onclick="setMarginUsdt(2)" class="px-2 py-1 rounded bg-white/10 hover:bg-[#FFD700] hover:text-black text-[10px] font-bold">2$</button>
-                <button onclick="setMarginUsdt(5)" class="px-2 py-1 rounded bg-white/10 hover:bg-[#FFD700] hover:text-black text-[10px] font-bold">5$</button>
-                <button onclick="setMarginUsdt(10)" class="px-2 py-1 rounded bg-white/10 hover:bg-[#FFD700] hover:text-black text-[10px] font-bold">10$</button>
-              </div>
-            </td>
-            <td class="py-2 px-2 font-extrabold text-[#FFD700] tabular-nums whitespace-nowrap" id="tableActiveAmount">2.00 USDT</td>
-            <td class="py-2 px-2 text-white/75">Parte da minimo 2.00 USDT, ricalcola taglia (`size`), `EV`, `Kelly` e leva dinamica (`20x` su `&le; 2$` con leva default `10x`) per l'esecuzione su BingX.</td>
-          </tr>
-          <tr>
-            <td class="py-2 px-2 font-bold text-[#00FF66] whitespace-nowrap">Score Minimo Segnali (%)</td>
-            <td class="py-2 px-2">
-              <div class="flex items-center gap-2">
-                <input type="range" id="topTableScoreRange" min="50" max="95" step="1" value="80" oninput="onTopTableScoreChange(this.value)" class="w-28 accent-[#00FF66] cursor-pointer" />
-                <input type="number" id="topTableScoreInput" min="50" max="95" step="1" value="80" oninput="onTopTableScoreChange(this.value)" class="w-16 bg-black border border-[#00FF66]/50 rounded-lg px-2 py-1 text-xs font-extrabold text-white text-right tabular-nums outline-none focus:border-[#00FF66]" />
-              </div>
-            </td>
-            <td class="py-2 px-2 font-extrabold text-[#00FF66] tabular-nums whitespace-nowrap" id="tableActiveScore">80%</td>
-            <td class="py-2 px-2 text-white/75">Filtra o evidenzia i segnali sotto soglia e blocca l'esecuzione automatica in modalità `AUTO` se il segnale è `NEUTRO` o sotto soglia.</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <!-- FILTRI CATEGORIA MERCATI + STILE + IMPORTO DA 2$ + ANALIZZA GRAFICO -->
-    <div class="terminal-card rounded-2xl p-3.5 space-y-3">
-      <div class="flex flex-wrap items-center justify-between gap-2">
-        <div class="flex items-center gap-1.5 flex-wrap" id="categoryFilterBar">
-          <button onclick="setCategoryFilter('Tutti')" id="catTutti" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-[#FFD700] text-black">Tutti i Mercati</button>
-          <button onclick="setCategoryFilter('Materie Prime')" id="catMateriePrime" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-white/10 text-white/75 hover:text-white">🥇 Materie Prime</button>
-          <button onclick="setCategoryFilter('Forex / Valute')" id="catForexValute" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-white/10 text-white/75 hover:text-white">💱 Forex</button>
-          <button onclick="setCategoryFilter('Azioni & Indici (TradFi)')" id="catAzioniIndiciTradFi" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-white/10 text-white/75 hover:text-white">📈 Azioni &amp; Indici</button>
-          <button onclick="setCategoryFilter('Criptovalute')" id="catCriptovalute" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-white/10 text-white/75 hover:text-white">🪙 Cripto</button>
-        </div>
-
-        <div class="flex items-center gap-2 flex-wrap">
-          <div class="flex items-center gap-1.5 bg-black/80 border border-[#FFD700]/40 rounded-xl px-2.5 py-1">
-            <span class="text-[11px] font-mono text-[#FFD700] font-bold">Importo Min 2$:</span>
-            <input type="number" id="quickAmountInput" min="2" step="0.5" value="2" oninput="onQuickAmountChange(this.value)" onblur="onQuickAmountBlur(this.value)" class="w-20 bg-transparent text-xs font-mono font-extrabold text-white outline-none tabular-nums" />
-          </div>
-
-          <input type="text" id="quickSymbolInput" list="symbolSuggestions" value="PAXG-USDT" placeholder="Es. PAXG-USDT, BTC-USDT..." class="bg-black border border-white/30 rounded-xl px-3 py-1.5 text-xs font-mono text-white outline-none focus:border-[#FFD700] w-36" />
-          <datalist id="symbolSuggestions">
-            <option value="PAXG-USDT"></option>
-            <option value="BTC-USDT"></option>
-            <option value="ETH-USDT"></option>
-            <option value="SOL-USDT"></option>
-            <option value="EUR-USDT"></option>
-          </datalist>
-          <button onclick="avviaAnalizzaGraficoSelezionato()" class="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white text-xs font-extrabold hover:brightness-110 transition-all">
-            📊 Analizza grafico
-          </button>
-        </div>
-      </div>
-
-      <div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-white/10">
-        <div class="flex items-center gap-1.5 overflow-x-auto">
-          <button onclick="setTradingStyle('Scalping')" id="styleScalping" class="px-3 py-1 rounded-lg text-xs font-bold bg-[#FFD700] text-black">Scalping</button>
-          <button onclick="setTradingStyle('Day Trading')" id="styleDayTrading" class="px-3 py-1 rounded-lg text-xs font-bold bg-white/10 text-white/70 hover:text-white">Day Trading</button>
-          <button onclick="setTradingStyle('Swing Trading')" id="styleSwingTrading" class="px-3 py-1 rounded-lg text-xs font-bold bg-white/10 text-white/70 hover:text-white">Swing Trading</button>
-          <button onclick="setTradingStyle('Long Term')" id="styleLongTerm" class="px-3 py-1 rounded-lg text-xs font-bold bg-white/10 text-white/70 hover:text-white">Long Term</button>
-        </div>
-        <div class="text-[11px] font-mono text-white/70">
-          Importo: <strong class="text-[#FFD700]" id="topMarginSummary">2.00 USDT</strong>
-          <span class="text-white/40 mx-1">•</span>
-          Leva: <strong class="text-cyan-300" id="topLeverageSummary">20x</strong>
-          <span class="text-white/40 mx-1">•</span>
-          Score Min: <strong class="text-[#00FF66]" id="topMinScoreSummary">80%</strong>
-        </div>
-      </div>
-    </div>
-
-    <!-- VISTA 1: SEGNALI & TELEMETRIA -->
-    <div id="viewSignals" class="grid grid-cols-1 xl:grid-cols-12 gap-4 items-start">
-      <section class="xl:col-span-9 space-y-4">
-        <div class="priority-signal-box rounded-2xl p-4">
-          <div class="flex items-center justify-between pb-2.5 mb-3 border-b border-[#FFD700]/30">
-            <div>
-              <h2 class="text-sm font-extrabold uppercase tracking-wider text-white">⚡ SEGNALI OPERATIVI IN TEMPO REALE</h2>
-              <p class="text-[11px] text-[#FFD700]" id="signalsSubtitle">Filtro 1h/4h attivo • Ordini da minimo 2.00 USDT su BingX • SL 1.8x ATR • R:R, EV, Kelly &amp; Score</p>
-            </div>
-            <span class="px-2.5 py-1 rounded-md text-[11px] font-mono font-extrabold bg-[#FFD700] text-black">LIVE</span>
-          </div>
-          <div id="signalsCardsContainer" class="space-y-4">
-            <div class="text-xs font-mono text-white/70 py-4 text-center">Scansione candele in corso...</div>
-          </div>
-        </div>
-      </section>
-
-      <aside class="xl:col-span-3 terminal-card rounded-2xl overflow-hidden">
-        <div class="px-4 py-3 border-b border-white/15 bg-[#08080A]">
-          <h2 class="text-sm font-bold text-white flex items-center gap-2">
-            <span class="w-2 h-2 rounded-full bg-[#FFD700] animate-ping"></span> Feed Esecuzioni &amp; Chiusure
-          </h2>
-        </div>
-        <div id="alertsFeedContainer" class="p-3 space-y-2 max-h-[720px] overflow-y-auto font-mono text-[11px]">
-          <div class="p-2 rounded bg-white/5 text-white/70">[System] Motore live attivo (minimo 2.00 USDT su BingX, filtro 1h/4h).</div>
-        </div>
-      </aside>
-    </div>
-
-    <!-- VISTA 2: POSIZIONI BINGX & PNL REALE -->
-    <section id="viewPositions" class="hidden terminal-card rounded-2xl p-4 sm:p-5 space-y-5 font-mono text-xs">
-      <div class="flex flex-wrap items-center justify-between gap-3 border-b border-white/15 pb-3">
         <div>
-          <h2 class="text-sm sm:text-base font-extrabold uppercase tracking-wider text-[#FFD700]">CONTO REALE BINGX &amp; ANALISI PNL</h2>
-          <p id="bingxConnectionStatus" class="text-[11px] text-white/70">Sincronizzazione con account BingX...</p>
-        </div>
-        <div class="flex items-center gap-2">
-          <button onclick="refreshBingxTelemetry()" class="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold">Aggiorna Ora</button>
-          <button onclick="toggleApiModal()" class="px-3 py-1.5 rounded-xl bg-cyan-500/20 text-cyan-300 border border-cyan-500/50 text-xs font-bold">🔑 Chiavi API</button>
-        </div>
-      </div>
-
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        <div class="bg-[#000000] border border-white/15 rounded-xl p-3.5">
-          <span class="text-[10px] text-white/60 uppercase block">WALLET BALANCE</span>
-          <strong id="pnlWalletBalance" class="text-lg text-[#00FF66] font-extrabold tabular-nums mt-1 block">$0.00</strong>
-        </div>
-        <div class="bg-[#000000] border border-white/15 rounded-xl p-3.5">
-          <span class="text-[10px] text-white/60 uppercase block">PNL APERTO (UPNL)</span>
-          <strong id="pnlUnrealized" class="text-lg text-[#00FF66] font-extrabold tabular-nums mt-1 block">+$0.0000</strong>
-        </div>
-        <div class="bg-[#000000] border border-white/15 rounded-xl p-3.5">
-          <span class="text-[10px] text-white/60 uppercase block">PNL NETTO OGGI</span>
-          <strong id="pnlNetToday" class="text-lg text-white font-extrabold tabular-nums mt-1 block">$0.0000</strong>
-        </div>
-        <div class="bg-[#000000] border border-white/15 rounded-xl p-3.5">
-          <span class="text-[10px] text-white/60 uppercase block">COMMISSIONI / FUNDING OGGI</span>
-          <strong id="pnlFeesToday" class="text-lg text-cyan-300 font-extrabold tabular-nums mt-1 block">+$0.0000</strong>
-        </div>
-        <div class="bg-[#000000] border border-white/15 rounded-xl p-3.5">
-          <span class="text-[10px] text-white/60 uppercase block">PNL LORDO TRADE OGGI</span>
-          <strong id="pnlGrossToday" class="text-lg text-white font-extrabold tabular-nums mt-1 block">$0.0000</strong>
-        </div>
-        <div class="bg-[#000000] border border-white/15 rounded-xl p-3.5">
-          <span class="text-[10px] text-white/60 uppercase block">PNL NETTO MESE</span>
-          <strong id="pnlNetMonth" class="text-lg text-white font-extrabold tabular-nums mt-1 block">$0.0000</strong>
-        </div>
-        <div class="bg-[#000000] border border-white/15 rounded-xl p-3.5 sm:col-span-2 lg:col-span-2">
-          <span class="text-[10px] text-white/60 uppercase block">MARGINE DISPONIBILE</span>
-          <strong id="pnlAvailableMargin" class="text-lg text-[#FFD700] font-extrabold tabular-nums mt-1 block">$0.00</strong>
+          <label for="tf-select">Timeframe (TF / SL)</label>
+          <select id="tf-select">
+            <option value="1m" selected>1m</option>
+            <option value="5m">5m</option>
+            <option value="15m">15m</option>
+            <option value="1h">1h</option>
+          </select>
         </div>
       </div>
 
-      <div class="bg-[#000000] border border-white/15 rounded-xl p-4 space-y-3">
-        <h3 class="text-xs font-extrabold uppercase text-white">POSIZIONI APERTE SU BINGX (AVANZAMENTO TP / SL / FINE CANDELA)</h3>
-        <div id="bingxOpenPositionsBox" class="text-white/70">Nessuna posizione aperta su BingX.</div>
-      </div>
-
-      <div class="bg-[#000000] border border-white/15 rounded-xl p-4 space-y-4">
-        <h3 class="text-xs font-extrabold uppercase text-[#FFD700]">PARAMETRI AUTO-TRADE, SCORE SEGNALI &amp; CHIUSURA FINE TIMEFRAME</h3>
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          <div>
-            <label class="text-[10px] text-white/60 uppercase block mb-1">MAX POSIZIONI APERTE</label>
-            <input type="number" id="autoMaxPositions" min="1" max="20" value="1" oninput="saveAutoTradeSettings()" class="w-full bg-[#08080A] border border-white/25 rounded-lg px-3 py-2 text-white font-bold outline-none focus:border-[#FFD700]" />
-          </div>
-          <div>
-            <label class="text-[10px] text-white/60 uppercase block mb-1">STOP LOSS GIORNALIERO ($)</label>
-            <input type="number" id="autoDailyLossLimit" step="0.1" min="0" value="0.5" oninput="saveAutoTradeSettings()" class="w-full bg-[#08080A] border border-white/25 rounded-lg px-3 py-2 text-white font-bold outline-none focus:border-[#FFD700]" />
-          </div>
-          <div>
-            <label class="text-[10px] text-white/60 uppercase block mb-1">CHIUSURA A FINE CANDELA TF</label>
-            <select id="autoCloseOnCandleEnd" onchange="saveAutoTradeSettings()" class="w-full bg-[#08080A] border border-white/25 rounded-lg px-3 py-2 text-white font-bold outline-none focus:border-[#FFD700]">
-              <option value="ON">Attiva (Fine Candela Reale)</option>
-              <option value="OFF">Disattiva</option>
-            </select>
-          </div>
-          <div>
-            <label class="text-[10px] text-white/60 uppercase block mb-1">FILTRO AUTO-TRADE</label>
-            <select id="autoTradeFilter" onchange="saveAutoTradeSettings()" class="w-full bg-[#08080A] border border-white/25 rounded-lg px-3 py-2 text-white font-bold outline-none focus:border-[#FFD700]">
-              <option value="ALL_VALID">Tutti i Setup Validati (No NEUTRO)</option>
-              <option value="HIGH_CERTAINTY">Solo Certezza &ge; 80%</option>
-            </select>
-          </div>
-          <div>
-            <label class="text-[10px] text-white/60 uppercase block mb-1">SOGLIA MINIMA SCORE SEGNALI (%)</label>
-            <div class="flex items-center gap-2">
-              <input type="range" id="minScoreRange" min="50" max="95" step="1" value="80" oninput="onMinScoreInput(this.value)" class="w-full accent-[#FFD700] cursor-pointer" />
-              <input type="number" id="minScoreInput" min="50" max="95" step="1" value="80" oninput="onMinScoreInput(this.value)" class="w-20 bg-[#08080A] border border-white/25 rounded-lg px-2 py-1.5 text-white font-bold text-right tabular-nums outline-none focus:border-[#FFD700]" />
-            </div>
-          </div>
-          <div>
-            <label class="text-[10px] text-white/60 uppercase block mb-1">VISUALIZZAZIONE SOTTO SOGLIA</label>
-            <select id="hideBelowScoreSelect" onchange="saveScoreSettings()" class="w-full bg-[#08080A] border border-white/25 rounded-lg px-3 py-2 text-white font-bold outline-none focus:border-[#FFD700]">
-              <option value="HIDE_BELOW">Nascondi segnali sotto soglia</option>
-              <option value="SHOW_TAGGED">Mostra tutti (evidenzia sotto soglia)</option>
-            </select>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- VISTA 3: TELEMETRIA LIVE & CONFIGURAZIONE RISCHIO -->
-    <section id="viewTelemetry" class="hidden terminal-card rounded-2xl p-4 sm:p-5 space-y-4 font-mono text-xs">
-      <div class="border-b border-white/15 pb-3">
-        <h2 class="text-sm sm:text-base font-extrabold uppercase tracking-wider text-cyan-300">⚡ TELEMETRIA QUANTISTICA, IMPORTO (DA 2$) &amp; LEVA</h2>
-        <p class="text-[11px] text-white/70">Parametri reali applicati al calcolo di Size, R:R, EV e Kelly</p>
-      </div>
-
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div class="bg-[#000000] border border-white/15 rounded-xl p-4 space-y-3">
-          <label class="text-xs font-bold text-[#FFD700] block">💰 IMPORTO / MARGINE OPERATIVO (MINIMO 2 USDT)</label>
-          <div class="grid grid-cols-5 gap-1.5">
-            <button onclick="setMarginUsdt(2)" id="marBtn2" class="py-1.5 rounded-lg border border-[#FFD700] bg-[#FFD700]/20 text-[#FFD700] font-bold">2 $</button>
-            <button onclick="setMarginUsdt(5)" id="marBtn5" class="py-1.5 rounded-lg border border-white/20 bg-white/5 text-white font-bold">5 $</button>
-            <button onclick="setMarginUsdt(10)" id="marBtn10" class="py-1.5 rounded-lg border border-white/20 bg-white/5 text-white font-bold">10 $</button>
-            <button onclick="setMarginUsdt(25)" id="marBtn25" class="py-1.5 rounded-lg border border-white/20 bg-white/5 text-white font-bold">25 $</button>
-            <button onclick="setMarginUsdt(100)" id="marBtn100" class="py-1.5 rounded-lg border border-white/20 bg-white/5 text-white font-bold">100 $</button>
-          </div>
-          <input type="number" id="customMarginInput" min="2" step="0.5" value="2" oninput="onCustomMarginChange(this.value)" onblur="onCustomMarginBlur(this.value)" placeholder="Importo USDT da 2$ in su..." class="w-full bg-[#08080A] border border-white/25 rounded-lg px-3 py-2 text-white outline-none focus:border-[#FFD700] tabular-nums" />
-          <p class="text-[11px] text-cyan-300" id="marginUsdtLabel">2.00 USDT • Leva effettiva: 20x</p>
-        </div>
-
-        <div class="bg-[#000000] border border-white/15 rounded-xl p-4 space-y-3">
-          <label class="text-xs font-bold text-cyan-300 block">⚡ LEVA OPERATIVA</label>
-          <div class="grid grid-cols-5 gap-1.5">
-            <button onclick="setLeverage(1)" id="levBtn1" class="py-1.5 rounded-lg border border-white/20 bg-white/5 text-white font-bold">1x</button>
-            <button onclick="setLeverage(5)" id="levBtn5" class="py-1.5 rounded-lg border border-white/20 bg-white/5 text-white font-bold">5x</button>
-            <button onclick="setLeverage(10)" id="levBtn10" class="py-1.5 rounded-lg border border-[#FFD700] bg-[#FFD700]/20 text-[#FFD700] font-bold">10x</button>
-            <button onclick="setLeverage(20)" id="levBtn20" class="py-1.5 rounded-lg border border-white/20 bg-white/5 text-white font-bold">20x</button>
-            <button onclick="setLeverage(50)" id="levBtn50" class="py-1.5 rounded-lg border border-white/20 bg-white/5 text-white font-bold">50x</button>
-          </div>
-          <input type="number" id="customLeverageInput" min="1" max="125" step="1" placeholder="Leva personalizzata..." class="w-full bg-[#08080A] border border-white/25 rounded-lg px-3 py-2 text-white outline-none focus:border-[#FFD700] tabular-nums" />
-          <p class="text-[11px] text-white/70">Importo &le; $2.00 con leva default 10x passa automaticamente a 20x per aprire la posizione su BingX.</p>
-        </div>
-      </div>
-
-      <div id="telemetryLiveMetricsBox" class="bg-[#000000] border border-white/15 rounded-xl p-4 text-white/80">
-        Caricamento telemetria live...
-      </div>
-    </section>
-
-    <!-- VISTA 4: GRAFICI & ANALISI DETTAGLIATA -->
-    <section id="viewCharts" class="hidden terminal-card rounded-2xl p-4 sm:p-5 space-y-4 font-mono text-xs">
-      <div class="flex flex-wrap items-center justify-between gap-2 border-b border-white/15 pb-3">
+      <div class="grid-3" style="margin-top:8px;">
         <div>
-          <h2 id="chartViewSymbolTitle" class="text-base font-extrabold text-[#FFD700]">GRAFICO &amp; PARAMETRI CERTI</h2>
-          <p id="chartViewMeta" class="text-[11px] text-white/70">Seleziona un asset dalla scheda Segnali o dalla barra in alto.</p>
+          <label for="qty-input">Quantita'</label>
+          <input id="qty-input" type="number" step="0.0001" value="0.0005" />
         </div>
-        <button onclick="setBottomTab('signals')" class="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold">← Torna ai Segnali</button>
-      </div>
-
-      <div id="chartDetailsContent" class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div class="bg-[#000000] border border-white/15 rounded-xl p-4 space-y-2.5">
-          <div class="flex justify-between"><span class="text-white/65">Prezzo Live:</span><strong id="chPrice" class="text-cyan-300">--</strong></div>
-          <div class="flex justify-between"><span class="text-white/65">Direzione:</span><strong id="chSide" class="text-[#00FF66]">--</strong></div>
-          <div class="flex justify-between"><span class="text-white/65">Zona Ingresso:</span><strong id="chEntryZone" class="text-white">--</strong></div>
-          <div class="flex justify-between"><span class="text-white/65">Stop Loss (SL):</span><strong id="chSl" class="text-[#FF334B]">--</strong></div>
-          <div class="flex justify-between"><span class="text-white/65">TP1 / TP2 / TP3:</span><strong id="chTps" class="text-[#FFD700]">--</strong></div>
-          <div class="flex justify-between"><span class="text-white/65">EMA9 / EMA21 / RSI14:</span><strong id="chInd" class="text-white">--</strong></div>
-        </div>
-
-        <div class="bg-[#000000] border border-red-500/30 rounded-xl p-4 space-y-2.5">
-          <div class="text-xs font-extrabold text-[#FF334B]">⚠️ IDEA DI OPERAZIONE CONTRARIA (ALTO RISCHIO)</div>
-          <p id="chCounterDesc" class="text-[11px] text-white/80">--</p>
-          <div class="flex justify-between"><span class="text-white/65">Direzione Contraria:</span><strong id="chCounterSide" class="text-white">--</strong></div>
-          <div class="flex justify-between"><span class="text-white/65">Ingresso / SL / TP:</span><strong id="chCounterLevels" class="text-white">--</strong></div>
-          <div class="pt-2 flex gap-2">
-            <button id="chExecBuyBtn" onclick="executeQuickFromChart('BUY')" class="flex-1 py-2 rounded-xl bg-[#00FF66] text-black font-extrabold">ESEGUI BUY + SL/TP</button>
-            <button id="chExecSellBtn" onclick="executeQuickFromChart('SELL')" class="flex-1 py-2 rounded-xl bg-[#FF334B] text-white font-extrabold">ESEGUI SELL + SL/TP</button>
-          </div>
-        </div>
-      </div>
-    </section>
-
-  </main>
-
-  <!-- BOTTOM NAVIGATION BAR -->
-  <nav class="sticky bottom-0 z-30 bg-[#08080A]/95 backdrop-blur-md border-t border-white/15 px-2 py-1.5 font-mono text-xs">
-    <div class="max-w-3xl mx-auto grid grid-cols-4 gap-1.5">
-      <button id="navSignals" onclick="setBottomTab('signals')" class="py-2 rounded-xl font-extrabold bg-[#FFD700] text-black flex items-center justify-center gap-1.5">
-        <span>•</span> <span>Segnali</span>
-      </button>
-      <button id="navPositions" onclick="setBottomTab('positions')" class="py-2 rounded-xl font-bold bg-white/5 text-white/75 hover:text-white flex items-center justify-center gap-1.5">
-        <span>💼</span> <span>Posizioni</span>
-      </button>
-      <button id="navTelemetry" onclick="setBottomTab('telemetry')" class="py-2 rounded-xl font-bold bg-white/5 text-white/75 hover:text-white flex items-center justify-center gap-1.5">
-        <span>⚡</span> <span>Telemetria</span>
-      </button>
-      <button id="navCharts" onclick="setBottomTab('charts')" class="py-2 rounded-xl font-bold bg-white/5 text-white/75 hover:text-white flex items-center justify-center gap-1.5">
-        <span>📈</span> <span>Grafici</span>
-      </button>
-    </div>
-  </nav>
-
-  <!-- MODALE API -->
-  <div id="apiModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/90 backdrop-blur-sm p-3 overflow-y-auto">
-    <div class="bg-[#08080A] border border-[#FFD700]/40 rounded-2xl w-full max-w-[500px] shadow-2xl overflow-hidden my-auto">
-      <div class="px-5 py-3.5 border-b border-white/15 flex items-center justify-between bg-[#000000]">
         <div>
-          <h2 class="text-base font-extrabold font-mono text-[#FFD700]">🔑 Configurazione API Key BingX</h2>
-          <p class="text-xs text-white/70">Variabili Render lette automaticamente; opzionalmente puoi sovrascriverle qui</p>
+          <label for="lev-input">Leva</label>
+          <input id="lev-input" type="number" min="1" max="125" value="20" />
         </div>
-        <button onclick="toggleApiModal()" class="p-2 rounded-xl bg-white/10 text-white hover:bg-[#FF334B] transition-colors">&#10005;</button>
+        <div>
+          <label for="tp-input">TP Ordine</label>
+          <input id="tp-input" type="number" step="any" placeholder="Auto" />
+        </div>
       </div>
-      <div class="p-5 space-y-4 text-xs font-mono">
-        <div id="renderEnvNotice" class="p-2.5 rounded-lg bg-emerald-500/15 border border-emerald-500/40 text-[#00FF66] text-[11px]">
-          Verifica variabili d'ambiente Render in corso...
-        </div>
-        <div class="space-y-1.5">
-          <label class="block text-white/80 font-bold">BingX API Key (Override opzionale):</label>
-          <input type="text" id="userApiKeyInput" placeholder="Lascia vuoto per usare BINGX_API_KEY da Render..." class="w-full bg-[#000000] border border-white/30 rounded-lg px-3 py-2 text-white font-mono text-xs focus:border-[#FFD700] outline-none" />
-        </div>
-        <div class="space-y-1.5">
-          <label class="block text-white/80 font-bold">BingX Secret Key (Override opzionale):</label>
-          <input type="password" id="userSecretKeyInput" placeholder="Lascia vuoto per usare BINGX_SECRET_KEY da Render..." class="w-full bg-[#000000] border border-white/30 rounded-lg px-3 py-2 text-white font-mono text-xs focus:border-[#FFD700] outline-none" />
-        </div>
-        <button onclick="saveUserApiKeys()" class="w-full py-2.5 rounded-xl text-xs font-bold bg-[#FFD700] text-black shadow-lg hover:bg-amber-400 transition-all">
-          Salva e Sincronizza Conto
-        </button>
-        <button onclick="clearUserApiKeys()" class="w-full py-1.5 rounded-xl text-xs font-bold bg-red-500/20 text-[#FF334B] border border-red-500/40 hover:bg-red-500/30 transition-all">
-          Usa Solo Variabili Render
-        </button>
+
+      <div style="margin-top:8px;">
+        <label for="sl-input">Stop Loss</label>
+        <input id="sl-input" type="number" step="any" placeholder="Auto" />
       </div>
+
+      <label class="check-row"><input id="chk-close-candle" type="checkbox" checked /> Chiudi posizione a fine candela TF</label>
+      <label class="check-row"><input id="chk-rotate" type="checkbox" checked /> Avanza su altre coppie dopo blocco segnale</label>
+
+      <div class="grid-2" style="margin-top:10px;">
+        <button type="button" class="btn-buy" id="btn-buy-long">BUY / LONG</button>
+        <button type="button" class="btn-sell" id="btn-sell-short">SELL / SHORT</button>
+      </div>
+      <button type="button" class="btn-sell" id="btn-close-all" style="width:100%; margin-top:8px;">CHIUDI TUTTO</button>
     </div>
   </div>
 
   <script>
-    const MIN_ORDER_USDT = 2.0;
-    const storedMargin = parseFloat(localStorage.getItem('bingx_margin_usdt') || String(MIN_ORDER_USDT));
-    const initialMargin = (!isNaN(storedMargin) && storedMargin >= MIN_ORDER_USDT) ? storedMargin : MIN_ORDER_USDT;
+    let activeCategory = "Tutti";
+    let autoEnabled = true;
+    let forceScanNext = false;
+    let reqCounter = 0;
+    let appliedReqId = 0;
 
-    let state = {
-      activeTab: 'signals',
-      selectedCategory: 'Tutti',
-      tradingStyle: 'Scalping',
-      marketType: 'FUTURES',
-      tradingMode: 'MANUAL',
-      selectedLeverage: 10,
-      selectedMarginUsdt: initialMargin,
-      minSignalScore: Number(localStorage.getItem('bingx_min_signal_score') || 80),
-      hideBelowScore: localStorage.getItem('bingx_hide_below_score') || 'HIDE_BELOW',
-      envKeysConfigured: false,
-      keySource: 'none',
-      marketData: {},
-      signalsCache: [],
-      selectedAssetDetail: null,
-      livePositions: [],
-      closedOnCandleSlots: new Set(),
-      autoSettings: {
-        maxPositions: 1,
-        dailyLossLimit: 0.5,
-        closeOnCandleEnd: 'ON',
-        filterMode: 'ALL_VALID'
-      }
-    };
-
-    function getEffectiveLeverage() {
-      if (state.marketType === 'SPOT') return 1;
-      if (state.selectedMarginUsdt > 0 && state.selectedMarginUsdt <= MIN_ORDER_USDT && state.selectedLeverage === 10) {
-        return 20;
-      }
-      return Math.max(1, state.selectedLeverage);
+    function fmtCountdown(sec) {
+      const s = Math.max(0, parseInt(sec || 0, 10));
+      const mm = String(Math.floor(s / 60)).padStart(2, "0");
+      const ss = String(s % 60).padStart(2, "0");
+      return `${mm}:${ss}`;
     }
 
-    function setBottomTab(tab) {
-      state.activeTab = tab;
-      ['signals', 'positions', 'telemetry', 'charts'].forEach(t => {
-        const viewEl = document.getElementById('view' + t.charAt(0).toUpperCase() + t.slice(1));
-        const navEl = document.getElementById('nav' + t.charAt(0).toUpperCase() + t.slice(1));
-        if (viewEl) viewEl.classList.toggle('hidden', t !== tab);
-        if (navEl) {
-          navEl.className = t === tab
-            ? "py-2 rounded-xl font-extrabold bg-[#FFD700] text-black flex items-center justify-center gap-1.5"
-            : "py-2 rounded-xl font-bold bg-white/5 text-white/75 hover:text-white flex items-center justify-center gap-1.5";
-        }
-      });
-      if (tab === 'positions') refreshBingxTelemetry();
-      if (tab === 'telemetry') renderTelemetryTab();
-      if (tab === 'charts') renderChartTab();
-    }
-
-    function setCategoryFilter(cat) {
-      state.selectedCategory = cat;
-      const mapIds = {
-        'Tutti': 'catTutti',
-        'Materie Prime': 'catMateriePrime',
-        'Forex / Valute': 'catForexValute',
-        'Azioni & Indici (TradFi)': 'catAzioniIndiciTradFi',
-        'Criptovalute': 'catCriptovalute'
-      };
-      Object.entries(mapIds).forEach(([k, id]) => {
-        const btn = document.getElementById(id);
-        if (btn) {
-          btn.className = k === cat
-            ? "px-3 py-1.5 rounded-xl text-xs font-bold bg-[#FFD700] text-black"
-            : "px-3 py-1.5 rounded-xl text-xs font-bold bg-white/10 text-white/75 hover:text-white";
-        }
-      });
-      pollMarketData();
-    }
-
-    function setTradingStyle(style) {
-      state.tradingStyle = style;
-      ['Scalping', 'Day Trading', 'Swing Trading', 'Long Term'].forEach(s => {
-        const btn = document.getElementById('style' + s.replace(/\s+/g, ''));
-        if (btn) {
-          btn.className = s === style
-            ? "px-3 py-1 rounded-lg text-xs font-bold bg-[#FFD700] text-black"
-            : "px-3 py-1 rounded-lg text-xs font-bold bg-white/10 text-white/70 hover:text-white";
-        }
-      });
-      pollMarketData();
-    }
-
-    function avviaAnalizzaGraficoSelezionato() {
-      const raw = (document.getElementById('quickSymbolInput').value || 'PAXG-USDT').trim().toUpperCase();
-      const sym = raw.includes('-') ? raw : `${raw}-USDT`;
-      openChartForSymbol(sym);
-    }
-
-    function getPrecisionDecimals(val) {
-      if (val >= 1000) return 2;
-      if (val >= 10) return 3;
-      if (val >= 1) return 4;
-      if (val >= 0.01) return 5;
-      return 7;
-    }
-
-    function formatPrice(val) {
-      return Number(val || 0).toFixed(getPrecisionDecimals(Number(val || 0)));
-    }
-
-    function getStoredApiKeys() {
+    function getFormValues() {
       return {
-        apiKey: localStorage.getItem('bingx_user_api_key') || '',
-        secretKey: localStorage.getItem('bingx_user_secret_key') || ''
+        symbol: (document.getElementById("symbol-input").value || "XAUT-USDT").trim().toUpperCase(),
+        tf: (document.getElementById("tf-select").value || "1m").toLowerCase(),
+        qty: parseFloat(document.getElementById("qty-input").value || "0.0005"),
+        leverage: parseInt(document.getElementById("lev-input").value || "20", 10),
+        tp: document.getElementById("tp-input").value,
+        sl: document.getElementById("sl-input").value,
+        close_at_candle_end: document.getElementById("chk-close-candle").checked,
+        rotate_after_open: document.getElementById("chk-rotate").checked,
+        category: activeCategory,
       };
     }
 
-    function updateApiStatusUI() {
-      const keys = getStoredApiKeys();
-      const btn = document.getElementById('apiStatusText');
-      const notice = document.getElementById('renderEnvNotice');
+    function drawCandles(candles, symLabel) {
+      const canvas = document.getElementById("chartCanvas");
+      const ctx = canvas.getContext("2d");
+      const w = canvas.width;
+      const h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
 
-      if (keys.apiKey && keys.secretKey) {
-        if (btn) btn.textContent = "API Custom 🟢";
-        if (notice) notice.textContent = "🟢 Stai usando credenziali personalizzate salvate nel browser.";
-      } else if (state.envKeysConfigured) {
-        if (btn) btn.textContent = "API Render 🟢";
-        if (notice) notice.textContent = "🟢 Variabili d'ambiente Render rilevate e attive sul server.";
+      ctx.fillStyle = "#8fa1bd";
+      ctx.font = "bold 12px sans-serif";
+      ctx.fillText(symLabel || "", 10, 16);
+
+      if (!candles || candles.length < 2) return;
+      let minP = Infinity, maxP = -Infinity;
+      for (const c of candles) {
+        if (c.low < minP) minP = c.low;
+        if (c.high > maxP) maxP = c.high;
+      }
+      const pad = Math.max((maxP - minP) * 0.12, 1e-6);
+      minP -= pad;
+      maxP += pad;
+
+      const stepX = w / candles.length;
+      const toY = (p) => h - ((p - minP) / (maxP - minP)) * (h - 34) - 10;
+
+      for (let i = 0; i < candles.length; i++) {
+        const c = candles[i];
+        const x = i * stepX + stepX * 0.5;
+        const yO = toY(c.open);
+        const yC = toY(c.close);
+        const yH = toY(c.high);
+        const yL = toY(c.low);
+        const up = c.close >= c.open;
+
+        ctx.strokeStyle = up ? "#16c784" : "#ea3943";
+        ctx.beginPath();
+        ctx.moveTo(x, yH);
+        ctx.lineTo(x, yL);
+        ctx.stroke();
+
+        ctx.fillStyle = up ? "#16c784" : "#ea3943";
+        ctx.fillRect(i * stepX + stepX * 0.22, Math.min(yO, yC), Math.max(2, stepX * 0.56), Math.max(2, Math.abs(yC - yO)));
+      }
+    }
+
+    function renderData(data) {
+      if (!data || !data.ok) return;
+      const q = data.quant || {};
+      const bal = data.balance || {};
+      const pos = data.positions || [];
+      const logs = data.logs || [];
+      const inc = data.income || [];
+      const t = data.timing || {};
+      const at = data.auto_trade || {};
+      const mkt = data.markets || {};
+
+      const activeSym = q.symbol || at.symbol || "XAUT-USDT";
+      const symInput = document.getElementById("symbol-input");
+      if (document.activeElement !== symInput) {
+        symInput.value = activeSym;
+      }
+
+      autoEnabled = Boolean(at.enabled);
+      const lockedMap = at.locked_signals || {};
+      const lockedSide = lockedMap[activeSym];
+
+      document.getElementById("lock-status-txt").textContent = lockedSide ? `${lockedSide} • BLOCCATO` : "LIBERO";
+      document.getElementById("mode-txt").textContent = autoEnabled ? "AUTOMATICO" : "MANUALE";
+      document.getElementById("sym-txt").textContent = activeSym;
+      document.getElementById("price-txt").textContent = q.price ?? "--";
+      document.getElementById("conf-txt").textContent = `${q.confidence ?? "--"}% ${q.label || ""}`;
+      document.getElementById("score-txt").textContent = `${q.score >= 0 ? "+" : ""}${q.score ?? 0} (${q.signal || "NEUTRAL"})`;
+      document.getElementById("tf-countdown-txt").textContent = fmtCountdown(t.remaining_sec);
+      document.getElementById("tp-est-txt").textContent = q.tp != null ? `${q.tp}` : "--";
+      document.getElementById("funding-txt").textContent = `${Number(bal.funding || 0.0048).toFixed(4)}%`;
+      document.getElementById("eq-lev-txt").textContent = `${Number(bal.equity || 0).toFixed(2)} | ${at.leverage || 20}x`;
+
+      const autoBtn = document.getElementById("btn-auto-toggle");
+      autoBtn.textContent = autoEnabled ? "AUTO-TRADE: ON (ATTIVO)" : "AUTO-TRADE: OFF";
+      autoBtn.className = autoEnabled ? "btn-primary" : "btn-ghost";
+
+      if (at.last_outcome) {
+        document.getElementById("bingx-outcome-box").textContent = at.last_outcome;
+      }
+
+      const rows = mkt.rows || [];
+      document.getElementById("mkt-title").textContent = `MERCATI (${rows.length})`;
+      document.getElementById("mkt-cat-label").textContent = mkt.category || activeCategory;
+      const mktTbody = document.getElementById("markets-tbody");
+      if (!rows.length) {
+        mktTbody.innerHTML = `<tr><td colspan="4">Nessuna coppia trovata</td></tr>`;
       } else {
-        if (btn) btn.textContent = "Collega API";
-        if (notice) notice.textContent = "🟡 Nessuna chiave rilevata su Render: imposta BINGX_API_KEY e BINGX_SECRET_KEY oppure inseriscile qui.";
-      }
-    }
+        mktTbody.innerHTML = rows.map(r => {
+          const chg = Number(r.change_pct || 0);
+          const chgCls = chg >= 0 ? "tag-buy" : "tag-sell";
+          const isLocked = Boolean(lockedMap[r.symbol]);
+          const sigTxt = isLocked ? `${r.signal} • BLOCCATO` : r.signal;
+          const sigCls = isLocked ? "tag-warn" : (r.signal === "BUY" ? "tag-buy" : (r.signal === "SELL" ? "tag-sell" : "tag-warn"));
+          const sel = r.symbol === activeSym ? "market-row selected" : "market-row";
+          return `<tr class="${sel}" data-sym="${r.symbol}">
+            <td><strong>${r.symbol}</strong><br><span class="sub">${r.category}</span></td>
+            <td>${r.price ?? "--"}</td>
+            <td class="${chgCls}">${chg > 0 ? "+" : ""}${chg.toFixed(2)}%</td>
+            <td class="${sigCls}">${sigTxt}</td>
+          </tr>`;
+        }).join("");
 
-    async function syncServerModeAndEnvKeys() {
-      try {
-        const res = await fetch('/api/get-mode');
-        const json = await res.json();
-        if (json.code === 0) {
-          state.envKeysConfigured = Boolean(json.envKeysConfigured);
-          state.keySource = json.keySource || 'none';
-          updateApiStatusUI();
-        }
-      } catch (e) {}
-    }
-
-    function toggleApiModal() {
-      const modal = document.getElementById('apiModal');
-      const keys = getStoredApiKeys();
-      document.getElementById('userApiKeyInput').value = keys.apiKey;
-      document.getElementById('userSecretKeyInput').value = keys.secretKey;
-      updateApiStatusUI();
-      modal.classList.toggle('hidden');
-      modal.classList.toggle('flex');
-    }
-
-    function saveUserApiKeys() {
-      const apiKey = document.getElementById('userApiKeyInput').value.trim();
-      const secretKey = document.getElementById('userSecretKeyInput').value.trim();
-      if (!apiKey || !secretKey) return alert("Inserisci API Key e Secret Key oppure lascia vuoto per usare Render.");
-      localStorage.setItem('bingx_user_api_key', apiKey);
-      localStorage.setItem('bingx_user_secret_key', secretKey);
-      updateApiStatusUI();
-      toggleApiModal();
-      refreshBingxTelemetry();
-    }
-
-    function clearUserApiKeys() {
-      localStorage.removeItem('bingx_user_api_key');
-      localStorage.removeItem('bingx_user_secret_key');
-      updateApiStatusUI();
-      toggleApiModal();
-      refreshBingxTelemetry();
-    }
-
-    function applyMarginAmount(rawVal, syncQuickInput = true, syncCustomInput = true) {
-      const parsed = parseFloat(rawVal);
-      if (isNaN(parsed)) return;
-      const clamped = Math.max(MIN_ORDER_USDT, parsed);
-      state.selectedMarginUsdt = clamped;
-      localStorage.setItem('bingx_margin_usdt', String(clamped));
-
-      const qInp = document.getElementById('quickAmountInput');
-      const cInp = document.getElementById('customMarginInput');
-      const tInp = document.getElementById('topTableAmountInput');
-      const tAct = document.getElementById('tableActiveAmount');
-      if (syncQuickInput && qInp && String(qInp.value) !== String(clamped)) qInp.value = clamped;
-      if (syncCustomInput && cInp && String(cInp.value) !== String(clamped)) cInp.value = clamped;
-      if (tInp && String(tInp.value) !== String(clamped)) tInp.value = clamped;
-      if (tAct) tAct.textContent = `${clamped.toFixed(2)} USDT`;
-
-      document.querySelectorAll('[id^="marBtn"]').forEach(b => {
-        b.className = "py-1.5 rounded-lg border border-white/20 bg-white/5 text-white font-bold";
-      });
-      const preset = document.getElementById(`marBtn${clamped}`);
-      if (preset) {
-        preset.className = "py-1.5 rounded-lg border border-[#FFD700] bg-[#FFD700]/20 text-[#FFD700] font-bold";
-      }
-
-      updateRiskLabels();
-      pollMarketData();
-    }
-
-    function onQuickAmountChange(val) {
-      if (val === '' || parseFloat(val) < MIN_ORDER_USDT) return;
-      applyMarginAmount(val, false, true);
-    }
-
-    function onQuickAmountBlur(val) {
-      const parsed = parseFloat(val);
-      if (isNaN(parsed) || parsed < MIN_ORDER_USDT) {
-        applyMarginAmount(MIN_ORDER_USDT, true, true);
-      }
-    }
-
-    function onTopTableAmountChange(val) {
-      if (val === '' || parseFloat(val) < MIN_ORDER_USDT) return;
-      applyMarginAmount(val, true, true);
-    }
-
-    function onTopTableAmountBlur(val) {
-      const parsed = parseFloat(val);
-      if (isNaN(parsed) || parsed < MIN_ORDER_USDT) {
-        applyMarginAmount(MIN_ORDER_USDT, true, true);
-      }
-    }
-
-    function updateRiskLabels() {
-      const effLev = getEffectiveLeverage();
-      document.getElementById('topMarginSummary').textContent = `${Number(state.selectedMarginUsdt).toFixed(2)} USDT`;
-      document.getElementById('topLeverageSummary').textContent = `${effLev}x`;
-      document.getElementById('topMinScoreSummary').textContent = `${state.minSignalScore}%`;
-      const mLabel = document.getElementById('marginUsdtLabel');
-      if (mLabel) mLabel.textContent = `${Number(state.selectedMarginUsdt).toFixed(2)} USDT • Leva effettiva: ${effLev}x`;
-    }
-
-    function setMarginUsdt(usdt) {
-      applyMarginAmount(usdt, true, true);
-    }
-
-    function onCustomMarginChange(val) {
-      if (val === '' || parseFloat(val) < MIN_ORDER_USDT) return;
-      applyMarginAmount(val, true, false);
-    }
-
-    function onCustomMarginBlur(val) {
-      const parsed = parseFloat(val);
-      if (isNaN(parsed) || parsed < MIN_ORDER_USDT) {
-        applyMarginAmount(MIN_ORDER_USDT, true, true);
-      }
-    }
-
-    function setLeverage(lev) {
-      state.selectedLeverage = Number(lev) || 10;
-      const inp = document.getElementById('customLeverageInput');
-      if (inp) inp.value = '';
-      document.querySelectorAll('[id^="levBtn"]').forEach(b => {
-        b.className = "py-1.5 rounded-lg border border-white/20 bg-white/5 text-white font-bold";
-      });
-      const active = document.getElementById(`levBtn${lev}`);
-      if (active) active.className = "py-1.5 rounded-lg border border-[#FFD700] bg-[#FFD700]/20 text-[#FFD700] font-bold";
-      updateRiskLabels();
-      pollMarketData();
-    }
-
-    function onCustomLeverageChange(val) {
-      const num = parseInt(val, 10);
-      if (!isNaN(num) && num > 0) {
-        state.selectedLeverage = num;
-        document.querySelectorAll('[id^="levBtn"]').forEach(b => {
-          b.className = "py-1.5 rounded-lg border border-white/20 bg-white/5 text-white font-bold";
+        mktTbody.querySelectorAll("tr[data-sym]").forEach(tr => {
+          tr.addEventListener("click", () => {
+            const clickedSym = tr.getAttribute("data-sym");
+            document.getElementById("symbol-input").value = clickedSym;
+            pollNow(clickedSym);
+          });
         });
-        updateRiskLabels();
-      }
-    }
-
-    function onMinScoreInput(val) {
-      let num = parseInt(val, 10);
-      if (isNaN(num)) return;
-      num = Math.max(50, Math.min(95, num));
-      state.minSignalScore = num;
-      localStorage.setItem('bingx_min_signal_score', String(num));
-
-      const r = document.getElementById('minScoreRange');
-      const n = document.getElementById('minScoreInput');
-      const tr = document.getElementById('topTableScoreRange');
-      const tn = document.getElementById('topTableScoreInput');
-      const ta = document.getElementById('tableActiveScore');
-      const topSum = document.getElementById('topMinScoreSummary');
-      if (r && String(r.value) !== String(num)) r.value = num;
-      if (n && String(n.value) !== String(num)) n.value = num;
-      if (tr && String(tr.value) !== String(num)) tr.value = num;
-      if (tn && String(tn.value) !== String(num)) tn.value = num;
-      if (ta) ta.textContent = `${num}%`;
-      if (topSum) topSum.textContent = `${num}%`;
-
-      renderSignalsList();
-    }
-
-    function onTopTableScoreChange(val) {
-      onMinScoreInput(val);
-    }
-
-    function saveScoreSettings() {
-      const sel = document.getElementById('hideBelowScoreSelect');
-      if (sel) {
-        state.hideBelowScore = sel.value;
-        localStorage.setItem('bingx_hide_below_score', state.hideBelowScore);
-      }
-      renderSignalsList();
-      logFeed(`[SCORE SEGNALI] Soglia minima: ${state.minSignalScore}% | Modalità: ${state.hideBelowScore}`);
-    }
-
-    function saveAutoTradeSettings() {
-      state.autoSettings = {
-        maxPositions: parseInt(document.getElementById('autoMaxPositions').value, 10) || 1,
-        dailyLossLimit: parseFloat(document.getElementById('autoDailyLossLimit').value) || 0,
-        closeOnCandleEnd: document.getElementById('autoCloseOnCandleEnd').value,
-        filterMode: document.getElementById('autoTradeFilter').value
-      };
-      logFeed(`[AUTO-TRADE] Max Pos: ${state.autoSettings.maxPositions} | SL Giornaliero: $${state.autoSettings.dailyLossLimit} | Fine Candela: ${state.autoSettings.closeOnCandleEnd}`);
-    }
-
-    async function switchMarketType(mtype) {
-      try {
-        const res = await fetch('/api/set-market-type', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ marketType: mtype })
-        });
-        const data = await res.json();
-        if (data.code === 0) {
-          state.marketType = data.marketType;
-          document.getElementById('btnMarketFutures').className = mtype === 'FUTURES' ? "px-2.5 py-1 rounded-lg text-xs font-bold bg-[#0066FF] text-white" : "px-2.5 py-1 rounded-lg text-xs font-bold text-white/60 hover:text-white";
-          document.getElementById('btnMarketStandard').className = mtype === 'STANDARD_FUTURES' ? "px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-500 text-black" : "px-2.5 py-1 rounded-lg text-xs font-bold text-white/60 hover:text-white";
-          document.getElementById('btnMarketSpot').className = mtype === 'SPOT' ? "px-2.5 py-1 rounded-lg text-xs font-bold bg-[#FFD700] text-black" : "px-2.5 py-1 rounded-lg text-xs font-bold text-white/60 hover:text-white";
-          updateRiskLabels();
-          await pollMarketData();
-        }
-      } catch (e) {}
-    }
-
-    async function switchMode(mode) {
-      try {
-        const res = await fetch('/api/set-mode', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ mode })
-        });
-        const data = await res.json();
-        if (data.code === 0) {
-          state.tradingMode = data.mode;
-          document.getElementById('modeText').textContent = data.mode;
-          document.getElementById('btnModeManual').className = mode === 'MANUAL' ? "px-2.5 py-1 rounded-lg text-xs font-bold bg-white/20 text-white" : "px-2.5 py-1 rounded-lg text-xs font-bold text-white/60 hover:text-white";
-          document.getElementById('btnModeAuto').className = mode === 'AUTO' ? "px-2.5 py-1 rounded-lg text-xs font-bold bg-[#FFD700] text-black" : "px-2.5 py-1 rounded-lg text-xs font-bold text-white/60 hover:text-white";
-        }
-      } catch (e) {}
-    }
-
-    function renderLiveTickerMarquee() {
-      const entries = Object.entries(state.marketData);
-      if (entries.length === 0) return;
-      entries.sort((a, b) => (b[1].volume || 0) - (a[1].volume || 0));
-      const items = entries.slice(0, 16).map(([sym, item]) => {
-        const chg = Number(item.change24h || 0);
-        return `<div class="flex items-center gap-2 bg-white/5 px-3 py-1 rounded-lg border border-white/10 shrink-0">
-          <span class="font-bold text-white">${item.displayLabel || sym}</span>
-          <span class="text-white/90">$${formatPrice(item.price)}</span>
-          <span class="${chg >= 0 ? 'text-[#00FF66]' : 'text-[#FF334B]'} font-bold">${chg >= 0 ? '+' : ''}${chg.toFixed(2)}%</span>
-        </div>`;
-      }).join('');
-      document.getElementById('liveTickerMarquee').innerHTML = items + items;
-    }
-
-    function selectCandidateSymbols() {
-      const allSyms = Object.keys(state.marketData);
-      const filtered = allSyms.filter(sym => {
-        const item = state.marketData[sym];
-        if (!item) return false;
-        if (state.selectedCategory === 'Tutti') return true;
-        return item.category === state.selectedCategory;
-      });
-      const pool = filtered.length > 0 ? filtered : allSyms;
-      const priorityMetals = ['PAXG-USDT', 'XPT-USDT', 'XAG-USDT'].filter(s => pool.includes(s));
-      const sortedRest = pool
-        .filter(s => !priorityMetals.includes(s))
-        .sort((a, b) => (state.marketData[b].volume || 0) - (state.marketData[a].volume || 0));
-      return [...priorityMetals, ...sortedRest].slice(0, 6);
-    }
-
-    async function pollMarketData() {
-      try {
-        const res = await fetch(`/api/live-ticker?marketType=${state.marketType}`);
-        const json = await res.json();
-        if (json.code === 0 && json.data) {
-          state.marketData = json.data;
-          renderLiveTickerMarquee();
-          await refreshSignalsWithTelemetry();
-        }
-      } catch (e) {}
-    }
-
-    function renderSignalsList() {
-      const container = document.getElementById('signalsCardsContainer');
-      const cards = state.signalsCache;
-      if (!cards || cards.length === 0) return;
-
-      const minScore = Number(state.minSignalScore || 80);
-      const visibleItems = cards
-        .map((d, idx) => ({ d, idx }))
-        .filter(({ d }) => state.hideBelowScore !== 'HIDE_BELOW' || (d.side !== 'NEUTRO' && Number(d.certaintyPct || 0) >= minScore));
-
-      if (visibleItems.length === 0) {
-        container.innerHTML = `<div class="text-xs font-mono text-amber-300 py-4 text-center">Nessun segnale direzionale (1h/4h concordi) con score &ge; ${minScore}% al momento. Il filtro sta evitando ingressi deboli o neutri.</div>`;
-        return;
       }
 
-      container.innerHTML = visibleItems.map(({ d, idx }) => {
-        const isBuy = d.side === 'BUY';
-        const isNeutral = d.side === 'NEUTRO';
-        const meetsScore = !isNeutral && Number(d.certaintyPct || 0) >= minScore;
-        const borderClass = isBuy ? 'border-l-4 border-l-[#00FF66]' : (isNeutral ? 'border-l-4 border-l-amber-400' : 'border-l-4 border-l-[#FF334B]');
-        const dirBadge = isBuy
-          ? '<span class="px-2 py-0.5 rounded bg-[#00FF66]/20 text-[#00FF66] font-extrabold text-[10px]">BUY / LONG</span>'
-          : (isNeutral
-            ? '<span class="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-extrabold text-[10px]">NEUTRO (NO TRADE)</span>'
-            : '<span class="px-2 py-0.5 rounded bg-[#FF334B]/20 text-[#FF334B] font-extrabold text-[10px]">SELL / SHORT</span>');
-        const scoreBadge = meetsScore
-          ? `<span class="px-2 py-0.5 rounded bg-[#00FF66] text-black font-extrabold text-[10px] tabular-nums">SCORE ${d.certaintyPct}% (OK &ge; ${minScore}%)</span>`
-          : `<span class="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-400/40 font-extrabold text-[10px] tabular-nums">SCORE ${d.certaintyPct}% (&lt; ${minScore}%)</span>`;
-        const defaultSide = isBuy ? 'BUY' : 'SELL';
-        const execLabel = isBuy ? 'ESEGUI BUY + SL/TP' : 'ESEGUI SELL + SL/TP';
-        const execBtnClass = isBuy
-          ? 'bg-[#00FF66] text-black hover:brightness-110'
-          : 'bg-[#FF334B] text-white hover:brightness-110';
-        const evSign = d.evUsd >= 0 ? `+$${Number(d.evUsd).toFixed(4)}` : `-$${Math.abs(Number(d.evUsd)).toFixed(4)}`;
+      drawCandles(q.candles || [], `${activeSym} (${t.tf || "1m"})`);
 
-        return `
-          <div class="bg-[#08080A] border border-white/15 ${borderClass} rounded-xl p-4 space-y-3 font-mono">
-            <div class="flex flex-wrap items-center justify-between gap-2">
-              <div class="flex items-center gap-2 flex-wrap">
-                <strong class="text-sm sm:text-base text-white font-extrabold">${d.displayLabel || d.symbol}</strong>
-                ${dirBadge}
-                ${scoreBadge}
-              </div>
-              <span class="text-[11px] text-white/60">${d.category} • ${d.sentiment || ''}</span>
-            </div>
-
-            <div class="text-xs text-white/80">
-              HTF: <strong class="text-cyan-300">${d.htfBias}</strong> • Size: <strong class="text-white tabular-nums">${d.size} (${d.leverage}x)</strong> • Importo: <strong class="text-[#FFD700] tabular-nums">$${Number(d.marginUsdt).toFixed(2)}</strong>
-            </div>
-
-            <div class="bg-black/70 border border-white/10 rounded-lg px-3 py-2 text-xs tabular-nums">
-              Entry: <strong class="text-white">${formatPrice(d.price)}</strong>
-              <span class="text-white/40 mx-1">|</span>
-              SL (1.8x ATR): <strong class="text-[#FF334B]">${formatPrice(d.sl)}</strong>
-              <span class="text-white/40 mx-1">|</span>
-              TP1: <strong class="text-[#00FF66]">${formatPrice(d.tp1)}</strong>
-              <span class="text-white/40 mx-1">|</span>
-              TP2: <strong class="text-[#00FF66]">${formatPrice(d.tp2)}</strong>
-              <span class="text-white/40 mx-1">|</span>
-              TP3: <strong class="text-[#00FF66]">${formatPrice(d.tp3)}</strong>
-            </div>
-
-            <div class="bg-[#0B0F17] border border-cyan-500/25 rounded-xl p-3 space-y-1.5 text-xs">
-              <div class="text-white/85">
-                🕒 Candela ${d.candle15m.timeframe} (${d.candle15m.tfSeconds} secondi) • Apertura ${d.candle15m.openUtc} &rarr; Chiusura ${d.candle15m.closeUtc} UTC
-              </div>
-              <div class="text-cyan-300 font-semibold tabular-nums">
-                ⏳ Residuo candela: <span data-candle-rem="${d.symbol}" data-tf-sec="${d.candle15m.tfSeconds}">${d.candle15m.remainingSec}s</span> • R:R 1:${d.rr} • EV: <span class="${d.evUsd >= 0 ? 'text-[#00FF66]' : 'text-[#FF334B]'} font-extrabold">${evSign}</span> • Kelly: ${d.kellyPct}% • Score: ${d.certaintyPct}%
-              </div>
-              <div class="text-white/80">
-                🎯 Target ETA: circa ${d.etaMinutes} minuti (${d.etaCandles} candele da 15m, arrivo stimato ${d.etaUtc})
-              </div>
-            </div>
-
-            <div class="flex items-center gap-2 flex-wrap pt-1">
-              <button onclick="executeSignalFromCard(${idx}, '${defaultSide}')" class="px-4 py-2 rounded-lg text-xs font-extrabold ${execBtnClass} transition-all">${execLabel}</button>
-              <button onclick="executeSignalFromCard(${idx}, 'BUY')" class="px-3 py-2 rounded-lg text-xs font-extrabold bg-[#00FF66] text-black hover:brightness-110 transition-all">BUY</button>
-              <button onclick="executeSignalFromCard(${idx}, 'SELL')" class="px-3 py-2 rounded-lg text-xs font-extrabold bg-[#FF334B] text-white hover:brightness-110 transition-all">SELL</button>
-              <button onclick="openChartForSymbol('${d.symbol}')" class="px-3.5 py-2 rounded-lg text-xs font-extrabold bg-cyan-500/20 text-cyan-300 border border-cyan-500/50 hover:bg-cyan-500/30 transition-all">GRAFICO</button>
-            </div>
-          </div>
-        `;
-      }).join('');
-    }
-
-    async function refreshSignalsWithTelemetry() {
-      const symbols = selectCandidateSymbols();
-      if (symbols.length === 0) return;
-
-      const effMargin = Math.max(MIN_ORDER_USDT, Number(state.selectedMarginUsdt || MIN_ORDER_USDT));
-      const effLev = getEffectiveLeverage();
-      const cards = [];
-
-      for (const sym of symbols) {
-        try {
-          const url = `/api/deep-scan?symbol=${encodeURIComponent(sym)}&marketType=${state.marketType}&style=${encodeURIComponent(state.tradingStyle)}&margin=${encodeURIComponent(effMargin)}&leverage=${encodeURIComponent(effLev)}`;
-          const res = await fetch(url);
-          const json = await res.json();
-          if (json.code === 0 && json.data) {
-            cards.push(json.data);
-          }
-        } catch (e) {}
-      }
-
-      if (cards.length === 0) return;
-      state.signalsCache = cards;
-      if (!state.selectedAssetDetail) {
-        state.selectedAssetDetail = cards[0];
-      }
-      renderSignalsList();
-    }
-
-    async function executeSignalFromCard(idx, overrideSide) {
-      const asset = state.signalsCache[idx];
-      if (!asset) return;
-      const keys = getStoredApiKeys();
-      const effMargin = Math.max(MIN_ORDER_USDT, Number(state.selectedMarginUsdt || MIN_ORDER_USDT));
-      if (state.selectedMarginUsdt !== effMargin) {
-        applyMarginAmount(effMargin, true, true);
-      }
-      const effLev = getEffectiveLeverage();
-      const isAuto = state.tradingMode === 'AUTO';
-
-      if (isAuto) {
-        if (asset.side === 'NEUTRO') {
-          logFeed(`[AUTO-TRADE BLoccato] ${asset.symbol}: segnale NEUTRO (1h/4h non allineati).`);
-          return;
-        }
-        if (Number(asset.certaintyPct || 0) < Number(state.minSignalScore || 80)) {
-          logFeed(`[AUTO-TRADE SKIP] ${asset.symbol}: score ${asset.certaintyPct}% sotto soglia ${state.minSignalScore}%.`);
-          return;
-        }
-        if (state.livePositions.length >= state.autoSettings.maxPositions) {
-          logFeed(`[AUTO-TRADE] Limite max posizioni (${state.autoSettings.maxPositions}) raggiunto.`);
-          return;
-        }
-      }
-
-      logFeed(`[ORDINE BINGX] Invio ${overrideSide} su ${asset.symbol} (Min Importo: $${effMargin.toFixed(2)}, Size: ${asset.size}, Leva: ${effLev}x, SL: ${asset.sl}, TP2: ${asset.tp2})...`);
-
-      try {
-        const res = await fetch('/api/esegui-segnale', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            symbol: asset.symbol,
-            action: overrideSide,
-            size: asset.size,
-            entry: asset.price,
-            tp: asset.tp2,
-            sl: asset.sl,
-            leverage: effLev,
-            marginUsdt: effMargin,
-            timeframe: asset.exactTf || '15m',
-            marketType: state.marketType,
-            apiKey: keys.apiKey,
-            secretKey: keys.secretKey,
-            is_auto: isAuto
-          })
-        });
-        const data = await res.json();
-        if (data.code === 0) {
-          logFeed(`[OK BINGX] Ordine ${overrideSide} eseguito su ${asset.symbol} (Qty: ${data.appliedQuantity || asset.size}, Importo $${data.appliedMarginUsdt || effMargin}, Leva ${data.appliedLeverage || effLev}x).`);
-          alert(`Ordine ${overrideSide} eseguito su BingX per ${asset.symbol} (Importo $${data.appliedMarginUsdt || effMargin}, Qty: ${data.appliedQuantity || asset.size})!`);
-          refreshBingxTelemetry();
-        } else {
-          const rawInfo = data.bingxRaw ? ` | Dettaglio: ${JSON.stringify(data.bingxRaw)}` : '';
-          logFeed(`[ERRORE BINGX] ${data.msg || 'Esito negativo ordine'}${rawInfo}`);
-          alert(data.msg || "Impossibile completare l'ordine su BingX.");
-        }
-      } catch (e) {
-        logFeed(`[ERRORE RETE] ${e.message}`);
-      }
-    }
-
-    async function closeBingxPositionReal(symbol, side, size) {
-      const keys = getStoredApiKeys();
-      logFeed(`[CHIUSURA REALE] Chiusura posizione ${symbol} (${side}, Size: ${size}) su BingX...`);
-      try {
-        const res = await fetch('/api/close-position', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            symbol,
-            side,
-            size,
-            marketType: state.marketType,
-            apiKey: keys.apiKey,
-            secretKey: keys.secretKey
-          })
-        });
-        const data = await res.json();
-        if (data.code === 0) {
-          logFeed(`[CHIUSO] Posizione ${symbol} chiusa su BingX.`);
-          refreshBingxTelemetry();
-        } else {
-          logFeed(`[ERRORE CHIUSURA] ${symbol}: ${data.msg || 'Errore'}`);
-        }
-      } catch (e) {
-        logFeed(`[ERRORE RETE CHIUSURA] ${e.message}`);
-      }
-    }
-
-    async function handleCandleBoundaryCloseReal() {
-      if (state.autoSettings.closeOnCandleEnd !== 'ON') return;
-      if (!state.livePositions || state.livePositions.length === 0) return;
-
-      const tfSec = { Scalping: 300, 'Day Trading': 900, 'Swing Trading': 3600, 'Long Term': 14400 }[state.tradingStyle] || 900;
-      const nowSec = Math.floor(Date.now() / 1000);
-      const rem = tfSec - (nowSec % tfSec);
-      const slotKey = `${Math.floor(nowSec / tfSec)}_${tfSec}`;
-
-      if (rem <= 2 && !state.closedOnCandleSlots.has(slotKey)) {
-        state.closedOnCandleSlots.add(slotKey);
-        for (const p of state.livePositions) {
-          await closeBingxPositionReal(p.symbol, p.side, p.size);
-        }
-      }
-    }
-
-    async function openChartForSymbol(symbol) {
-      state.selectedAssetDetail = state.signalsCache.find(s => s.symbol === symbol) || state.selectedAssetDetail;
-      setBottomTab('charts');
-      try {
-        const effMargin = Math.max(MIN_ORDER_USDT, Number(state.selectedMarginUsdt || MIN_ORDER_USDT));
-        const effLev = getEffectiveLeverage();
-        const res = await fetch(`/api/deep-scan?symbol=${encodeURIComponent(symbol)}&marketType=${state.marketType}&style=${encodeURIComponent(state.tradingStyle)}&margin=${encodeURIComponent(effMargin)}&leverage=${encodeURIComponent(effLev)}`);
-        const json = await res.json();
-        if (json.code === 0 && json.data) {
-          state.selectedAssetDetail = json.data;
-          renderChartTab();
-          renderTelemetryTab();
-        }
-      } catch (e) {}
-    }
-
-    function renderChartTab() {
-      const d = state.selectedAssetDetail;
-      if (!d) return;
-      document.getElementById('chartViewSymbolTitle').textContent = `${d.displayLabel || d.symbol} — ANALISI GRAFICA`;
-      document.getElementById('chartViewMeta').textContent = `${d.category} • TF ${d.exactTf} • Score ${d.certaintyPct}% • R:R 1:${d.rr}`;
-      document.getElementById('chPrice').textContent = formatPrice(d.price);
-      document.getElementById('chSide').textContent = d.side;
-      document.getElementById('chEntryZone').textContent = `${formatPrice(d.entryZoneMin)} - ${formatPrice(d.entryZoneMax)}`;
-      document.getElementById('chSl').textContent = formatPrice(d.sl);
-      document.getElementById('chTps').textContent = `${formatPrice(d.tp1)} / ${formatPrice(d.tp2)} / ${formatPrice(d.tp3)}`;
-      document.getElementById('chInd').textContent = `EMA9 ${formatPrice(d.ema9)} • EMA21 ${formatPrice(d.ema21)} • RSI ${d.rsi14}`;
-
-      if (d.counterTrade) {
-        document.getElementById('chCounterDesc').textContent = d.counterTrade.description;
-        document.getElementById('chCounterSide').textContent = d.counterTrade.side;
-        document.getElementById('chCounterLevels').textContent = `${formatPrice(d.counterTrade.entry)} / ${formatPrice(d.counterTrade.sl)} / ${formatPrice(d.counterTrade.tp)}`;
-      }
-    }
-
-    function executeQuickFromChart(side) {
-      if (!state.selectedAssetDetail) return;
-      const idx = state.signalsCache.findIndex(s => s.symbol === state.selectedAssetDetail.symbol);
-      if (idx >= 0) {
-        executeSignalFromCard(idx, side);
+      document.getElementById("pos-title").textContent = `POSIZIONI APERTE (${pos.length})`;
+      const posTbody = document.getElementById("pos-tbody");
+      if (!pos.length) {
+        posTbody.innerHTML = `<tr><td colspan="6">Nessuna posizione aperta</td></tr>`;
       } else {
-        state.signalsCache.unshift(state.selectedAssetDetail);
-        executeSignalFromCard(0, side);
+        posTbody.innerHTML = pos.map(p => {
+          const sCls = p.positionSide === "LONG" ? "tag-buy" : "tag-sell";
+          return `<tr>
+            <td>${p.symbol}</td>
+            <td class="${sCls}">${p.positionSide}</td>
+            <td>${p.positionAmt}</td>
+            <td>${p.entryPrice}</td>
+            <td>${Number(p.unrealizedProfit || 0).toFixed(4)}</td>
+            <td><button type="button" class="btn-ghost" onclick="closeOne('${p.symbol}')">Chiudi</button></td>
+          </tr>`;
+        }).join("");
+      }
+
+      const logsTbody = document.getElementById("logs-tbody");
+      if (!logs.length) {
+        logsTbody.innerHTML = `<tr><td colspan="6">Nessun evento</td></tr>`;
+      } else {
+        logsTbody.innerHTML = logs.map(l => {
+          const s = String(l.segnale || "");
+          const cls = s.includes("BUY") ? "tag-buy" : (s.includes("SELL") ? "tag-sell" : "tag-warn");
+          return `<tr>
+            <td>${l.ora}</td>
+            <td>${l.coppia}</td>
+            <td>${l.tf}</td>
+            <td class="${cls}">${l.segnale}<br><span class="sub">${l.confidenza}% • ${l.label || ""}</span></td>
+            <td>${l.tp1 ?? "-"} / ${l.tp2 ?? "-"} / ${l.sl ?? "-"}</td>
+            <td>${l.esito}</td>
+          </tr>`;
+        }).join("");
+      }
+
+      const incTbody = document.getElementById("income-tbody");
+      if (!inc.length) {
+        incTbody.innerHTML = `<tr><td colspan="3">Nessun movimento</td></tr>`;
+      } else {
+        incTbody.innerHTML = inc.map(r => `<tr>
+          <td>${r.type}</td>
+          <td>${r.symbol}</td>
+          <td>${Number(r.income || 0).toFixed(4)} ${r.asset || "USDT"}</td>
+        </tr>`).join("");
       }
     }
 
-    function renderTelemetryTab() {
-      const d = state.selectedAssetDetail;
-      const box = document.getElementById('telemetryLiveMetricsBox');
-      if (!d) return;
-      box.innerHTML = `
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div><span class="text-white/50 text-[10px] block">ASSET</span><strong>${d.displayLabel || d.symbol}</strong></div>
-          <div><span class="text-white/50 text-[10px] block">R:R / EV / KELLY</span><strong class="text-[#00FF66]">1:${d.rr} / $${d.evUsd} / ${d.kellyPct}%</strong></div>
-          <div><span class="text-white/50 text-[10px] block">IMPORTO / LEVA</span><strong class="text-cyan-300">$${Number(state.selectedMarginUsdt).toFixed(2)} • ${getEffectiveLeverage()}x</strong></div>
-          <div><span class="text-white/50 text-[10px] block">FINESTRA ${d.candle15m.timeframe.toUpperCase()} UTC</span><strong>${d.candle15m.openUtc} &rarr; ${d.candle15m.closeUtc}</strong></div>
-        </div>
-      `;
-    }
+    async function pollNow(overrideSymbol = null) {
+      const thisReq = ++reqCounter;
+      const v = getFormValues();
+      const targetSym = overrideSymbol || v.symbol;
+      const qStr = encodeURIComponent(document.getElementById("mkt-search").value || "");
+      const catStr = encodeURIComponent(activeCategory);
+      const scanParam = forceScanNext ? "&scan=1" : "";
+      forceScanNext = false;
 
-    function fmtSignedUsd(val) {
-      const n = Number(val || 0);
-      return (n >= 0 ? `+$${n.toFixed(4)}` : `-$${Math.abs(n).toFixed(4)}`);
-    }
-
-    async function refreshBingxTelemetry() {
-      const keys = getStoredApiKeys();
       try {
-        const res = await fetch('/api/account-telemetry', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ apiKey: keys.apiKey, secretKey: keys.secretKey })
-        });
-        const json = await res.json();
-        if (json.code === 0 && json.data) {
-          const t = json.data;
-          state.livePositions = t.positions || [];
-          state.keySource = t.keySource || state.keySource;
-          updateApiStatusUI();
-
-          const srcLabel = t.keySource === 'render_env'
-            ? "🟢 Conto Reale BingX Sincronizzato (Variabili Render)"
-            : (t.keySource === 'custom' ? "🟢 Conto Reale BingX Sincronizzato (API Custom)" : (t.msg || "Modalità non connessa"));
-
-          document.getElementById('bingxConnectionStatus').textContent = srcLabel;
-
-          document.getElementById('pnlWalletBalance').textContent = `$${Number(t.walletBalance || 0).toFixed(2)}`;
-          document.getElementById('pnlAvailableMargin').textContent = `$${Number(t.availableMargin || 0).toFixed(2)}`;
-
-          const upnlEl = document.getElementById('pnlUnrealized');
-          upnlEl.textContent = fmtSignedUsd(t.unrealizedPnl);
-          upnlEl.className = `text-lg font-extrabold tabular-nums mt-1 block ${Number(t.unrealizedPnl) >= 0 ? 'text-[#00FF66]' : 'text-[#FF334B]'}`;
-
-          const netTodayEl = document.getElementById('pnlNetToday');
-          netTodayEl.textContent = fmtSignedUsd(t.netPnlToday);
-          netTodayEl.className = `text-lg font-extrabold tabular-nums mt-1 block ${Number(t.netPnlToday) >= 0 ? 'text-[#00FF66]' : 'text-[#FF334B]'}`;
-
-          document.getElementById('pnlFeesToday').textContent = fmtSignedUsd(t.feesFundingToday);
-
-          const grossTodayEl = document.getElementById('pnlGrossToday');
-          grossTodayEl.textContent = fmtSignedUsd(t.grossPnlToday);
-          grossTodayEl.className = `text-lg font-extrabold tabular-nums mt-1 block ${Number(t.grossPnlToday) >= 0 ? 'text-[#00FF66]' : 'text-[#FF334B]'}`;
-
-          const netMonthEl = document.getElementById('pnlNetMonth');
-          netMonthEl.textContent = fmtSignedUsd(t.netPnlMonth);
-          netMonthEl.className = `text-lg font-extrabold tabular-nums mt-1 block ${Number(t.netPnlMonth) >= 0 ? 'text-[#00FF66]' : 'text-[#FF334B]'}`;
-
-          const posBox = document.getElementById('bingxOpenPositionsBox');
-          if (!t.positions || t.positions.length === 0) {
-            posBox.innerHTML = `<div class="text-white/70">Nessuna posizione aperta su BingX.</div>`;
-          } else {
-            posBox.innerHTML = t.positions.map(p => `
-              <div class="flex flex-wrap items-center justify-between gap-2 bg-[#08080A] border border-white/10 rounded-lg p-3">
-                <div>
-                  <strong class="text-white">${p.symbol}</strong>
-                  <span class="ml-2 px-2 py-0.5 rounded text-[10px] font-bold ${p.side === 'LONG' ? 'bg-[#00FF66]/20 text-[#00FF66]' : 'bg-[#FF334B]/20 text-[#FF334B]'}">${p.side} ${p.leverage}x</span>
-                  <div class="text-[11px] text-white/70 mt-1">Size: ${p.size} • Entry: ${formatPrice(p.entryPrice)} • Mark: ${formatPrice(p.markPrice)}</div>
-                </div>
-                <div class="flex items-center gap-3">
-                  <strong class="text-sm tabular-nums ${p.unrealizedPnl >= 0 ? 'text-[#00FF66]' : 'text-[#FF334B]'}">${fmtSignedUsd(p.unrealizedPnl)}</strong>
-                  <button onclick="closeBingxPositionReal('${p.symbol}', '${p.side}', ${p.size})" class="px-2.5 py-1 rounded-lg bg-[#FF334B]/20 text-[#FF334B] border border-[#FF334B]/50 text-[11px] font-bold">Chiudi Ora</button>
-                </div>
-              </div>
-            `).join('');
-          }
+        const res = await fetch(`/api/live-ticker?symbol=${encodeURIComponent(targetSym)}&tf=${encodeURIComponent(v.tf)}&category=${catStr}&query=${qStr}${scanParam}`);
+        const data = await res.json();
+        if (thisReq >= appliedReqId) {
+          appliedReqId = thisReq;
+          renderData(data);
         }
-      } catch (e) {}
-    }
-
-    function tickCandleCountdowns() {
-      const nowSec = Math.floor(Date.now() / 1000);
-      document.querySelectorAll('[data-candle-rem]').forEach(el => {
-        const tfSec = parseInt(el.getAttribute('data-tf-sec'), 10) || 900;
-        const rem = Math.max(1, tfSec - (nowSec % tfSec));
-        el.textContent = `${rem}s`;
-      });
-      handleCandleBoundaryCloseReal();
-    }
-
-    function logFeed(text) {
-      const container = document.getElementById('alertsFeedContainer');
-      if (!container) return;
-      const div = document.createElement('div');
-      div.className = "p-2 rounded bg-white/5 border border-white/10 text-white/90";
-      div.textContent = `[${new Date().toLocaleTimeString()}] ${text}`;
-      container.prepend(div);
-    }
-
-    window.addEventListener('DOMContentLoaded', async () => {
-      document.getElementById('quickAmountInput').value = state.selectedMarginUsdt;
-      document.getElementById('customMarginInput').value = state.selectedMarginUsdt;
-      document.getElementById('topTableAmountInput').value = state.selectedMarginUsdt;
-      document.getElementById('tableActiveAmount').textContent = `${Number(state.selectedMarginUsdt).toFixed(2)} USDT`;
-      document.getElementById('minScoreRange').value = state.minSignalScore;
-      document.getElementById('minScoreInput').value = state.minSignalScore;
-      document.getElementById('topTableScoreRange').value = state.minSignalScore;
-      document.getElementById('topTableScoreInput').value = state.minSignalScore;
-      document.getElementById('tableActiveScore').textContent = `${state.minSignalScore}%`;
-      document.getElementById('hideBelowScoreSelect').value = state.hideBelowScore;
-
-      document.querySelectorAll('[id^="marBtn"]').forEach(b => {
-        b.className = "py-1.5 rounded-lg border border-white/20 bg-white/5 text-white font-bold";
-      });
-      const initPresetBtn = document.getElementById(`marBtn${state.selectedMarginUsdt}`);
-      if (initPresetBtn) {
-        initPresetBtn.className = "py-1.5 rounded-lg border border-[#FFD700] bg-[#FFD700]/20 text-[#FFD700] font-bold";
+      } catch (err) {
+        document.getElementById("bingx-outcome-box").textContent = `ESITO BINGX: Errore connessione (${err})`;
       }
+    }
 
-      updateApiStatusUI();
-      updateRiskLabels();
-      await syncServerModeAndEnvKeys();
-      await pollMarketData();
-      await refreshBingxTelemetry();
+    async function sendManualOrder(side) {
+      const v = getFormValues();
+      const res = await fetch("/api/order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...v, side, order_type: "MARKET" })
+      });
+      const data = await res.json();
+      const r = data.result || {};
+      if (r.outcome_text) {
+        document.getElementById("bingx-outcome-box").textContent = r.outcome_text;
+      }
+      await pollNow(v.symbol);
+    }
 
-      setInterval(pollMarketData, 4000);
-      setInterval(refreshBingxTelemetry, 10000);
-      setInterval(() => {
-        const now = new Date();
-        document.getElementById('liveCetClock').textContent =
-          now.toLocaleTimeString('it-IT', { timeZone: 'Europe/Rome', hour12: false }) + ' CET';
-        document.getElementById('liveUtcClock').textContent =
-          now.toLocaleTimeString('en-GB', { timeZone: 'UTC', hour12: false }) + ' UTC';
-        tickCandleCountdowns();
-      }, 1000);
+    async function closeOne(sym) {
+      await fetch("/api/close-position", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ symbol: sym })
+      });
+      await pollNow();
+    }
+
+    document.querySelectorAll("#cat-bar .cat-btn").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        document.querySelectorAll("#cat-bar .cat-btn").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        activeCategory = btn.getAttribute("data-cat") || "Tutti";
+        forceScanNext = true;
+        await fetch("/api/auto-trade", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ category: activeCategory })
+        });
+        const res = await fetch(`/api/live-ticker?tf=${encodeURIComponent(getFormValues().tf)}&category=${encodeURIComponent(activeCategory)}&scan=1`);
+        const data = await res.json();
+        const firstRowSym = data?.markets?.rows?.[0]?.symbol;
+        if (firstRowSym) {
+          document.getElementById("symbol-input").value = firstRowSym;
+        }
+        renderData(data);
+      });
     });
+
+    document.getElementById("btn-scan-cat").addEventListener("click", () => {
+      forceScanNext = true;
+      pollNow();
+    });
+    document.getElementById("mkt-search").addEventListener("input", () => pollNow());
+    document.getElementById("symbol-input").addEventListener("change", () => pollNow());
+    document.getElementById("tf-select").addEventListener("change", () => pollNow());
+    document.getElementById("btn-refresh-top").addEventListener("click", () => {
+      forceScanNext = true;
+      pollNow();
+    });
+    document.getElementById("btn-unlock-signal").addEventListener("click", async () => {
+      await fetch("/api/auto-trade", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reset_locks: true })
+      });
+      await pollNow();
+    });
+    document.getElementById("btn-auto-toggle").addEventListener("click", async () => {
+      const v = getFormValues();
+      await fetch("/api/auto-trade", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          enabled: !autoEnabled,
+          symbol: v.symbol,
+          tf: v.tf,
+          qty: v.qty,
+          leverage: v.leverage,
+          category: activeCategory
+        })
+      });
+      await pollNow();
+    });
+    document.getElementById("btn-buy-long").addEventListener("click", () => sendManualOrder("BUY"));
+    document.getElementById("btn-sell-short").addEventListener("click", () => sendManualOrder("SELL"));
+    document.getElementById("btn-close-all").addEventListener("click", async () => {
+      await fetch("/api/close-position", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({})
+      });
+      await pollNow();
+    });
+
+    pollNow();
+    setInterval(() => pollNow(), 3000);
   </script>
 </body>
 </html>
