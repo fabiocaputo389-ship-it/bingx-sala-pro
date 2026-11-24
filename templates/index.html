@@ -1,375 +1,228 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>BingX Institutional HFT Terminal</title>
-    <style>
-        :root {
-            --bg-dark: #0b0e14;
-            --panel-bg: #131722;
-            --border: #2a2e39;
-            --text-main: #d1d4dc;
-            --text-muted: #787b86;
-            --green: #089981;
-            --red: #f23645;
-            --accent: #2962ff;
-        }
-        * { box-sizing: border-box; margin: 0; padding: 0; touch-action: manipulation; }
-        body {
-            background-color: var(--bg-dark);
-            color: var(--text-main);
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace;
-            font-size: 13px;
-            overflow-x: hidden;
-        }
-        /* Top Bar */
-        .topbar {
-            display: flex; justify-content: space-between; align-items: center;
-            background: var(--panel-bg); padding: 8px 14px; border-bottom: 1px solid var(--border);
-            flex-wrap: wrap; gap: 10px;
-        }
-        .brand { font-weight: 700; color: #fff; font-size: 15px; letter-spacing: 0.5px; }
-        .brand span { color: var(--accent); }
-        .stats-bar { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
-        .stat-item span { display: block; font-size: 10px; color: var(--text-muted); }
-        .stat-item strong { font-size: 13px; }
-
-        /* Main Grid */
-        .grid-container {
-            display: grid;
-            grid-template-columns: 260px 1fr 240px 290px;
-            height: calc(100vh - 48px);
-        }
-        @media (max-width: 1100px) {
-            .grid-container { grid-template-columns: 1fr; height: auto; }
-        }
-        .panel {
-            background: var(--panel-bg);
-            border-right: 1px solid var(--border);
-            border-bottom: 1px solid var(--border);
-            display: flex; flex-direction: column; overflow: hidden;
-        }
-        .panel-header {
-            padding: 8px 10px; font-weight: 600; font-size: 11px; text-transform: uppercase;
-            color: var(--text-muted); border-bottom: 1px solid var(--border);
-            display: flex; justify-content: space-between; align-items: center;
-        }
-
-        /* Market Scanner */
-        .search-box {
-            width: 100%; padding: 8px; background: #1e222d; border: none;
-            border-bottom: 1px solid var(--border); color: #fff; outline: none;
-        }
-        .market-list { overflow-y: auto; flex: 1; max-height: 75vh; }
-        .market-row {
-            display: flex; justify-content: space-between; padding: 7px 10px;
-            border-bottom: 1px solid #1e222d; cursor: pointer;
-        }
-        .market-row:hover, .market-row.active { background: #2a2e39; }
-        .pos { color: var(--green); }
-        .neg { color: var(--red); }
-
-        /* Chart & Bottom Positions */
-        .center-col { display: flex; flex-direction: column; border-right: 1px solid var(--border); }
-        #tv-chart { flex: 1; min-height: 420px; }
-        .positions-panel { height: 220px; overflow-y: auto; border-top: 1px solid var(--border); background: var(--panel-bg); }
-        table { width: 100%; border-collapse: collapse; font-size: 12px; }
-        th, td { padding: 6px 8px; text-align: left; border-bottom: 1px solid #1e222d; }
-        th { color: var(--text-muted); font-weight: 500; }
-
-        /* Order Book */
-        .ob-list { flex: 1; overflow-y: auto; padding: 4px 8px; font-family: monospace; }
-        .ob-row { display: flex; justify-content: space-between; padding: 2px 0; font-size: 12px; }
-        .ob-mid {
-            text-align: center; padding: 6px; font-size: 15px; font-weight: bold;
-            border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); margin: 4px 0;
-        }
-
-        /* Order Execution */
-        .exec-body { padding: 12px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
-        .form-group label { display: block; font-size: 11px; color: var(--text-muted); margin-bottom: 4px; }
-        .form-control {
-            width: 100%; padding: 8px; background: #1e222d; border: 1px solid var(--border);
-            color: #fff; border-radius: 4px; font-size: 13px;
-        }
-        .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px; }
-        .btn {
-            padding: 12px; border: none; border-radius: 4px; font-weight: 700;
-            color: #fff; cursor: pointer; font-size: 13px; text-align: center;
-        }
-        .btn-buy { background: var(--green); }
-        .btn-sell { background: var(--red); }
-        .btn-panic { background: #363a45; color: #ff9800; width: 100%; margin-top: 8px; border: 1px solid #ff9800; }
-        .badge-neutral {
-            background: #2a2e39; color: #b2b5be; padding: 4px 8px; border-radius: 4px;
-            text-align: center; font-size: 11px;
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>BingX Pro Desk</title>
+  <style>
+    :root {
+      --bg: #0b0e14; --panel: #131722; --border: #2a2e39;
+      --text: #d1d4dc; --muted: #787b86; --green: #089981; --red: #f23645; --blue: #2962ff;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; touch-action: manipulation; }
+    body { background: var(--bg); color: var(--text); font-family: system-ui, -apple-system, sans-serif; font-size: 13px; }
+    .top { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px; padding: 8px 12px; background: var(--panel); border-bottom: 1px solid var(--border); }
+    .brand { font-weight: 700; color: #fff; font-size: 15px; }
+    .brand span { color: var(--blue); }
+    .kpis { display: flex; flex-wrap: wrap; gap: 16px; }
+    .kpi small { display: block; font-size: 10px; color: var(--muted); }
+    .grid { display: grid; grid-template-columns: 250px 1fr 230px 280px; min-height: calc(100vh - 46px); }
+    @media (max-width: 1080px) { .grid { grid-template-columns: 1fr; } }
+    .panel { background: var(--panel); border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); display: flex; flex-direction: column; }
+    .p-head { padding: 8px 10px; font-size: 11px; font-weight: 600; color: var(--muted); border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; }
+    .search { width: 100%; padding: 8px; background: #1e222d; color: #fff; border: none; border-bottom: 1px solid var(--border); outline: none; }
+    .list { max-height: 75vh; overflow-y: auto; }
+    .row { display: flex; justify-content: space-between; padding: 7px 10px; border-bottom: 1px solid #1e222d; cursor: pointer; }
+    .row:hover, .row.active { background: #2a2e39; }
+    .pos { color: var(--green); }
+    .neg { color: var(--red); }
+    #chart { height: 420px; width: 100%; }
+    .pos-box { padding: 8px; overflow-y: auto; border-top: 1px solid var(--border); }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th, td { padding: 6px; border-bottom: 1px solid #1e222d; text-align: left; }
+    .ob { padding: 6px 8px; font-family: monospace; }
+    .ob-row { display: flex; justify-content: space-between; padding: 2px 0; }
+    .mid { text-align: center; padding: 6px; font-weight: 700; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); margin: 4px 0; }
+    .form { padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+    label { display: block; font-size: 11px; color: var(--muted); margin-bottom: 3px; }
+    input, select { width: 100%; padding: 8px; border-radius: 4px; border: 1px solid var(--border); background: #1e222d; color: #fff; }
+    .btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    button { padding: 11px; border: none; border-radius: 4px; font-weight: 700; color: #fff; cursor: pointer; }
+    .buy { background: var(--green); }
+    .sell { background: var(--red); }
+    .panic { width: 100%; background: #2a2e39; color: #ffb300; border: 1px solid #ffb300; margin-top: 4px; }
+    .status { text-align: center; padding: 6px; background: #1e222d; border-radius: 4px; font-size: 11px; color: #b2b5be; }
+  </style>
 </head>
 <body>
-
-<div class="topbar">
+  <div class="top">
     <div class="brand">BINGX <span>PRO DESK</span></div>
-    <div class="stats-bar">
-        <div class="stat-item"><span>ASSET ATTIVO</span><strong id="top-symbol">BTC-USDT</strong></div>
-        <div class="stat-item"><span>MARK PRICE</span><strong id="top-price">--</strong></div>
-        <div class="stat-item"><span>FUNDING RATE</span><strong id="top-funding">--</strong></div>
-        <div class="stat-item"><span>EQUITY (USDT)</span><strong id="top-equity">0.00</strong></div>
-        <div class="stat-item"><span>LEVA DINAMICA</span><strong id="top-lev" class="pos">20x</strong></div>
+    <div class="kpis">
+      <div class="kpi"><small>SIMBOLO</small><strong id="k-sym">BTC-USDT</strong></div>
+      <div class="kpi"><small>PREZZO</small><strong id="k-price">--</strong></div>
+      <div class="kpi"><small>FUNDING</small><strong id="k-fund">--</strong></div>
+      <div class="kpi"><small>EQUITY</small><strong id="k-eq">0.00</strong></div>
+      <div class="kpi"><small>LEVA</small><strong id="k-lev" class="pos">20x</strong></div>
     </div>
-</div>
+  </div>
 
-<div class="grid-container">
-    <!-- 1. Scanner Mercato -->
+  <div class="grid">
     <div class="panel">
-        <div class="panel-header"><span>MERCATO BINGX (<span id="market-count">0</span>)</span></div>
-        <input type="text" id="search-market" class="search-box" placeholder="Cerca coppia (es. BTC, SOL, PEPE)...">
-        <div class="market-list" id="market-list">Caricamento mercati...</div>
+      <div class="p-head"><span>MERCATI (<span id="m-cnt">0</span>)</span></div>
+      <input id="m-search" class="search" placeholder="Cerca coppia..." />
+      <div id="m-list" class="list">Caricamento...</div>
     </div>
 
-    <!-- 2. Grafico & Posizioni -->
-    <div class="center-col">
-        <div id="tv-chart"></div>
-        <div class="positions-panel">
-            <div class="panel-header">
-                <span>POSIZIONI APERTE & STORICO PNL</span>
-                <button onclick="fetchAccount()" style="background:none;border:none;color:#2962ff;cursor:pointer;">Aggiorna</button>
-            </div>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Simbolo</th>
-                        <th>Lato</th>
-                        <th>Size</th>
-                        <th>Entry</th>
-                        <th>PnL Non Realizzato</th>
-                    </tr>
-                </thead>
-                <tbody id="positions-body">
-                    <tr><td colspan="5" style="text-align:center;color:#787b86;">Nessuna posizione attiva</td></tr>
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    <!-- 3. Order Book -->
     <div class="panel">
-        <div class="panel-header"><span>ORDER BOOK (DOM)</span><span>QTY</span></div>
-        <div class="ob-list" id="ob-asks"></div>
-        <div class="ob-mid" id="ob-mid-price">--</div>
-        <div class="ob-list" id="ob-bids"></div>
+      <div id="chart"></div>
+      <div class="pos-box">
+        <div class="p-head"><span>POSIZIONI APERTE</span><button onclick="loadAccount()" style="background:none;color:#2962ff;padding:0;">Aggiorna</button></div>
+        <table>
+          <thead><tr><th>Simbolo</th><th>Lato</th><th>Size</th><th>Entry</th><th>PnL</th></tr></thead>
+          <tbody id="pos-body"><tr><td colspan="5" style="text-align:center;color:#787b86;">Nessuna posizione</td></tr></tbody>
+        </table>
+      </div>
     </div>
 
-    <!-- 4. Pannello Esecuzione -->
+    <div class="panel">
+      <div class="p-head"><span>ORDER BOOK</span><span>QTY</span></div>
+      <div id="ob-asks" class="ob"></div>
+      <div id="ob-mid" class="mid">--</div>
+      <div id="ob-bids" class="ob"></div>
+    </div>
+
     <div class="panel" style="border-right:none;">
-        <div class="panel-header"><span>ESECUZIONE ISTITUZIONALE</span></div>
-        <div class="exec-body">
-            <div class="badge-neutral" id="engine-status">STATO MOTORE: NEUTRAL (PRONTO)</div>
-
-            <div class="form-group">
-                <label>TIPO ORDINE</label>
-                <select id="order-type" class="form-control">
-                    <option value="MARKET">MARKET (Esecuzione Immediata)</option>
-                    <option value="LIMIT">LIMIT (Book)</option>
-                </select>
-            </div>
-
-            <div class="form-group" id="limit-price-group" style="display:none;">
-                <label>PREZZO LIMIT (USDT)</label>
-                <input type="number" step="any" id="order-price" class="form-control" placeholder="0.00">
-            </div>
-
-            <div class="form-group">
-                <label>QUANTITÀ (Contratti / Coin)</label>
-                <input type="number" step="any" id="order-qty" class="form-control" value="0.001">
-            </div>
-
-            <div class="form-group">
-                <label>LEVA FINANZIARIA (Auto-Scalata)</label>
-                <input type="number" id="order-lev" class="form-control" value="20">
-            </div>
-
-            <div class="form-group">
-                <label>TAKE PROFIT (Prezzo Target)</label>
-                <input type="number" step="any" id="order-tp" class="form-control" placeholder="Opzionale">
-            </div>
-
-            <div class="form-group">
-                <label>STOP LOSS (Invalidazione)</label>
-                <input type="number" step="any" id="order-sl" class="form-control" placeholder="Opzionale">
-            </div>
-
-            <div class="btn-grid">
-                <button class="btn btn-buy" onclick="sendOrder('BUY')">BUY / LONG</button>
-                <button class="btn btn-sell" onclick="sendOrder('SELL')">SELL / SHORT</button>
-            </div>
-
-            <button class="btn btn-panic" onclick="panicClose()">CHIUDI TUTTE LE POSIZIONI</button>
+      <div class="p-head"><span>ORDINI</span></div>
+      <div class="form">
+        <div id="st-box" class="status">STATO: NEUTRAL</div>
+        <div><label>Tipo</label><select id="o-type"><option value="MARKET">MARKET</option><option value="LIMIT">LIMIT</option></select></div>
+        <div id="p-wrap" style="display:none;"><label>Prezzo Limit</label><input id="o-price" type="number" step="any" /></div>
+        <div><label>Quantità</label><input id="o-qty" type="number" step="any" value="0.001" /></div>
+        <div><label>Leva</label><input id="o-lev" type="number" value="20" /></div>
+        <div><label>Take Profit</label><input id="o-tp" type="number" step="any" placeholder="Opzionale" /></div>
+        <div><label>Stop Loss</label><input id="o-sl" type="number" step="any" placeholder="Opzionale" /></div>
+        <div class="btns">
+          <button class="buy" onclick="placeOrder('BUY')">BUY / LONG</button>
+          <button class="sell" onclick="placeOrder('SELL')">SELL / SHORT</button>
         </div>
+        <button class="panic" onclick="closeAll()">CHIUDI TUTTO</button>
+      </div>
     </div>
-</div>
+  </div>
 
-<script src="https://s3.tradingview.com/tv.js"></script>
-<script>
-    let currentSymbol = "BTC-USDT";
-    let allMarkets = [];
+  <script src="https://s3.tradingview.com/tv.js"></script>
+  <script>
+    let sym = "BTC-USDT", markets = [];
 
-    // Inizializza Grafico TradingView
-    function loadChart(symbol) {
-        const tvSymbol = "BINGX:" + symbol.replace("-", "") + ".P";
-        document.getElementById("tv-chart").innerHTML = "";
-        new TradingView.widget({
-            "autosize": true,
-            "symbol": tvSymbol,
-            "interval": "5",
-            "timezone": "Europe/Rome",
-            "theme": "dark",
-            "style": "1",
-            "locale": "it",
-            "toolbar_bg": "#131722",
-            "enable_publishing": false,
-            "hide_side_toolbar": false,
-            "allow_symbol_change": true,
-            "container_id": "tv-chart"
-        });
+    function renderChart(s) {
+      document.getElementById("chart").innerHTML = "";
+      new TradingView.widget({
+        autosize: true, symbol: "BINGX:" + s.replace("-", "") + ".P",
+        interval: "5", timezone: "Europe/Rome", theme: "dark",
+        style: "1", locale: "it", container_id: "chart"
+      });
     }
 
-    // Carica tutto il mercato BingX
+    function drawMarkets(list) {
+      const el = document.getElementById("m-list");
+      el.innerHTML = list.map(m => {
+        const cls = m.priceChangePercent >= 0 ? "pos" : "neg";
+        return `<div class="row ${m.symbol === sym ? "active" : ""}" onclick="pickSym('${m.symbol}')">
+          <strong>${m.symbol}</strong><span class="${cls}">${m.lastPrice} (${m.priceChangePercent.toFixed(2)}%)</span>
+        </div>`;
+      }).join("");
+    }
+
+    function pickSym(s) {
+      sym = s;
+      document.getElementById("k-sym").innerText = s;
+      renderChart(s);
+      drawMarkets(markets);
+      pollLive();
+    }
+
     async function loadMarkets() {
-        const res = await fetch("/api/markets");
-        const data = await res.json();
-        if (data.status === "ok") {
-            allMarkets = data.markets;
-            document.getElementById("market-count").innerText = data.count;
-            renderMarkets(allMarkets);
-        }
+      const r = await fetch("/api/markets");
+      const d = await r.json();
+      if (d.code === 0) {
+        markets = d.markets;
+        document.getElementById("m-cnt").innerText = d.count;
+        drawMarkets(markets);
+      }
     }
 
-    function renderMarkets(list) {
-        const container = document.getElementById("market-list");
-        container.innerHTML = list.map(m => {
-            const cls = m.priceChangePercent >= 0 ? "pos" : "neg";
-            const active = m.symbol === currentSymbol ? "active" : "";
-            return `<div class="market-row ${active}" onclick="selectSymbol('${m.symbol}')">
-                <span><strong>${m.symbol}</strong></span>
-                <span class="${cls}">${m.lastPrice} (${m.priceChangePercent.toFixed(2)}%)</span>
-            </div>`;
-        }).join("");
-    }
-
-    function selectSymbol(sym) {
-        currentSymbol = sym;
-        document.getElementById("top-symbol").innerText = sym;
-        loadChart(sym);
-        renderMarkets(allMarkets);
-    }
-
-    document.getElementById("search-market").addEventListener("input", (e) => {
-        const q = e.target.value.toUpperCase();
-        renderMarkets(allMarkets.filter(m => m.symbol.includes(q)));
-    });
-
-    document.getElementById("order-type").addEventListener("change", (e) => {
-        document.getElementById("limit-price-group").style.display = e.target.value === "LIMIT" ? "block" : "none";
-    });
-
-    // Polling ad alta frequenza Ticker & Order Book
     async function pollLive() {
-        try {
-            const res = await fetch(`/api/live-ticker?symbol=${currentSymbol}`);
-            const data = await res.json();
-            if (data.ticker && data.ticker.lastPrice) {
-                document.getElementById("top-price").innerText = data.ticker.lastPrice;
-                document.getElementById("ob-mid-price").innerText = data.ticker.lastPrice;
-            }
-            if (data.funding && data.funding.lastFundingRate) {
-                const fr = (parseFloat(data.funding.lastFundingRate) * 100).toFixed(4) + "%";
-                document.getElementById("top-funding").innerText = fr;
-            }
-            if (data.depth) {
-                const asks = (data.depth.asks || []).slice(0, 8).reverse();
-                const bids = (data.depth.bids || []).slice(0, 8);
-                document.getElementById("ob-asks").innerHTML = asks.map(a =>
-                    `<div class="ob-row"><span class="neg">${a[0]}</span><span>${a[1]}</span></div>`).join("");
-                document.getElementById("ob-bids").innerHTML = bids.map(b =>
-                    `<div class="ob-row"><span class="pos">${b[0]}</span><span>${b[1]}</span></div>`).join("");
-            }
-        } catch (e) {}
-    }
-
-    // Dati Account & Posizioni
-    async function fetchAccount() {
-        try {
-            const res = await fetch("/api/account");
-            const data = await res.json();
-            document.getElementById("top-equity").innerText = data.equity.toFixed(2);
-            document.getElementById("top-lev").innerText = data.recommended_leverage + "x";
-            document.getElementById("order-lev").value = data.recommended_leverage;
-
-            const tbody = document.getElementById("positions-body");
-            if (data.positions && data.positions.length > 0) {
-                tbody.innerHTML = data.positions.map(p => {
-                    const pnl = parseFloat(p.unrealizedProfit || 0);
-                    return `<tr>
-                        <td><strong>${p.symbol}</strong></td>
-                        <td class="${p.positionSide === 'LONG' ? 'pos' : 'neg'}">${p.positionSide}</td>
-                        <td>${p.positionAmt}</td>
-                        <td>${p.avgPrice}</td>
-                        <td class="${pnl >= 0 ? 'pos' : 'neg'}">${pnl.toFixed(4)} USDT</td>
-                    </tr>`;
-                }).join("");
-            } else {
-                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#787b86;">Nessuna posizione attiva</td></tr>`;
-            }
-        } catch (e) {}
-    }
-
-    // Invio Ordine Direzionale
-    async function sendOrder(side) {
-        const statusEl = document.getElementById("engine-status");
-        statusEl.innerText = `ESECUZIONE ${side} IN CORSO...`;
-        const payload = {
-            symbol: currentSymbol,
-            side: side,
-            type: document.getElementById("order-type").value,
-            quantity: document.getElementById("order-qty").value,
-            price: document.getElementById("order-price").value,
-            leverage: document.getElementById("order-lev").value,
-            tp: document.getElementById("order-tp").value,
-            sl: document.getElementById("order-sl").value
-        };
-
-        const res = await fetch("/api/order", {
-            method: "POST",
-            headers: {"Content-Type": "application/json"},
-            body: JSON.stringify(payload)
-        });
-        const result = await res.json();
-        if (result.code === 0) {
-            statusEl.innerText = `ORDINE ${side} ESEGUITO CON SUCCESSO`;
-            fetchAccount();
-        } else {
-            statusEl.innerText = `ERRORE: ${result.msg || 'Verifica API/Margine'}`;
+      try {
+        const r = await fetch(`/api/live-ticker?symbol=${sym}`);
+        const d = await r.json();
+        if (d.ticker?.lastPrice) {
+          document.getElementById("k-price").innerText = d.ticker.lastPrice;
+          document.getElementById("ob-mid").innerText = d.ticker.lastPrice;
         }
-        setTimeout(() => { statusEl.innerText = "STATO MOTORE: NEUTRAL (PRONTO)"; }, 4000);
+        if (d.funding?.lastFundingRate) {
+          document.getElementById("k-fund").innerText = (parseFloat(d.funding.lastFundingRate) * 100).toFixed(4) + "%";
+        }
+        if (d.depth) {
+          document.getElementById("ob-asks").innerHTML = (d.depth.asks || []).slice(0, 8).reverse().map(a =>
+            `<div class="ob-row"><span class="neg">${a[0]}</span><span>${a[1]}</span></div>`).join("");
+          document.getElementById("ob-bids").innerHTML = (d.depth.bids || []).slice(0, 8).map(b =>
+            `<div class="ob-row"><span class="pos">${b[0]}</span><span>${b[1]}</span></div>`).join("");
+        }
+      } catch (e) {}
     }
 
-    async function panicClose() {
-        if (!confirm("Chiudere TUTTE le posizioni aperte a mercato?")) return;
-        await fetch("/api/close-all", {
-            method: "POST",
-            headers: {"Content-Type": "application/json"},
-            body: JSON.stringify({})
-        });
-        fetchAccount();
+    async function loadAccount() {
+      try {
+        const r = await fetch("/api/account");
+        const d = await r.json();
+        document.getElementById("k-eq").innerText = Number(d.equity || 0).toFixed(2);
+        document.getElementById("k-lev").innerText = (d.recommended_leverage || 20) + "x";
+        document.getElementById("o-lev").value = d.recommended_leverage || 20;
+        const body = document.getElementById("pos-body");
+        if (d.positions && d.positions.length) {
+          body.innerHTML = d.positions.map(p => {
+            const pnl = parseFloat(p.unrealizedProfit || 0);
+            return `<tr><td>${p.symbol}</td><td class="${p.positionSide === "LONG" ? "pos" : "neg"}">${p.positionSide}</td>
+              <td>${p.positionAmt}</td><td>${p.avgPrice}</td><td class="${pnl >= 0 ? "pos" : "neg"}">${pnl.toFixed(4)}</td></tr>`;
+          }).join("");
+        } else {
+          body.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#787b86;">Nessuna posizione</td></tr>`;
+        }
+      } catch (e) {}
     }
 
-    loadChart(currentSymbol);
+    async function placeOrder(side) {
+      const st = document.getElementById("st-box");
+      st.innerText = `INVIO ${side}...`;
+      const r = await fetch("/api/order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          symbol: sym, side,
+          type: document.getElementById("o-type").value,
+          quantity: document.getElementById("o-qty").value,
+          price: document.getElementById("o-price").value,
+          leverage: document.getElementById("o-lev").value,
+          tp: document.getElementById("o-tp").value,
+          sl: document.getElementById("o-sl").value
+        })
+      });
+      const res = await r.json();
+      st.innerText = res.code === 0 ? `ORDINE ${side} INVIATO` : `ERRORE: ${res.msg || "Fallito"}`;
+      loadAccount();
+      setTimeout(() => st.innerText = "STATO: NEUTRAL", 4000);
+    }
+
+    async function closeAll() {
+      if (!confirm("Chiudere tutte le posizioni?")) return;
+      await fetch("/api/close-all", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+      loadAccount();
+    }
+
+    document.getElementById("m-search").addEventListener("input", e => {
+      const q = e.target.value.toUpperCase();
+      drawMarkets(markets.filter(m => m.symbol.includes(q)));
+    });
+    document.getElementById("o-type").addEventListener("change", e => {
+      document.getElementById("p-wrap").style.display = e.target.value === "LIMIT" ? "block" : "none";
+    });
+
+    renderChart(sym);
     loadMarkets();
-    fetchAccount();
+    pollLive();
+    loadAccount();
     setInterval(pollLive, 1500);
-    setInterval(fetchAccount, 5000);
-</script>
+    setInterval(loadAccount, 5000);
+  </script>
 </body>
 </html>
