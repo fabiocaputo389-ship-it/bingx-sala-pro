@@ -1067,7 +1067,22 @@
         body.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#cbd5e1;">Nessun segnale registrato</td></tr>`;
         return;
       }
-      body.innerHTML = logs.slice(0, 10).map(item => {
+
+      const deduped = [];
+      const seenKeys = new Set();
+      for (const item of logs) {
+        const out = String(item.outcome || "").toUpperCase();
+        const isExec = out.includes("APERTO") || out.includes("CHIUSO") || item.side === "CLOSE_TF" || out.includes("ERRORE") || out.includes("BLOCCATO");
+        const key = isExec
+          ? `${item.ts}|${item.symbol}|${item.side}|${item.tf}|${out}|${item.tp2 ?? ""}`
+          : `${item.symbol}|${item.side}|${item.tf}|${out}`;
+        if (seenKeys.has(key)) continue;
+        seenKeys.add(key);
+        deduped.push(item);
+        if (deduped.length >= 10) break;
+      }
+
+      body.innerHTML = deduped.map(item => {
         const sCls = item.side === "BUY" ? "pos" : (item.side === "SELL" ? "neg" : "warn");
         return `<tr>
           <td>${item.ts || "--"}</td>
