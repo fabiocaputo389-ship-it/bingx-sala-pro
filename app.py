@@ -63,8 +63,17 @@ BRAIN_WEIGHTS = {
     "risk_per_trade_pct": 1.5
 }
 
-# Nomi esteri e TradFi BingX -> simboli Swap v2 reali
 BINGX_FOREIGN_MAP = {
+    # Forex / EURUSDT
+    "EURUSDT": ["EUR-USDT", "EURUSD-USDT"],
+    "EUR-USDT": ["EUR-USDT", "EURUSD-USDT"],
+    "EURUSD": ["EUR-USDT", "EURUSD-USDT"],
+    "GBPUSD": ["GBP-USDT", "GBPUSD-USDT"],
+    "USDJPY": ["JPY-USDT", "USDJPY-USDT"],
+    "AUDUSD": ["AUD-USDT", "AUDUSD-USDT"],
+    "USDCAD": ["CAD-USDT", "USDCAD-USDT"],
+    "USDCHF": ["CHF-USDT", "USDCHF-USDT"],
+    "EURJPY": ["EURJPY-USDT", "EUR-USDT"],
     # Metalli Preziosi & Materie Prime
     "GOLD(XAU)": ["XAUT-USDT", "PAXG-USDT", "GOLD-USDT", "XAU-USDT"],
     "XAUUSD": ["XAUT-USDT", "PAXG-USDT", "XAU-USDT"],
@@ -80,14 +89,6 @@ BINGX_FOREIGN_MAP = {
     "COPPER": ["COPPER-USDT", "XCU-USDT"],
     "XAUXPT": ["XAUT-USDT", "PAXG-USDT"],
     "XAUEUR": ["XAUT-USDT", "PAXG-USDT"],
-    # Forex Majors Esteri
-    "EURUSD": ["EUR-USDT", "EURUSD-USDT"],
-    "GBPUSD": ["GBP-USDT", "GBPUSD-USDT"],
-    "USDJPY": ["JPY-USDT", "USDJPY-USDT"],
-    "AUDUSD": ["AUD-USDT", "AUDUSD-USDT"],
-    "USDCAD": ["CAD-USDT", "USDCAD-USDT"],
-    "USDCHF": ["CHF-USDT", "USDCHF-USDT"],
-    "EURJPY": ["EURJPY-USDT", "EUR-USDT"],
     # Indici & Azioni Estere
     "SP500": ["SPX-USDT", "SP500-USDT", "US500-USDT"],
     "NASDAQ100": ["NDX-USDT", "NAS100-USDT", "NASDAQ100-USDT"],
@@ -103,13 +104,14 @@ BINGX_FOREIGN_MAP = {
 }
 
 FOREIGN_DISPLAY_LABELS = {
+    "EUR-USDT": "EURUSDT • EUR/USD FX Perp",
+    "EURUSD-USDT": "EURUSDT • EUR/USD FX Perp",
     "XAUT-USDT": "XAUT(GOLD)USDT • GOLD(XAU) / XAUUSD",
     "PAXG-USDT": "PAXG(GOLD)USDT • GOLD(XAU) / XAUUSD",
     "XAG-USDT": "XAGUSD • Silver Futures",
     "WTI-USDT": "WTI Crude Oil • US Oil Perp",
     "BRENT-USDT": "Brent Crude Oil • Global Oil Perp",
     "NATGAS-USDT": "Natural Gas • Henry Hub Perp",
-    "EUR-USDT": "EUR/USD • Euro FX Perp",
     "GBP-USDT": "GBP/USD • British Pound FX Perp",
     "JPY-USDT": "USD/JPY • Japanese Yen FX Perp",
     "SPX-USDT": "S&P 500 (SP500) • US Index Perp",
@@ -130,7 +132,8 @@ AUTO_SCAN_STATE = {
     "interval": "15m",
     "signals": {},
     "last_auto_trade": {},
-    "trade_logs": []
+    "trade_logs": [],
+    "open_positions": {}
 }
 
 
@@ -199,7 +202,7 @@ def categorize_symbol(symbol: str) -> str:
     s = symbol.upper()
     if any(k in s for k in ["XAUT", "PAXG", "XAU", "XAG", "GOLD", "SILVER", "OIL", "WTI", "BRENT", "NATGAS", "COPPER", "PLATINUM"]):
         return "METALLI & COMMODITIES"
-    if any(k in s for k in ["EUR-", "GBP-", "JPY", "AUD-", "CAD-", "CHF-", "NZD-", "USDJPY", "EURUSD", "GBPUSD"]):
+    if any(k in s for k in ["EUR-", "EURUSD", "GBP-", "JPY", "AUD-", "CAD-", "CHF-", "NZD-", "USDJPY", "GBPUSD"]):
         return "FOREX & VALUTE"
     if any(k in s for k in ["SPX", "NAS100", "NDX", "US30", "DJI", "DAX", "UK100", "NIKKEI", "TSLA", "NVDA", "AAPL", "MSFT", "AMZN", "GOOGL", "META", "GS-"]):
         return "INDICI & AZIONI"
@@ -260,6 +263,57 @@ def resolve_bingx_symbol(query_symbol: str) -> str:
     if "-" not in clean and clean.endswith("USDT"):
         return clean[:-4] + "-USDT"
     return clean
+
+
+def fetch_open_bingx_positions(signal_map: dict = None):
+    """Recupera le posizioni reali aperte su BingX e calcola la % di avanzamento verso il TP."""
+    raw_pos = bingx_private_get("/openApi/swap/v2/user/positions")
+    pos_dict = {}
+    if not isinstance(raw_pos, list):
+        return pos_dict
+
+    for p in raw_pos:
+        amt = float(p.get("positionAmt", 0) or 0)
+        if abs(amt) <= 0:
+            continue
+        sym = p.get("symbol")
+        side = (p.get("positionSide") or ("LONG" if amt > 0 else "SHORT")).upper()
+        entry_px = float(p.get("avgPrice", 0) or 0)
+        mark_px = float(p.get("markPrice", 0) or entry_px)
+        pnl = float(p.get("unrealizedProfit", 0) or 0)
+        lev = float(p.get("leverage", 1) or 1)
+
+        sig_info = (signal_map or {}).get(sym, {})
+        tp_target = float(sig_info.get("levels", {}).get("tp2", 0) or 0)
+        sl_target = float(sig_info.get("levels", {}).get("sl", 0) or 0)
+
+        # Fallback TP teorico se non presente in cache (+2.5% long / -2.5% short)
+        if tp_target <= 0 and entry_px > 0:
+            tp_target = entry_px * 1.025 if side == "LONG" else entry_px * 0.975
+
+        progress_pct = 0.0
+        if entry_px > 0 and tp_target != entry_px:
+            if side == "LONG":
+                progress_pct = ((mark_px - entry_px) / (tp_target - entry_px)) * 100.0
+            else:
+                progress_pct = ((entry_px - mark_px) / (entry_px - tp_target)) * 100.0
+
+        progress_clamped = round(max(0.0, min(100.0, progress_pct)), 1)
+
+        pos_dict[sym] = {
+            "symbol": sym,
+            "side": side,
+            "size": abs(amt),
+            "entry_price": round(entry_px, 6),
+            "mark_price": round(mark_px, 6),
+            "tp_price": round(tp_target, 6),
+            "sl_price": round(sl_target, 6),
+            "tp_progress_pct": progress_clamped,
+            "raw_progress_pct": round(progress_pct, 1),
+            "unrealized_pnl": round(pnl, 2),
+            "leverage": lev
+        }
+    return pos_dict
 
 
 def set_bingx_leverage(symbol: str, position_side: str, leverage: int):
@@ -635,7 +689,6 @@ def analyze_symbol_math(symbol: str, interval: str = "15m", custom_sentiment: fl
 
 
 def maybe_auto_execute_trade(analysis: dict):
-    """Apre posizioni reali su BingX solo se Auto-Trade è attivo, segnale forte, ENTRA ORA e cooldown rispettato."""
     if not BRAIN_WEIGHTS.get("auto_trade_enabled", False):
         return
     if not BINGX_API_KEY or not BINGX_SECRET_KEY:
@@ -674,15 +727,20 @@ def auto_market_monitor_loop():
             if BRAIN_WEIGHTS.get("auto_monitor_enabled", True):
                 contracts = get_all_bingx_contracts()
                 top_symbols = [c["symbol"] for c in contracts[:20]]
+                if "EUR-USDT" in CONTRACTS_CACHE["symbol_set"] and "EUR-USDT" not in top_symbols:
+                    top_symbols.append("EUR-USDT")
+
                 interval = AUTO_SCAN_STATE.get("interval", "15m")
-                updated = {}
+                updated = dict(AUTO_SCAN_STATE["signals"])
                 for sym in top_symbols:
                     res = analyze_symbol_math(sym, interval)
                     if res:
                         updated[sym] = res
                         maybe_auto_execute_trade(res)
                     time.sleep(0.15)
+
                 AUTO_SCAN_STATE["signals"] = updated
+                AUTO_SCAN_STATE["open_positions"] = fetch_open_bingx_positions(updated)
                 AUTO_SCAN_STATE["last_run"] = time.strftime("%H:%M:%S")
         except Exception as e:
             print(f"[AutoMonitor Error] {e}")
@@ -716,6 +774,7 @@ def api_keys():
         BINGX_API_KEY = ak
         BINGX_SECRET_KEY = sk
         save_keys_to_disk(ak, sk)
+        AUTO_SCAN_STATE["open_positions"] = fetch_open_bingx_positions(AUTO_SCAN_STATE["signals"])
         return jsonify({"status": "ok", "msg": "Chiavi API BingX salvate e attivate!"})
 
     masked_key = f"{BINGX_API_KEY[:6]}...{BINGX_API_KEY[-4:]}" if len(BINGX_API_KEY) > 10 else ("Configurata" if BINGX_API_KEY else "Non impostata")
@@ -733,6 +792,13 @@ def api_markets():
     return jsonify({"status": "ok", "count": len(contracts), "markets": contracts})
 
 
+@app.route("/api/positions")
+def api_positions():
+    positions = fetch_open_bingx_positions(AUTO_SCAN_STATE["signals"])
+    AUTO_SCAN_STATE["open_positions"] = positions
+    return jsonify({"status": "ok", "positions": positions})
+
+
 @app.route("/api/auto_monitor_status", methods=["GET", "POST"])
 def api_auto_monitor_status():
     if request.method == "POST":
@@ -745,6 +811,10 @@ def api_auto_monitor_status():
             AUTO_SCAN_STATE["interval"] = data["interval"]
         if "scan_interval_sec" in data:
             BRAIN_WEIGHTS["auto_scan_interval"] = max(10, int(data["scan_interval_sec"]))
+
+    positions = fetch_open_bingx_positions(AUTO_SCAN_STATE["signals"])
+    AUTO_SCAN_STATE["open_positions"] = positions
+
     return jsonify({
         "status": "ok",
         "running": AUTO_SCAN_STATE["running"],
@@ -754,6 +824,7 @@ def api_auto_monitor_status():
         "interval": AUTO_SCAN_STATE["interval"],
         "scan_interval_sec": BRAIN_WEIGHTS.get("auto_scan_interval", 25),
         "signals": AUTO_SCAN_STATE["signals"],
+        "open_positions": positions,
         "trade_logs": AUTO_SCAN_STATE["trade_logs"]
     })
 
@@ -840,6 +911,7 @@ def api_execute_order():
         return jsonify({"status": "error", "msg": "Parametri ordine incompleti"}), 400
 
     res = place_bingx_real_order(symbol, side, quantity, sl, tp, leverage=leverage)
+    AUTO_SCAN_STATE["open_positions"] = fetch_open_bingx_positions(AUTO_SCAN_STATE["signals"])
     return jsonify(res)
 
 
