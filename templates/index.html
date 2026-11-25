@@ -1,755 +1,1561 @@
-<!DOCTYPE html>
-<html lang="it">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>BINGX ELITE SIGNAL ROOM PRO</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
-  <style>
-    body { background-color: #F4F7FA; color: #0F172A; font-family: 'Inter', sans-serif; }
-    .mono { font-family: 'JetBrains Mono', monospace; }
-    .card-white { background: #FFFFFF; border: 1px solid #E2E8F0; box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.05); border-radius: 14px; }
-    .gauge-needle { transition: transform 0.65s cubic-bezier(0.22, 1, 0.36, 1); transform-origin: 100px 100px; }
-    .tab-active { background-color: #0F172A; color: #FFFFFF; border-color: #0F172A; }
-    input[type="number"]::-webkit-inner-spin-button { opacity: 1; }
-  </style>
-</head>
-<body class="antialiased">
+import os
+import json
+import time
+import hmac
+import hashlib
+import threading
+import urllib.parse
+from datetime import datetime
+from zoneinfo import ZoneInfo
+import requests
+import numpy as np
+from flask import Flask, render_template, jsonify, request
+from dotenv import load_dotenv
 
-  <header class="bg-white border-b border-slate-200 sticky top-0 z-40">
-    <div class="max-w-[1840px] mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
-      <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center font-extrabold text-lg">BX</div>
-        <div>
-          <div class="flex flex-wrap items-center gap-2">
-            <h1 class="font-extrabold text-slate-900 text-base md:text-lg tracking-tight">BINGX ELITE SIGNAL ROOM PRO</h1>
-            <span id="autoMonitorBadge" class="px-2.5 py-0.5 text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full flex items-center gap-1.5">
-              <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              AUTO-SCAN • <span id="lastScanTime">--:--:--</span>
-            </span>
-          </div>
-          <p class="text-xs text-slate-500">Nomi Esatti BingX • Avanzamento TP Live • Auto-Trade Reale • Auto-Breakeven</p>
-        </div>
-      </div>
+load_dotenv()
 
-      <div class="flex flex-wrap items-center gap-2">
-        <select id="timeframeSelect" onchange="onTimeframeChange()" class="bg-slate-50 border border-slate-300 text-slate-900 text-xs font-bold rounded-lg px-3 py-2">
-          <option value="1m">1m (Scalping HFT)</option>
-          <option value="5m">5m (Intraday Fast)</option>
-          <option value="15m" selected>15m (Istituzionale)</option>
-          <option value="1h">1H (Swing Trend)</option>
-          <option value="4h">4H (Macro Trend)</option>
-        </select>
+app = Flask(__name__)
 
-        <button onclick="toggleAutoMonitor()" id="btnToggleAuto" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3.5 py-2 rounded-lg transition">🤖 Auto-Scan: ON</button>
-        <button onclick="toggleAutoTrade()" id="btnToggleAutoTrade" class="bg-amber-600 hover:bg-amber-700 text-white text-xs font-extrabold px-3.5 py-2 rounded-lg transition">⚡ Auto-Trade Reale: OFF</button>
-        <button onclick="scanVisibleCategory()" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3.5 py-2 rounded-lg transition">Scansiona Categoria</button>
-        <button onclick="loadAllMarkets(true)" class="bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold px-3 py-2 rounded-lg border border-slate-300 transition">↻ Aggiorna BingX</button>
-      </div>
-    </div>
-  </header>
+KEYS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".bingx_keys.json")
+BASE_URL = "https://open-api.bingx.com"
+ROME_TZ = ZoneInfo("Europe/Rome")
 
-  <main class="max-w-[1840px] mx-auto px-4 py-5 space-y-6">
 
-    <!-- TABELLA ORIZZONTALE CHIAVI API BINGX -->
-    <div class="card-white p-4">
-      <div class="flex items-center justify-between mb-2">
-        <span class="text-xs font-extrabold uppercase tracking-wider text-slate-700">🔑 Chiavi API BingX</span>
-        <span id="keysStatusBadge" class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-200 text-slate-700">Verifica...</span>
-      </div>
-      <div class="overflow-x-auto">
-        <table class="w-full text-left border-collapse text-xs">
-          <thead>
-            <tr class="bg-slate-50 border-y border-slate-200 text-[11px] font-extrabold text-slate-500 uppercase">
-              <th class="py-2 px-3">Stato</th>
-              <th class="py-2 px-3">Chiavi Salvate</th>
-              <th class="py-2 px-3">BingX API Key</th>
-              <th class="py-2 px-3">BingX Secret Key</th>
-              <th class="py-2 px-3 text-right">Salva</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td class="py-2 px-3 font-bold" id="keysTableState">--</td>
-              <td class="py-2 px-3 mono text-slate-600" id="keysTableMasked">--</td>
-              <td class="py-2 px-3">
-                <input id="bingxApiKeyInput" type="password" placeholder="Inserisci BingX API Key" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 text-xs mono focus:border-slate-900 focus:outline-none" />
-              </td>
-              <td class="py-2 px-3">
-                <input id="bingxSecretKeyInput" type="password" placeholder="Inserisci BingX Secret Key" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 text-xs mono focus:border-slate-900 focus:outline-none" />
-              </td>
-              <td class="py-2 px-3 text-right">
-                <button onclick="saveApiKeys()" class="bg-slate-900 hover:bg-blue-700 text-white font-bold px-4 py-1.5 rounded-lg transition whitespace-nowrap">💾 Salva</button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
+def load_saved_keys():
+    api_key = os.getenv("BINGX_API_KEY", "")
+    secret_key = os.getenv("BINGX_SECRET_KEY", "")
+    if os.path.exists(KEYS_FILE):
+        try:
+            with open(KEYS_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                if data.get("api_key"):
+                    api_key = data["api_key"].strip()
+                if data.get("secret_key"):
+                    secret_key = data["secret_key"].strip()
+        except Exception as e:
+            print(f"[Keys Load Error] {e}")
+    return api_key, secret_key
 
-    <!-- BANNER REGOLA INGRESSO -->
-    <div id="entryRuleBanner" class="card-white p-4 border-l-4 border-l-slate-400 flex flex-wrap items-center justify-between gap-4">
-      <div class="flex items-center gap-3">
-        <span id="entryActionPill" class="px-3 py-1.5 rounded-lg text-xs font-extrabold bg-slate-100 text-slate-700">⏳ IN ATTESA</span>
-        <div>
-          <div class="text-xs font-bold uppercase text-slate-400">Motore Matematico Expectancy & Esecuzione TP/SL</div>
-          <div id="entryReasonText" class="text-sm font-bold text-slate-800">Seleziona un contratto per verificare Expectancy, TP/SL esatti e candela TP.</div>
-        </div>
-      </div>
-      <div class="flex flex-wrap items-center gap-6 text-right">
-        <div>
-          <div class="text-[11px] font-bold text-slate-400 uppercase">Parametri Consigliati</div>
-          <div id="recParamsHighlight" class="mono text-xs font-extrabold text-emerald-700">--</div>
-        </div>
-        <div>
-          <div class="text-[11px] font-bold text-slate-400 uppercase">Timeframe Candela TP</div>
-          <div id="tpTimeframeHighlight" class="mono text-sm font-extrabold text-blue-700">--</div>
-        </div>
-      </div>
-    </div>
 
-    <!-- TACHIMETRI + LIVELLI -->
-    <div class="grid grid-cols-1 xl:grid-cols-12 gap-6">
-      <div class="xl:col-span-8 card-white p-5">
-        <div class="flex flex-wrap items-center justify-between gap-2 pb-4 mb-4 border-b border-slate-100">
-          <div>
-            <span class="text-[11px] font-bold uppercase tracking-wider text-blue-600">Telemetria Quantitativa Live</span>
-            <h2 class="text-xl font-extrabold text-slate-900 flex flex-wrap items-center gap-2">
-              <span id="activeSymbolTitle">BTCUSDT</span>
-              <span id="activePriceBadge" class="mono text-base font-bold px-2.5 py-0.5 rounded-md bg-slate-100 text-slate-800">--</span>
-            </h2>
-          </div>
-          <div id="signalMasterBadge" class="px-4 py-1.5 rounded-lg font-extrabold text-sm bg-slate-100 text-slate-700 border border-slate-200">IN ATTESA</div>
-        </div>
+def save_keys_to_disk(api_key: str, secret_key: str):
+    with open(KEYS_FILE, "w", encoding="utf-8") as f:
+        json.dump({
+            "api_key": api_key.strip(),
+            "secret_key": secret_key.strip(),
+            "updated_at": time.strftime("%Y-%m-%d %H:%M:%S")
+        }, f, indent=2)
+    try:
+        os.chmod(KEYS_FILE, 0o600)
+    except Exception:
+        pass
 
-        <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
-          <div class="bg-slate-50/70 border border-slate-200/80 rounded-xl p-3 flex flex-col items-center">
-            <span class="text-[11px] font-bold text-slate-500 uppercase">Certezza Matematica</span>
-            <svg viewBox="0 0 200 120" class="w-40 h-24">
-              <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="url(#gradConf)" stroke-width="14" stroke-linecap="round"/>
-              <defs><linearGradient id="gradConf" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#EF4444"/><stop offset="50%" stop-color="#F59E0B"/><stop offset="100%" stop-color="#10B981"/></linearGradient></defs>
-              <line id="needleConf" class="gauge-needle" x1="100" y1="100" x2="100" y2="30" stroke="#0F172A" stroke-width="3.5" stroke-linecap="round" style="transform: rotate(-90deg)"/>
-              <circle cx="100" cy="100" r="6" fill="#0F172A"/>
-            </svg>
-            <span id="valConf" class="mono text-lg font-extrabold text-slate-900 -mt-2">0.0%</span>
-            <span class="text-[10px] text-slate-400">R² + ADX + Coerenza</span>
-          </div>
 
-          <div class="bg-slate-50/70 border border-slate-200/80 rounded-xl p-3 flex flex-col items-center">
-            <span class="text-[11px] font-bold text-slate-500 uppercase">Alpha Score (-100/+100)</span>
-            <svg viewBox="0 0 200 120" class="w-40 h-24">
-              <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="url(#gradAlpha)" stroke-width="14" stroke-linecap="round"/>
-              <defs><linearGradient id="gradAlpha" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#DC2626"/><stop offset="50%" stop-color="#94A3B8"/><stop offset="100%" stop-color="#059669"/></linearGradient></defs>
-              <line id="needleScore" class="gauge-needle" x1="100" y1="100" x2="100" y2="30" stroke="#0F172A" stroke-width="3.5" stroke-linecap="round" style="transform: rotate(0deg)"/>
-              <circle cx="100" cy="100" r="6" fill="#0F172A"/>
-            </svg>
-            <span id="valScore" class="mono text-lg font-extrabold text-slate-900 -mt-2">0.0</span>
-            <span class="text-[10px] text-slate-400">Direzione Netta</span>
-          </div>
+BINGX_API_KEY, BINGX_SECRET_KEY = load_saved_keys()
 
-          <div class="bg-slate-50/70 border border-slate-200/80 rounded-xl p-3 flex flex-col items-center">
-            <span class="text-[11px] font-bold text-slate-500 uppercase">RSI (14) Wilder</span>
-            <svg viewBox="0 0 200 120" class="w-40 h-24">
-              <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#CBD5E1" stroke-width="14" stroke-linecap="round"/>
-              <line id="needleRsi" class="gauge-needle" x1="100" y1="100" x2="100" y2="30" stroke="#2563EB" stroke-width="3.5" stroke-linecap="round" style="transform: rotate(0deg)"/>
-              <circle cx="100" cy="100" r="6" fill="#2563EB"/>
-            </svg>
-            <span id="valRsi" class="mono text-lg font-extrabold text-blue-700 -mt-2">50.0</span>
-            <span class="text-[10px] text-slate-400">OS &lt;30 | OB &gt;70</span>
-          </div>
-
-          <div class="bg-slate-50/70 border border-slate-200/80 rounded-xl p-3 flex flex-col items-center">
-            <span class="text-[11px] font-bold text-slate-500 uppercase">ADX (14) Forza Trend</span>
-            <svg viewBox="0 0 200 120" class="w-40 h-24">
-              <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#CBD5E1" stroke-width="14" stroke-linecap="round"/>
-              <line id="needleAdx" class="gauge-needle" x1="100" y1="100" x2="100" y2="30" stroke="#7C3AED" stroke-width="3.5" stroke-linecap="round" style="transform: rotate(-45deg)"/>
-              <circle cx="100" cy="100" r="6" fill="#7C3AED"/>
-            </svg>
-            <span id="valAdx" class="mono text-lg font-extrabold text-purple-700 -mt-2">0.0</span>
-            <span class="text-[10px] text-slate-400">&gt;22 Trend Attivo</span>
-          </div>
-
-          <div class="bg-slate-50/70 border border-slate-200/80 rounded-xl p-3 flex flex-col items-center">
-            <span class="text-[11px] font-bold text-slate-500 uppercase">Sentiment Live</span>
-            <svg viewBox="0 0 200 120" class="w-40 h-24">
-              <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="url(#gradAlpha)" stroke-width="14" stroke-linecap="round"/>
-              <line id="needleSent" class="gauge-needle" x1="100" y1="100" x2="100" y2="30" stroke="#0F172A" stroke-width="3.5" stroke-linecap="round" style="transform: rotate(0deg)"/>
-              <circle cx="100" cy="100" r="6" fill="#0F172A"/>
-            </svg>
-            <span id="valSent" class="mono text-lg font-extrabold text-slate-900 -mt-2">0.0</span>
-            <span class="text-[10px] text-slate-400">Orderbook + Funding</span>
-          </div>
-
-          <div class="bg-slate-50/70 border border-slate-200/80 rounded-xl p-3 flex flex-col items-center">
-            <span class="text-[11px] font-bold text-slate-500 uppercase">Z-Score Statistico</span>
-            <svg viewBox="0 0 200 120" class="w-40 h-24">
-              <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#CBD5E1" stroke-width="14" stroke-linecap="round"/>
-              <line id="needleZ" class="gauge-needle" x1="100" y1="100" x2="100" y2="30" stroke="#D97706" stroke-width="3.5" stroke-linecap="round" style="transform: rotate(0deg)"/>
-              <circle cx="100" cy="100" r="6" fill="#D97706"/>
-            </svg>
-            <span id="valZ" class="mono text-lg font-extrabold text-amber-700 -mt-2">0.00σ</span>
-            <span id="valR2Sub" class="text-[10px] text-slate-400">R²: 0.000 | BB: 50%</span>
-          </div>
-        </div>
-
-        <div class="mt-4 pt-4 border-t border-slate-100 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2 text-center">
-          <div class="bg-slate-50 p-2 rounded-lg border border-slate-200/60"><div class="text-[10px] font-bold text-slate-400">EMA 9</div><div id="indEma9" class="mono text-xs font-bold text-slate-800">--</div></div>
-          <div class="bg-slate-50 p-2 rounded-lg border border-slate-200/60"><div class="text-[10px] font-bold text-slate-400">EMA 21</div><div id="indEma21" class="mono text-xs font-bold text-slate-800">--</div></div>
-          <div class="bg-slate-50 p-2 rounded-lg border border-slate-200/60"><div class="text-[10px] font-bold text-slate-400">EMA 50</div><div id="indEma50" class="mono text-xs font-bold text-slate-800">--</div></div>
-          <div class="bg-slate-50 p-2 rounded-lg border border-slate-200/60"><div class="text-[10px] font-bold text-slate-400">EMA 200</div><div id="indEma200" class="mono text-xs font-bold text-slate-800">--</div></div>
-          <div class="bg-slate-50 p-2 rounded-lg border border-slate-200/60"><div class="text-[10px] font-bold text-slate-400">MACD HIST</div><div id="indMacd" class="mono text-xs font-bold text-slate-800">--</div></div>
-          <div class="bg-slate-50 p-2 rounded-lg border border-slate-200/60"><div class="text-[10px] font-bold text-slate-400">ATR (14)</div><div id="indAtr" class="mono text-xs font-bold text-slate-800">--</div></div>
-          <div class="bg-slate-50 p-2 rounded-lg border border-slate-200/60"><div class="text-[10px] font-bold text-slate-400">FUNDING</div><div id="indFunding" class="mono text-xs font-bold text-slate-800">--</div></div>
-          <div class="bg-slate-50 p-2 rounded-lg border border-slate-200/60"><div class="text-[10px] font-bold text-slate-400">R² LIN.</div><div id="indR2" class="mono text-xs font-bold text-slate-800">--</div></div>
-        </div>
-
-        <div class="mt-4 pt-4 border-t border-slate-100">
-          <div class="text-xs font-extrabold text-slate-700 uppercase mb-2">📜 Log Esecuzioni Reali / Auto-Trade BingX</div>
-          <div id="tradeLogsBox" class="bg-slate-50 border border-slate-200 rounded-lg p-2.5 max-h-28 overflow-y-auto mono text-[11px] text-slate-600">Nessun ordine eseguito in questa sessione.</div>
-        </div>
-      </div>
-
-      <div class="xl:col-span-4 space-y-6">
-        <div class="card-white p-5">
-          <div class="flex items-center justify-between mb-3">
-            <h3 class="font-extrabold text-slate-900 text-sm uppercase tracking-wider">🎯 Segnale & TP/SL Esatti</h3>
-            <span id="rrBadge" class="mono text-xs font-bold px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">R:R 1:2.3</span>
-          </div>
-
-          <div class="space-y-2 text-sm">
-            <div class="flex justify-between items-center p-2.5 rounded-lg bg-slate-50 border border-slate-200"><span class="font-semibold text-slate-600">ENTRY PRICE</span><span id="lvlEntry" class="mono font-extrabold text-slate-900">--</span></div>
-            <div class="flex justify-between items-center p-2.5 rounded-lg bg-red-50/70 border border-red-200"><span class="font-semibold text-red-700">STOP LOSS (1.5x ATR)</span><span id="lvlSl" class="mono font-extrabold text-red-700">--</span></div>
-            <div class="flex justify-between items-center p-2 rounded-lg bg-emerald-50/60 border border-emerald-200"><span class="font-semibold text-emerald-700">TAKE PROFIT 1</span><span id="lvlTp1" class="mono font-bold text-emerald-700">--</span></div>
-            <div class="flex justify-between items-center p-2 rounded-lg bg-emerald-50/90 border border-emerald-300"><span class="font-semibold text-emerald-800">TAKE PROFIT 2 (Auto-Trade TP)</span><span id="lvlTp2" class="mono font-extrabold text-emerald-800">--</span></div>
-            <div class="flex justify-between items-center p-2 rounded-lg bg-emerald-100/70 border border-emerald-400"><span class="font-semibold text-emerald-900">TAKE PROFIT 3 (Runner)</span><span id="lvlTp3" class="mono font-extrabold text-emerald-900">--</span></div>
-          </div>
-
-          <div class="mt-3 p-3 rounded-lg bg-slate-50 border border-slate-200 text-xs space-y-2">
-            <div class="flex items-center justify-between font-bold text-slate-700">
-              <span>Capitale (USDT): <span id="bingxBalanceVal" class="mono text-blue-700">1000.00</span></span>
-              <button onclick="fetchAccountBalance()" class="text-[11px] text-blue-600 hover:underline">Sync BingX</button>
-            </div>
-            <div class="flex items-center justify-between gap-2">
-              <label class="font-semibold text-slate-600">Rischio %:</label>
-              <input id="riskPctInput" type="number" step="0.5" value="1.5" onchange="syncCapitalAndRisk()" class="w-16 bg-white border border-slate-300 rounded px-2 py-1 mono font-bold" />
-              <label class="font-semibold text-slate-600">Max Loss $:</label>
-              <input id="maxLossInput" type="number" step="10" value="100" onchange="syncCapitalAndRisk()" class="w-20 bg-white border border-slate-300 rounded px-2 py-1 mono font-bold" />
-            </div>
-            <div class="text-[11px] text-slate-500">Size consigliata: <strong id="suggestedSizeLbl" class="mono text-slate-900">--</strong> • Breakeven automatico al <strong>50%</strong> del TP</div>
-          </div>
-
-          <div class="mt-3 pt-3 border-t border-slate-100 flex items-center gap-2">
-            <input id="orderQty" type="number" step="any" placeholder="Quantità ordine" class="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs mono font-bold" />
-            <button onclick="executeBingXOrder()" class="w-1/2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-extrabold py-2.5 px-3 rounded-lg transition">ESEGUI SU BINGX</button>
-          </div>
-        </div>
-
-        <div class="card-white p-5">
-          <div class="flex items-center justify-between mb-3">
-            <h3 class="font-extrabold text-slate-900 text-sm uppercase tracking-wider">🧠 Cervello Matematico</h3>
-            <button onclick="saveBrainWeights()" class="text-xs font-bold text-blue-600 hover:underline">Salva Pesi</button>
-          </div>
-          <div class="space-y-2 text-xs">
-            <div><div class="flex justify-between font-semibold text-slate-600"><span>EMA (9/21/50/200)</span><span id="lblWema" class="mono">30%</span></div><input id="wEma" type="range" min="0" max="100" value="30" oninput="document.getElementById('lblWema').innerText=this.value+'%'" class="w-full accent-slate-900"></div>
-            <div><div class="flex justify-between font-semibold text-slate-600"><span>Momentum (RSI/MACD/ADX)</span><span id="lblWmom" class="mono">25%</span></div><input id="wMom" type="range" min="0" max="100" value="25" oninput="document.getElementById('lblWmom').innerText=this.value+'%'" class="w-full accent-slate-900"></div>
-            <div><div class="flex justify-between font-semibold text-slate-600"><span>Volatilità (Z-Score/R²)</span><span id="lblWvol" class="mono">20%</span></div><input id="wVol" type="range" min="0" max="100" value="20" oninput="document.getElementById('lblWvol').innerText=this.value+'%'" class="w-full accent-slate-900"></div>
-            <div><div class="flex justify-between font-semibold text-slate-600"><span>Sentiment (OB/Funding)</span><span id="lblWsent" class="mono">25%</span></div><input id="wSent" type="range" min="0" max="100" value="25" oninput="document.getElementById('lblWsent').innerText=this.value+'%'" class="w-full accent-slate-900"></div>
-            <div><div class="flex justify-between font-bold text-blue-700"><span>Soglia Certezza Minima</span><span id="lblMinConf" class="mono">75%</span></div><input id="wMinConf" type="range" min="50" max="98" value="75" oninput="document.getElementById('lblMinConf').innerText=this.value+'%'" class="w-full accent-blue-600"></div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- TABELLA MERCATI -->
-    <div class="card-white p-5">
-      <div class="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-200">
-        <div>
-          <h2 class="text-lg font-extrabold text-slate-900">Mercati BingX — Nomi Esatti, Avanzamento TP Live & Chiusura Rapida</h2>
-          <p class="text-xs text-slate-500">Nomi esatti BingX (<strong>GOLD(XAU)</strong>, <strong>XAUT(GOLD)USDT</strong>, <strong>PAXG(GOLD)USDT</strong>, <strong>SILVER(XAG)</strong>, <strong>Oil WTI</strong>, <strong>Oil Brent</strong>, <strong>NASDAQ100</strong>, <strong>SOXL</strong>, <strong>GS</strong>, <strong>HYPEUSDT</strong>, <strong>EURUSDT</strong>) + barra avanzamento TP live.</p>
-        </div>
-
-        <input id="searchMarket" onkeyup="renderMarketsTable()" type="text" placeholder="Cerca GOLD(XAU), SILVER(XAG), Oil WTI, Oil Brent, NASDAQ100, SOXL, GS..." class="bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs font-medium w-80 focus:outline-none focus:border-slate-900" />
-      </div>
-
-      <div class="flex flex-wrap gap-2 my-4" id="categoryTabs">
-        <button onclick="setCategory('ALL')" data-cat="ALL" class="cat-btn tab-active px-3.5 py-1.5 rounded-lg text-xs font-bold border border-slate-300 transition">TUTTI I MERCATI</button>
-        <button onclick="setCategory('CRYPTO MAJOR')" data-cat="CRYPTO MAJOR" class="cat-btn bg-white text-slate-700 px-3.5 py-1.5 rounded-lg text-xs font-bold border border-slate-300 transition">CRYPTO MAJOR</button>
-        <button onclick="setCategory('ALTCOIN & DEFI')" data-cat="ALTCOIN & DEFI" class="cat-btn bg-white text-slate-700 px-3.5 py-1.5 rounded-lg text-xs font-bold border border-slate-300 transition">ALTCOIN & DEFI</button>
-        <button onclick="setCategory('METALLI & COMMODITIES')" data-cat="METALLI & COMMODITIES" class="cat-btn bg-white text-slate-700 px-3.5 py-1.5 rounded-lg text-xs font-bold border border-slate-300 transition">METALLI & COMMODITIES</button>
-        <button onclick="setCategory('FOREX & VALUTE')" data-cat="FOREX & VALUTE" class="cat-btn bg-white text-slate-700 px-3.5 py-1.5 rounded-lg text-xs font-bold border border-slate-300 transition">FOREX & VALUTE</button>
-        <button onclick="setCategory('INDICI & AZIONI')" data-cat="INDICI & AZIONI" class="cat-btn bg-white text-slate-700 px-3.5 py-1.5 rounded-lg text-xs font-bold border border-slate-300 transition">INDICI & AZIONI</button>
-      </div>
-
-      <div class="overflow-x-auto">
-        <table class="w-full text-left border-collapse">
-          <thead>
-            <tr class="border-b-2 border-slate-200 text-[11px] font-extrabold text-slate-500 uppercase bg-slate-50">
-              <th class="py-3 px-3">Nome BingX</th>
-              <th class="py-3 px-3 text-right">Prezzo / 24h</th>
-              <th class="py-3 px-3 text-center min-w-[210px]">Avanzamento TP Live (BingX)</th>
-              <th class="py-3 px-3 text-center">Parametri Consigliati</th>
-              <th class="py-3 px-3 text-center">TP / SL Esatti</th>
-              <th class="py-3 px-3 text-center">Candela TP</th>
-              <th class="py-3 px-3 text-center">Entrare / Non Entrare</th>
-              <th class="py-3 px-3 text-center">Score</th>
-              <th class="py-3 px-3 text-center">Sentiment</th>
-              <th class="py-3 px-3 text-center">Certezza %</th>
-              <th class="py-3 px-3 text-center">Segnale</th>
-              <th class="py-3 px-3 text-right">Apri</th>
-            </tr>
-          </thead>
-          <tbody id="marketsTableBody" class="divide-y divide-slate-100 text-xs">
-            <tr><td colspan="12" class="py-8 text-center text-slate-400 font-semibold">Caricamento mercati BingX...</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-  </main>
-
-  <script>
-    let allMarkets = [];
-    let currentCategory = 'ALL';
-    let activeSymbol = 'BTC-USDT';
-    let currentAnalysis = null;
-    let accountBalance = 1000.0;
-    let autoMonitorEnabled = true;
-    let autoTradeEnabled = false;
-    let openPositions = {};
-    let userOverrides = {};
-
-    function setNeedle(id, angleDeg) {
-      const clamped = Math.max(-90, Math.min(90, angleDeg));
-      document.getElementById(id).style.transform = `rotate(${clamped}deg)`;
+TIMEFRAME_PROFILES = {
+    "1m": {
+        "label": "1m Scalping HFT",
+        "ema_weight": 20,
+        "momentum_weight": 35,
+        "volatility_weight": 25,
+        "sentiment_weight": 20,
+        "min_confidence": 72,
+        "sl_mult": 1.5,
+        "tp1_mult": 2.0,
+        "tp2_mult": 3.0,
+        "tp3_mult": 4.2,
+        "breakeven_at_tp_pct": 45.0,
+        "auto_scan_interval": 12
+    },
+    "5m": {
+        "label": "5m Intraday Fast",
+        "ema_weight": 25,
+        "momentum_weight": 35,
+        "volatility_weight": 22,
+        "sentiment_weight": 18,
+        "min_confidence": 74,
+        "sl_mult": 1.5,
+        "tp1_mult": 2.2,
+        "tp2_mult": 3.2,
+        "tp3_mult": 4.6,
+        "breakeven_at_tp_pct": 50.0,
+        "auto_scan_interval": 15
+    },
+    "15m": {
+        "label": "15m Istituzionale",
+        "ema_weight": 35,
+        "momentum_weight": 30,
+        "volatility_weight": 20,
+        "sentiment_weight": 15,
+        "min_confidence": 75,
+        "sl_mult": 1.5,
+        "tp1_mult": 2.2,
+        "tp2_mult": 3.5,
+        "tp3_mult": 5.0,
+        "breakeven_at_tp_pct": 50.0,
+        "auto_scan_interval": 20
+    },
+    "1h": {
+        "label": "1H Swing Trend",
+        "ema_weight": 38,
+        "momentum_weight": 28,
+        "volatility_weight": 20,
+        "sentiment_weight": 14,
+        "min_confidence": 77,
+        "sl_mult": 1.6,
+        "tp1_mult": 2.4,
+        "tp2_mult": 3.8,
+        "tp3_mult": 5.5,
+        "breakeven_at_tp_pct": 55.0,
+        "auto_scan_interval": 30
+    },
+    "4h": {
+        "label": "4H Macro Trend",
+        "ema_weight": 42,
+        "momentum_weight": 25,
+        "volatility_weight": 20,
+        "sentiment_weight": 13,
+        "min_confidence": 78,
+        "sl_mult": 1.8,
+        "tp1_mult": 2.6,
+        "tp2_mult": 4.2,
+        "tp3_mult": 6.0,
+        "breakeven_at_tp_pct": 55.0,
+        "auto_scan_interval": 45
     }
+}
 
-    async function loadKeysStatus() {
-      const res = await fetch('/api/keys');
-      const json = await res.json();
-      const badge = document.getElementById('keysStatusBadge');
-      const stateCell = document.getElementById('keysTableState');
-      const maskedCell = document.getElementById('keysTableMasked');
-      if (json.has_keys) {
-        badge.innerText = 'CHIAVI ATTIVE';
-        badge.className = 'px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800';
-        stateCell.innerText = '✅ CONNESSO';
-        stateCell.className = 'py-2 px-3 font-bold text-emerald-700';
-        maskedCell.innerText = `API: ${json.masked_api_key} | SEC: ${json.masked_secret_key}`;
-      } else {
-        badge.innerText = 'NON IMPOSTATE';
-        badge.className = 'px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-red-100 text-red-800';
-        stateCell.innerText = '❌ MANCANTI';
-        stateCell.className = 'py-2 px-3 font-bold text-red-600';
-        maskedCell.innerText = 'Inserisci API Key e Secret Key';
-      }
-    }
+BRAIN_WEIGHTS = {
+    "ema_weight": 35,
+    "momentum_weight": 30,
+    "volatility_weight": 20,
+    "sentiment_weight": 15,
+    "min_confidence": 75,
+    "sl_mult": 1.5,
+    "tp1_mult": 2.2,
+    "tp2_mult": 3.5,
+    "tp3_mult": 5.0,
+    "auto_scan_interval": 20,
+    "auto_monitor_enabled": True,
+    "auto_trade_enabled": False,
+    "auto_trade_cooldown_sec": 300,
+    "breakeven_at_tp_pct": 50.0,
+    "max_daily_loss_usdt": 100.0,
+    "account_capital": 0.0,
+    "risk_per_trade_pct": 1.5
+}
 
-    async function saveApiKeys() {
-      const api_key = document.getElementById('bingxApiKeyInput').value.trim();
-      const secret_key = document.getElementById('bingxSecretKeyInput').value.trim();
-      const res = await fetch('/api/keys', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ api_key, secret_key })
-      });
-      const json = await res.json();
-      alert(json.msg || 'Salvato');
-      if (json.status === 'ok') {
-        document.getElementById('bingxApiKeyInput').value = '';
-        document.getElementById('bingxSecretKeyInput').value = '';
-        await loadKeysStatus();
-        await fetchAccountBalance();
-        await pollAutoMonitor();
-      }
-    }
+BALANCE_STATE = {
+    "balance_usdt": 0.0,
+    "available_usdt": 0.0,
+    "unrealized_pnl_usdt": 0.0,
+    "equity_usdt": 0.0,
+    "source": "init",
+    "last_sync": None,
+    "last_error": None
+}
 
-    async function loadAllMarkets(force = false) {
-      try {
-        const res = await fetch(`/api/markets?force=${force ? '1' : '0'}`);
-        const json = await res.json();
-        if (json.status === 'ok') {
-          allMarkets = json.markets;
-          renderMarketsTable();
-          analyzeSymbol(activeSymbol);
+API_TO_BINGX_NAME = {
+    "NCCOGOLD2USD-USDT": "GOLD(XAU)",
+    "GOLD-USDT": "GOLD(XAU)",
+    "XAU-USDT": "GOLD(XAU)",
+    "XAUT-USDT": "XAUT(GOLD)USDT",
+    "PAXG-USDT": "PAXG(GOLD)USDT",
+    "XAUXPT-USDT": "XAUXPT",
+    "XAUEUR-USDT": "XAUEUR",
+    "XAUZAR-USDT": "XAUZAR",
+    "XAUJPY-USDT": "XAUJPY",
+    "XAUAUD-USDT": "XAUAUD",
+    "XAUKRW-USDT": "XAUKRW",
+    "XAG-USDT": "SILVER(XAG)",
+    "SILVER-USDT": "SILVER(XAG)",
+    "WTI-USDT": "Oil WTI",
+    "OILWTI-USDT": "Oil WTI",
+    "BRENT-USDT": "Oil Brent",
+    "OILBRENT-USDT": "Oil Brent",
+    "NDX-USDT": "NASDAQ100",
+    "NAS100-USDT": "NASDAQ100",
+    "NASDAQ100-USDT": "NASDAQ100",
+    "SOXL-USDT": "SOXL",
+    "GS-USDT": "GS",
+    "EUR-USDT": "EURUSDT",
+    "EURUSD-USDT": "EURUSDT",
+    "BTC-USDT": "BTCUSDT",
+    "ETH-USDT": "ETHUSDT",
+    "SOL-USDT": "SOLUSDT",
+    "XRP-USDT": "XRPUSDT",
+    "BNB-USDT": "BNBUSDT",
+    "HYPE-USDT": "HYPEUSDT",
+    "ZEC-USDT": "ZECUSDT",
+    "JTO-USDT": "JTOUSDT",
+    "PEOPLE-USDT": "PEOPLEUSDT",
+    "SUI-USDT": "SUIUSDT",
+    "PENDLE-USDT": "PENDLEUSDT"
+}
+
+BINGX_NAME_TO_API = {
+    "GOLD(XAU)": ["NCCOGOLD2USD-USDT", "XAUT-USDT", "PAXG-USDT", "GOLD-USDT", "XAU-USDT"],
+    "XAUT(GOLD)USDT": ["XAUT-USDT"],
+    "PAXG(GOLD)USDT": ["PAXG-USDT"],
+    "XAUXPT": ["XAUXPT-USDT", "XAUT-USDT", "PAXG-USDT"],
+    "XAUEUR": ["XAUEUR-USDT", "XAUT-USDT", "PAXG-USDT"],
+    "XAUZAR": ["XAUZAR-USDT", "XAUT-USDT"],
+    "XAUJPY": ["XAUJPY-USDT", "XAUT-USDT"],
+    "XAUAUD": ["XAUAUD-USDT", "XAUT-USDT"],
+    "XAUKRW": ["XAUKRW-USDT", "XAUT-USDT"],
+    "SILVER(XAG)": ["XAG-USDT", "SILVER-USDT"],
+    "OIL WTI": ["WTI-USDT", "OILWTI-USDT"],
+    "OIL BRENT": ["BRENT-USDT", "OILBRENT-USDT"],
+    "NASDAQ100": ["NDX-USDT", "NAS100-USDT", "NASDAQ100-USDT"],
+    "SOXL": ["SOXL-USDT"],
+    "GS": ["GS-USDT"],
+    "EURUSDT": ["EUR-USDT", "EURUSD-USDT"],
+    "BTCUSDT": ["BTC-USDT"],
+    "ETHUSDT": ["ETH-USDT"],
+    "SOLUSDT": ["SOL-USDT"],
+    "XRPUSDT": ["XRP-USDT"],
+    "BNBUSDT": ["BNB-USDT"],
+    "HYPEUSDT": ["HYPE-USDT"],
+    "ZECUSDT": ["ZEC-USDT"],
+    "JTOUSDT": ["JTO-USDT"],
+    "PEOPLEUSDT": ["PEOPLE-USDT"],
+    "SUIUSDT": ["SUI-USDT"],
+    "PENDLEUSDT": ["PENDLE-USDT"]
+}
+
+CONTRACTS_CACHE = {
+    "timestamp": 0,
+    "data": [],
+    "symbol_set": set(),
+    "max_lev_map": {},
+    "contract_meta": {}
+}
+
+AUTO_SCAN_STATE = {
+    "running": False,
+    "last_run": None,
+    "interval": "15m",
+    "signals": {},
+    "last_auto_trade": {},
+    "breakeven_moved": set(),
+    "trade_logs": [],
+    "open_positions": {},
+    "audio_alerts": []
+}
+
+
+def apply_timeframe_profile(interval: str):
+    prof = TIMEFRAME_PROFILES.get(interval, TIMEFRAME_PROFILES["15m"])
+    BRAIN_WEIGHTS["ema_weight"] = prof["ema_weight"]
+    BRAIN_WEIGHTS["momentum_weight"] = prof["momentum_weight"]
+    BRAIN_WEIGHTS["volatility_weight"] = prof["volatility_weight"]
+    BRAIN_WEIGHTS["sentiment_weight"] = prof["sentiment_weight"]
+    BRAIN_WEIGHTS["min_confidence"] = prof["min_confidence"]
+    BRAIN_WEIGHTS["sl_mult"] = prof["sl_mult"]
+    BRAIN_WEIGHTS["tp1_mult"] = prof["tp1_mult"]
+    BRAIN_WEIGHTS["tp2_mult"] = prof["tp2_mult"]
+    BRAIN_WEIGHTS["tp3_mult"] = prof["tp3_mult"]
+    BRAIN_WEIGHTS["breakeven_at_tp_pct"] = prof["breakeven_at_tp_pct"]
+    BRAIN_WEIGHTS["auto_scan_interval"] = prof["auto_scan_interval"]
+    return prof
+
+
+def get_market_session_info(category: str, bingx_name: str = "", api_symbol: str = ""):
+    now_rome = datetime.now(ROME_TZ)
+    weekday = now_rome.weekday()
+    minutes = now_rome.hour * 60 + now_rome.minute
+    time_str = now_rome.strftime("%H:%M CET")
+    combined = f"{category} {bingx_name} {api_symbol}".upper()
+
+    if category in ("CRYPTO MAJOR", "ALTCOIN & DEFI") or any(k in combined for k in ["BTC", "ETH", "SOL", "XRP", "BNB", "HYPE", "ZEC", "JTO", "PEOPLE", "SUI", "PENDLE"]):
+        peak = (8 * 60) <= minutes <= (23 * 60)
+        return {
+            "market_type": "CRYPTO 24/7",
+            "session_name": "Sessione Attiva (Liquidità Alta)" if peak else "Sessione Notturna 24/7",
+            "hours_window": "00:00–24:00 (24/7)",
+            "rome_time": time_str,
+            "status": "OPEN",
+            "session_ok": True,
+            "badge": "🟢 24/7 APERTO" if peak else "🟡 24/7 NOTTE"
         }
-      } catch (e) { console.error(e); }
-    }
 
-    function setCategory(cat) {
-      currentCategory = cat;
-      document.querySelectorAll('.cat-btn').forEach(btn => {
-        if (btn.dataset.cat === cat) {
-          btn.classList.add('tab-active');
-          btn.classList.remove('bg-white', 'text-slate-700');
-        } else {
-          btn.classList.remove('tab-active');
-          btn.classList.add('bg-white', 'text-slate-700');
+    if weekday >= 5:
+        return {
+            "market_type": category,
+            "session_name": "Chiusura Weekend",
+            "hours_window": "Lun–Ven",
+            "rome_time": time_str,
+            "status": "CLOSED",
+            "session_ok": False,
+            "badge": "🔴 CHIUSO (WKND)"
         }
-      });
-      renderMarketsTable();
-    }
 
-    function getFilteredMarkets() {
-      const q = document.getElementById('searchMarket').value.trim().toUpperCase();
-      return allMarkets.filter(m => {
-        const matchCat = currentCategory === 'ALL' || m.category === currentCategory;
-        const matchQ = !q ||
-          m.bingxName.toUpperCase().includes(q) ||
-          m.symbol.includes(q) ||
-          m.category.includes(q);
-        return matchCat && matchQ;
-      });
-    }
+    if category == "INDICI & AZIONI" or any(k in combined for k in ["NASDAQ100", "NDX", "NAS100", "SOXL", "GS"]):
+        if (15 * 60 + 30) <= minutes <= (22 * 60):
+            return {
+                "market_type": "INDICI & AZIONI US",
+                "session_name": "Wall Street Cash Session",
+                "hours_window": "15:30–22:00 CET",
+                "rome_time": time_str,
+                "status": "OPEN",
+                "session_ok": True,
+                "badge": "🟢 WS APERTO"
+            }
+        elif (14 * 60) <= minutes <= (23 * 60):
+            return {
+                "market_type": "INDICI & AZIONI US",
+                "session_name": "Pre/Post Market US",
+                "hours_window": "14:00–23:00 CET",
+                "rome_time": time_str,
+                "status": "PRE_POST",
+                "session_ok": True,
+                "badge": "🟡 PRE/POST WS"
+            }
+        else:
+            return {
+                "market_type": "INDICI & AZIONI US",
+                "session_name": "Fuori Sessione US",
+                "hours_window": "15:30–22:00 CET",
+                "rome_time": time_str,
+                "status": "CLOSED",
+                "session_ok": False,
+                "badge": "🔴 FUORI ORARIO"
+            }
 
-    async function closeOpenPosition(symbol, side, size) {
-      if (!confirm(`Chiudere a mercato ${side} ${symbol} (qty ${size}) su BingX?`)) return;
-      const res = await fetch('/api/close_position', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ symbol, side, quantity: size })
-      });
-      const json = await res.json();
-      alert("Risposta chiusura BingX: " + JSON.stringify(json));
-      pollAutoMonitor();
-    }
-
-    function renderTpProgressCell(symbol) {
-      const pos = openPositions[symbol];
-      if (!pos) return `<span class="text-[10px] font-semibold text-slate-400">Nessuna posizione aperta</span>`;
-      const pct = Math.max(0, Math.min(100, pos.tp_progress_pct || 0));
-      const pnlColor = pos.unrealized_pnl >= 0 ? 'text-emerald-700' : 'text-red-600';
-      const barColor = pos.unrealized_pnl >= 0 ? 'bg-emerald-500' : 'bg-amber-500';
-      return `
-        <div class="w-48 mx-auto space-y-1" onclick="event.stopPropagation()">
-          <div class="flex justify-between items-center text-[10px] mono font-bold">
-            <span class="px-1.5 py-0.5 rounded bg-slate-900 text-white">${pos.side} ${pos.leverage}x</span>
-            <span class="${pnlColor}">${pos.unrealized_pnl >= 0 ? '+' : ''}${pos.unrealized_pnl} USDT</span>
-            <button onclick="closeOpenPosition('${pos.symbol}', '${pos.side}', ${pos.size})" class="bg-red-600 hover:bg-red-700 text-white px-1.5 py-0.5 rounded text-[9px] font-extrabold">CLOSE</button>
-          </div>
-          <div class="w-full h-2.5 bg-slate-200 rounded-full overflow-hidden border border-slate-300">
-            <div class="${barColor} h-full transition-all duration-500" style="width: ${pct}%"></div>
-          </div>
-          <div class="flex justify-between text-[10px] mono text-slate-600 font-semibold">
-            <span>TP: ${pct}%</span>
-            <span>Mark ${pos.mark_price}</span>
-          </div>
-        </div>
-      `;
-    }
-
-    function renderMarketsTable() {
-      const filtered = getFilteredMarkets();
-      const tbody = document.getElementById('marketsTableBody');
-      if (!filtered.length) {
-        tbody.innerHTML = `<tr><td colspan="12" class="py-6 text-center text-slate-400">Nessun contratto trovato.</td></tr>`;
-        return;
-      }
-
-      tbody.innerHTML = filtered.slice(0, 150).map(m => {
-        const ov = userOverrides[m.symbol] || {};
-        const scoreVal = ov.score !== undefined ? ov.score : '';
-        const sentVal = ov.sentiment !== undefined ? ov.sentiment : 0;
-        const confVal = ov.confidence !== undefined ? `${ov.confidence}%` : '--';
-        const sigVal = ov.signal || 'SCAN...';
-        const tpLabel = ov.tpLabel || '--';
-        const tpSlText = ov.tpSlText || {};
-        const recSummary = ov.recSummary || `Lev ${Math.min(10, m.maxLeverage)}x • In attesa`;
-        const recSub = ov.recSub || '';
-        const entryBadge = ov.entryBadge || '⏳ IN ANALISI';
-        const entryReason = ov.entryReason || '';
-        const chgColor = m.priceChangePercent >= 0 ? 'text-emerald-600' : 'text-red-600';
-
-        let sigBadgeClass = 'bg-slate-100 text-slate-600';
-        if (sigVal.includes('STRONG LONG')) sigBadgeClass = 'bg-emerald-600 text-white';
-        else if (sigVal.includes('LONG')) sigBadgeClass = 'bg-emerald-100 text-emerald-800';
-        else if (sigVal.includes('STRONG SHORT')) sigBadgeClass = 'bg-red-600 text-white';
-        else if (sigVal.includes('SHORT')) sigBadgeClass = 'bg-red-100 text-red-800';
-
-        let entryClass = 'bg-slate-100 text-slate-700';
-        if (entryBadge.includes('ENTRA ORA')) entryClass = 'bg-emerald-100 text-emerald-800 border border-emerald-300';
-        else if (entryBadge.includes('NON ENTRARE')) entryClass = 'bg-red-100 text-red-800 border border-red-300';
-        else if (entryBadge.includes('ATTENDI') || entryBadge.includes('CONFERMA')) entryClass = 'bg-amber-100 text-amber-800 border border-amber-300';
-
-        return `
-          <tr class="hover:bg-blue-50/40 transition cursor-pointer ${openPositions[m.symbol] ? 'bg-emerald-50/30' : ''}" onclick="analyzeSymbol('${m.symbol}')">
-            <td class="py-2.5 px-3">
-              <div class="font-extrabold text-slate-900">${m.bingxName}</div>
-              <div class="text-[10px] text-slate-400">${m.category}</div>
-            </td>
-            <td class="py-2.5 px-3 text-right mono font-bold text-slate-800">
-              <div>${m.lastPrice}</div>
-              <div class="text-[10px] ${chgColor}">${m.priceChangePercent > 0 ? '+' : ''}${m.priceChangePercent.toFixed(2)}%</div>
-            </td>
-            <td class="py-2.5 px-3 text-center">${renderTpProgressCell(m.symbol)}</td>
-            <td class="py-2.5 px-3 text-center">
-              <div class="mono text-[11px] font-extrabold text-slate-900">${recSummary}</div>
-              ${recSub ? `<div class="text-[10px] text-slate-500 mono">${recSub}</div>` : ''}
-            </td>
-            <td class="py-2.5 px-3 text-center mono text-[11px] font-bold">
-              <div class="text-emerald-700">TP2: ${tpSlText.tp2 || '--'}</div>
-              <div class="text-red-600">SL: ${tpSlText.sl || '--'}</div>
-            </td>
-            <td class="py-2.5 px-3 text-center mono font-bold text-indigo-700">${tpLabel}</td>
-            <td class="py-2.5 px-3 text-center">
-              <span class="px-2 py-1 rounded text-[10px] font-extrabold ${entryClass}">${entryBadge}</span>
-              ${entryReason ? `<div class="text-[10px] text-slate-500 mt-0.5 max-w-[185px] mx-auto">${entryReason}</div>` : ''}
-            </td>
-            <td class="py-2.5 px-3 text-center" onclick="event.stopPropagation()">
-              <input type="number" min="-100" max="100" step="1" value="${scoreVal}" placeholder="Auto"
-                onchange="updateManualScore('${m.symbol}', this.value)"
-                class="w-16 text-center mono font-bold text-xs bg-white border border-slate-300 rounded-md py-1 focus:border-blue-600 focus:outline-none" />
-            </td>
-            <td class="py-2.5 px-3 text-center" onclick="event.stopPropagation()">
-              <select onchange="updateManualSentiment('${m.symbol}', this.value)"
-                class="bg-white border border-slate-300 rounded-md px-1.5 py-1 text-[10px] font-bold text-slate-800 focus:border-blue-600 focus:outline-none">
-                <option value="0" ${sentVal == 0 ? 'selected' : ''}>AUTO (0)</option>
-                <option value="90" ${sentVal == 90 ? 'selected' : ''}>BULL +90</option>
-                <option value="50" ${sentVal == 50 ? 'selected' : ''}>BULL +50</option>
-                <option value="-50" ${sentVal == -50 ? 'selected' : ''}>BEAR -50</option>
-                <option value="-90" ${sentVal == -90 ? 'selected' : ''}>BEAR -90</option>
-              </select>
-            </td>
-            <td class="py-2.5 px-3 text-center mono font-extrabold text-slate-900">${confVal}</td>
-            <td class="py-2.5 px-3 text-center">
-              <span class="px-2 py-1 rounded-md text-[10px] font-extrabold ${sigBadgeClass}">${sigVal}</span>
-            </td>
-            <td class="py-2.5 px-3 text-right" onclick="event.stopPropagation()">
-              <button onclick="analyzeSymbol('${m.symbol}')" class="bg-slate-900 hover:bg-blue-600 text-white text-[11px] font-bold px-2.5 py-1 rounded-md transition">Apri</button>
-            </td>
-          </tr>
-        `;
-      }).join('');
-    }
-
-    function updateManualScore(symbol, val) {
-      if (!userOverrides[symbol]) userOverrides[symbol] = {};
-      if (val === '') { delete userOverrides[symbol].score; analyzeSymbol(symbol); return; }
-      const num = Math.max(-100, Math.min(100, parseFloat(val)));
-      userOverrides[symbol].score = num;
-      const conf = Math.min(Math.round(Math.abs(num) * 1.15 * 10) / 10, 99.9);
-      userOverrides[symbol].confidence = conf;
-      userOverrides[symbol].signal = num >= 20 ? 'STRONG LONG' : (num > 5 ? 'LONG' : (num <= -20 ? 'STRONG SHORT' : (num < -5 ? 'SHORT' : 'NEUTRAL / WAIT')));
-      renderMarketsTable();
-      if (activeSymbol === symbol) {
-        document.getElementById('valScore').innerText = num.toFixed(1);
-        setNeedle('needleScore', (num / 100) * 90);
-        document.getElementById('valConf').innerText = conf.toFixed(1) + '%';
-        setNeedle('needleConf', ((conf / 100) * 180) - 90);
-      }
-    }
-
-    async function updateManualSentiment(symbol, val) {
-      if (!userOverrides[symbol]) userOverrides[symbol] = {};
-      userOverrides[symbol].sentiment = parseFloat(val);
-      await analyzeSymbol(symbol);
-    }
-
-    function applyAnalysisToUI(d) {
-      currentAnalysis = d;
-      const ov = userOverrides[d.symbol] || {};
-      const rp = d.recommended_params || {};
-      if (ov.score !== undefined) { d.composite_score = ov.score; d.confidence = ov.confidence; d.signal = ov.signal; }
-
-      userOverrides[d.symbol] = {
-        ...ov,
-        score: d.composite_score,
-        confidence: d.confidence,
-        signal: d.signal,
-        tpLabel: d.tp_plan?.label || '--',
-        tpSlText: { tp2: d.levels?.tp2, sl: d.levels?.sl },
-        recSummary: rp.summary || '--',
-        recSub: rp.margin_usdt !== undefined ? `Margine ~$${rp.margin_usdt} • Win ${rp.p_win_pct}%` : '',
-        entryBadge: d.entry_rule?.badge || '--',
-        entryReason: d.entry_rule?.reason || ''
-      };
-
-      if (activeSymbol === d.symbol) {
-        document.getElementById('activeSymbolTitle').innerText = d.bingx_name || d.symbol;
-        document.getElementById('activePriceBadge').innerText = d.price;
-
-        const sigBadge = document.getElementById('signalMasterBadge');
-        sigBadge.innerText = `${d.signal} (${d.confidence}%)`;
-        sigBadge.className = 'px-4 py-1.5 rounded-lg font-extrabold text-sm ' + (
-          d.signal.includes('LONG') ? 'bg-emerald-600 text-white' :
-          d.signal.includes('SHORT') ? 'bg-red-600 text-white' : 'bg-slate-200 text-slate-800'
-        );
-
-        const er = d.entry_rule || {};
-        const pill = document.getElementById('entryActionPill');
-        pill.innerText = er.badge || '⏳ IN ATTESA';
-        pill.className = 'px-3 py-1.5 rounded-lg text-xs font-extrabold ' + (
-          (er.badge || '').includes('ENTRA ORA') ? 'bg-emerald-600 text-white' :
-          (er.badge || '').includes('NON ENTRARE') ? 'bg-red-600 text-white' : 'bg-amber-500 text-white'
-        );
-        document.getElementById('entryReasonText').innerText = er.reason || '';
-        document.getElementById('recParamsHighlight').innerText = rp.summary || '--';
-        document.getElementById('tpTimeframeHighlight').innerText = d.tp_plan?.label || '--';
-
-        document.getElementById('valConf').innerText = d.confidence.toFixed(1) + '%';
-        setNeedle('needleConf', ((d.confidence / 100) * 180) - 90);
-        document.getElementById('valScore').innerText = d.composite_score.toFixed(1);
-        setNeedle('needleScore', (d.composite_score / 100) * 90);
-        document.getElementById('valRsi').innerText = d.indicators.rsi.toFixed(1);
-        setNeedle('needleRsi', ((d.indicators.rsi / 100) * 180) - 90);
-        document.getElementById('valAdx').innerText = d.indicators.adx.toFixed(1);
-        setNeedle('needleAdx', ((Math.min(d.indicators.adx, 60) / 60) * 180) - 90);
-        document.getElementById('valSent').innerText = d.sentiment.toFixed(1);
-        setNeedle('needleSent', (d.sentiment / 100) * 90);
-        document.getElementById('valZ').innerText = d.indicators.z_score.toFixed(2) + 'σ';
-        setNeedle('needleZ', (Math.max(-3, Math.min(3, d.indicators.z_score)) / 3) * 90);
-        document.getElementById('valR2Sub').innerText = `R²: ${d.indicators.r_squared} | BB: ${d.indicators.bb_percent}%`;
-
-        document.getElementById('indEma9').innerText = d.indicators.ema9;
-        document.getElementById('indEma21').innerText = d.indicators.ema21;
-        document.getElementById('indEma50').innerText = d.indicators.ema50;
-        document.getElementById('indEma200').innerText = d.indicators.ema200;
-        document.getElementById('indMacd').innerText = d.indicators.macd_hist;
-        document.getElementById('indAtr').innerText = d.indicators.atr;
-        document.getElementById('indFunding').innerText = d.indicators.funding_rate + '%';
-        document.getElementById('indR2').innerText = d.indicators.r_squared;
-
-        document.getElementById('lvlEntry').innerText = d.levels.entry;
-        document.getElementById('lvlSl').innerText = d.levels.sl;
-        document.getElementById('lvlTp1').innerText = d.levels.tp1;
-        document.getElementById('lvlTp2').innerText = d.levels.tp2;
-        document.getElementById('lvlTp3').innerText = d.levels.tp3;
-        document.getElementById('rrBadge').innerText = `R:R 1:${d.levels.rr}`;
-
-        if (rp.qty !== undefined) {
-          document.getElementById('suggestedSizeLbl').innerText = rp.qty;
-          if (!document.getElementById('orderQty').value) document.getElementById('orderQty').value = rp.qty;
+    if category == "FOREX & VALUTE" or "EUR" in combined:
+        if (8 * 60) <= minutes <= (22 * 60):
+            overlap = (13 * 60 + 30) <= minutes <= (17 * 60 + 30)
+            return {
+                "market_type": "FOREX FX",
+                "session_name": "Overlap Londra + NY" if overlap else "Sessione EU / US",
+                "hours_window": "08:00–22:00 CET",
+                "rome_time": time_str,
+                "status": "OPEN",
+                "session_ok": True,
+                "badge": "🟢 FX OVERLAP" if overlap else "🟢 FX APERTO"
+            }
+        return {
+            "market_type": "FOREX FX",
+            "session_name": "Sessione Asiatica / Bassa Volatilità",
+            "hours_window": "08:00–22:00 CET",
+            "rome_time": time_str,
+            "status": "LOW_VOL",
+            "session_ok": False,
+            "badge": "🟡 FX CALMO"
         }
-      }
-    }
 
-    async function analyzeSymbol(symbol) {
-      activeSymbol = symbol;
-      const interval = document.getElementById('timeframeSelect').value;
-      const ov = userOverrides[symbol] || {};
-      const res = await fetch('/api/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ symbol, interval, custom_sentiment: ov.sentiment !== undefined && ov.sentiment !== 0 ? ov.sentiment : null })
-      });
-      const json = await res.json();
-      if (json.status === 'ok') { applyAnalysisToUI(json.data); renderMarketsTable(); }
-    }
-
-    async function syncCapitalAndRisk() {
-      const riskPct = parseFloat(document.getElementById('riskPctInput').value) || 1.5;
-      const maxLoss = parseFloat(document.getElementById('maxLossInput').value) || 100.0;
-      await fetch('/api/weights', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ account_capital: accountBalance, risk_per_trade_pct: riskPct, max_daily_loss_usdt: maxLoss })
-      });
-      analyzeSymbol(activeSymbol);
-    }
-
-    async function fetchAccountBalance() {
-      const res = await fetch('/api/account_balance');
-      const json = await res.json();
-      accountBalance = json.balance || 1000.0;
-      document.getElementById('bingxBalanceVal').innerText = accountBalance.toFixed(2);
-      analyzeSymbol(activeSymbol);
-    }
-
-    async function onTimeframeChange() {
-      const tf = document.getElementById('timeframeSelect').value;
-      await fetch('/api/auto_monitor_status', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ interval: tf }) });
-      analyzeSymbol(activeSymbol);
-    }
-
-    async function toggleAutoMonitor() {
-      autoMonitorEnabled = !autoMonitorEnabled;
-      const btn = document.getElementById('btnToggleAuto');
-      btn.innerText = autoMonitorEnabled ? '🤖 Auto-Scan: ON' : '⏸ Auto-Scan: OFF';
-      btn.className = (autoMonitorEnabled ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-slate-500 hover:bg-slate-600') + ' text-white text-xs font-bold px-3.5 py-2 rounded-lg transition';
-      await fetch('/api/auto_monitor_status', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabled: autoMonitorEnabled }) });
-    }
-
-    async function toggleAutoTrade() {
-      if (!autoTradeEnabled && !confirm("⚠️ Attivando l'Auto-Trade Reale, il sistema aprirà posizioni reali su BingX con TP2 e SL della Dashboard quando scatta ENTRA ORA. Procedere?")) return;
-      autoTradeEnabled = !autoTradeEnabled;
-      const btn = document.getElementById('btnToggleAutoTrade');
-      btn.innerText = autoTradeEnabled ? '⚡ Auto-Trade Reale: ON' : '⚡ Auto-Trade Reale: OFF';
-      btn.className = (autoTradeEnabled ? 'bg-red-600 hover:bg-red-700' : 'bg-amber-600 hover:bg-amber-700') + ' text-white text-xs font-extrabold px-3.5 py-2 rounded-lg transition';
-      await fetch('/api/auto_monitor_status', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ auto_trade_enabled: autoTradeEnabled }) });
-    }
-
-    function renderTradeLogs(logs) {
-      const box = document.getElementById('tradeLogsBox');
-      if (!logs || !logs.length) { box.innerText = "Nessun ordine eseguito in questa sessione."; return; }
-      box.innerHTML = logs.map(l => `<div class="py-0.5 border-b border-slate-100">[${l.time}] <strong>${l.symbol}</strong> ${l.side} qty=${l.qty} | TP=${l.tp} | SL=${l.sl} -> ${JSON.stringify(l.response)}</div>`).join('');
-    }
-
-    async function pollAutoMonitor() {
-      try {
-        const res = await fetch('/api/auto_monitor_status');
-        const json = await res.json();
-        if (json.status === 'ok') {
-          if (json.last_run) document.getElementById('lastScanTime').innerText = json.last_run;
-          openPositions = json.open_positions || {};
-          renderTradeLogs(json.trade_logs);
-          const sigMap = json.signals || {};
-          Object.keys(sigMap).forEach(sym => applyAnalysisToUI(sigMap[sym]));
-          renderMarketsTable();
+    if (8 * 60) <= minutes <= (23 * 60):
+        us_open = (14 * 60 + 30) <= minutes <= (22 * 60)
+        return {
+            "market_type": "METALLI & COMMODITIES",
+            "session_name": "Sessione US + London" if us_open else "Sessione Europea",
+            "hours_window": "08:00–23:00 CET",
+            "rome_time": time_str,
+            "status": "OPEN",
+            "session_ok": True,
+            "badge": "🟢 COMM APERTO"
         }
-      } catch (e) { console.error(e); }
+
+    return {
+        "market_type": "METALLI & COMMODITIES",
+        "session_name": "Pausa Notturna / Bassa Liquidità",
+        "hours_window": "08:00–23:00 CET",
+        "rome_time": time_str,
+        "status": "CLOSED",
+        "session_ok": False,
+        "badge": "🔴 NOTTE COMM"
     }
 
-    async function scanVisibleCategory() {
-      const filtered = getFilteredMarkets().slice(0, 20).map(m => m.symbol);
-      const interval = document.getElementById('timeframeSelect').value;
-      const res = await fetch('/api/scan_top', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ symbols: filtered, interval, overrides: userOverrides })
-      });
-      const json = await res.json();
-      if (json.status === 'ok') { json.signals.forEach(s => applyAnalysisToUI(s)); renderMarketsTable(); }
+
+def log_trade_event(symbol_label: str, side: str, qty, sl, tp, response):
+    AUTO_SCAN_STATE["trade_logs"].insert(0, {
+        "time": time.strftime("%H:%M:%S"),
+        "symbol": symbol_label,
+        "side": side,
+        "qty": qty,
+        "sl": sl,
+        "tp": tp,
+        "response": response
+    })
+    AUTO_SCAN_STATE["trade_logs"] = AUTO_SCAN_STATE["trade_logs"][:40]
+
+
+def sign_request(params: dict) -> str:
+    clean_params = {k: v for k, v in params.items() if v is not None and v != ""}
+    sorted_items = sorted(clean_params.items(), key=lambda x: str(x[0]))
+    query_string = urllib.parse.urlencode(sorted_items, quote_via=urllib.parse.quote)
+    signature = hmac.new(
+        BINGX_SECRET_KEY.strip().encode("utf-8"),
+        query_string.encode("utf-8"),
+        hashlib.sha256
+    ).hexdigest()
+    return f"{query_string}&signature={signature}"
+
+
+def bingx_public_get(endpoint: str, params: dict = None):
+    url = f"{BASE_URL}{endpoint}"
+    try:
+        resp = requests.get(url, params=params, timeout=8)
+        data = resp.json()
+        if data.get("code") == 0:
+            return data.get("data")
+    except Exception as e:
+        print(f"[BingX Public GET Error] {endpoint}: {e}")
+    return None
+
+
+def bingx_private_get(endpoint: str, params: dict = None):
+    if not BINGX_API_KEY or not BINGX_SECRET_KEY:
+        BALANCE_STATE["last_error"] = "Chiavi API / Secret Key BingX mancanti"
+        return None
+    p = dict(params or {})
+    p.setdefault("recvWindow", 5000)
+    p["timestamp"] = int(time.time() * 1000)
+    signed_qs = sign_request(p)
+    url = f"{BASE_URL}{endpoint}?{signed_qs}"
+    headers = {"X-BX-APIKEY": BINGX_API_KEY.strip()}
+    try:
+        resp = requests.get(url, headers=headers, timeout=8)
+        data = resp.json()
+        if data.get("code") == 0:
+            BALANCE_STATE["last_error"] = None
+            return data.get("data")
+        BALANCE_STATE["last_error"] = f"code {data.get('code')}: {data.get('msg')}"
+    except Exception as e:
+        BALANCE_STATE["last_error"] = str(e)
+    return None
+
+
+def bingx_private_post(endpoint: str, params: dict):
+    if not BINGX_API_KEY or not BINGX_SECRET_KEY:
+        return {"code": -1, "msg": "API Key / Secret Key BingX mancanti."}
+    p = dict(params or {})
+    p.setdefault("recvWindow", 5000)
+    p["timestamp"] = int(time.time() * 1000)
+    signed_qs = sign_request(p)
+    url = f"{BASE_URL}{endpoint}?{signed_qs}"
+    headers = {"X-BX-APIKEY": BINGX_API_KEY.strip()}
+    try:
+        resp = requests.post(url, headers=headers, timeout=8)
+        return resp.json()
+    except Exception as e:
+        return {"code": -1, "msg": str(e)}
+
+
+def sync_bingx_balance_realtime() -> dict:
+    now_str = time.strftime("%H:%M:%S")
+    raw_bal = bingx_private_get("/openApi/swap/v3/user/balance")
+    if raw_bal is None:
+        raw_bal = bingx_private_get("/openApi/swap/v2/user/balance")
+
+    if raw_bal is None:
+        BALANCE_STATE["last_sync"] = now_str
+        BALANCE_STATE["source"] = "offline"
+        return dict(BALANCE_STATE)
+
+    balance_usdt = 0.0
+    available_usdt = 0.0
+    unrealized_pnl = 0.0
+    equity_usdt = 0.0
+
+    items = []
+    if isinstance(raw_bal, list):
+        items = raw_bal
+    elif isinstance(raw_bal, dict):
+        if isinstance(raw_bal.get("balance"), list):
+            items = raw_bal["balance"]
+        elif isinstance(raw_bal.get("data"), list):
+            items = raw_bal["data"]
+        elif isinstance(raw_bal.get("balance"), dict):
+            items = [raw_bal["balance"]]
+        else:
+            items = [raw_bal]
+
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        asset = str(item.get("asset", "USDT")).upper()
+        if len(items) > 1 and asset != "USDT":
+            continue
+        balance_usdt = float(item.get("balance") or item.get("walletBalance") or item.get("equity") or 0.0)
+        available_usdt = float(item.get("availableMargin") or item.get("availableBalance") or item.get("free") or balance_usdt)
+        unrealized_pnl = float(item.get("unrealizedProfit") or item.get("crossUnPnl") or 0.0)
+        equity_usdt = float(item.get("equity") or (balance_usdt + unrealized_pnl))
+        break
+
+    balance_usdt = round(max(0.0, balance_usdt), 4)
+    available_usdt = round(max(0.0, available_usdt), 4)
+    unrealized_pnl = round(unrealized_pnl, 4)
+    equity_usdt = round(max(0.0, equity_usdt), 4)
+
+    BALANCE_STATE.update({
+        "balance_usdt": balance_usdt,
+        "available_usdt": available_usdt,
+        "unrealized_pnl_usdt": unrealized_pnl,
+        "equity_usdt": equity_usdt,
+        "source": "bingx_live",
+        "last_sync": now_str,
+        "last_error": None
+    })
+    BRAIN_WEIGHTS["account_capital"] = balance_usdt
+    return dict(BALANCE_STATE)
+
+
+def bingx_exact_name(api_symbol: str) -> str:
+    s = api_symbol.upper()
+    if s in API_TO_BINGX_NAME:
+        return API_TO_BINGX_NAME[s]
+    return s.replace("-", "")
+
+
+def categorize_symbol(bingx_name: str, api_symbol: str) -> str:
+    s = f"{bingx_name} {api_symbol}".upper()
+    if any(k in s for k in ["GOLD", "XAU", "SILVER", "XAG", "WTI", "BRENT", "OIL", "NATGAS", "COPPER"]):
+        return "METALLI & COMMODITIES"
+    if any(k in s for k in ["EURUSDT", "EUR-", "GBP", "JPY", "AUD", "CAD", "CHF", "NZD"]):
+        return "FOREX & VALUTE"
+    if any(k in s for k in ["NASDAQ100", "NDX", "NAS100", "SPX", "US30", "SOXL", "GS", "TSLA", "NVDA", "AAPL"]):
+        return "INDICI & AZIONI"
+    if any(k in s for k in ["BTCUSDT", "ETHUSDT", "SOLUSDT", "XRPUSDT", "BNBUSDT", "HYPEUSDT", "ZECUSDT", "JTOUSDT", "PEOPLEUSDT", "SUIUSDT", "PENDLEUSDT"]):
+        return "CRYPTO MAJOR"
+    return "ALTCOIN & DEFI"
+
+
+def get_all_bingx_contracts(force: bool = False):
+    now = time.time()
+    if not force and CONTRACTS_CACHE["data"] and (now - CONTRACTS_CACHE["timestamp"] < 120):
+        return CONTRACTS_CACHE["data"]
+
+    raw_contracts = bingx_public_get("/openApi/swap/v2/quote/contracts")
+    tickers = bingx_public_get("/openApi/swap/v2/quote/ticker")
+    ticker_map = {t["symbol"]: t for t in (tickers or [])}
+
+    results = []
+    symbol_set = set()
+    max_lev_map = {}
+    contract_meta = {}
+
+    if raw_contracts:
+        for c in raw_contracts:
+            if c.get("status") != 1:
+                continue
+            sym = c.get("symbol")
+            max_lev = int(c.get("maxLeverage", 50) or 50)
+            min_qty = float(c.get("tradeMinQuantity") or c.get("minTradeQuantity") or 0.0)
+            step_size = float(c.get("stepSize") or c.get("quantityPrecision") or 0.0)
+            qty_precision = int(c.get("quantityPrecision", 3) or 3)
+            price_precision = int(c.get("pricePrecision", 4) or 4)
+
+            symbol_set.add(sym)
+            max_lev_map[sym] = max_lev
+            contract_meta[sym] = {
+                "min_qty": min_qty,
+                "step_size": step_size,
+                "qty_precision": qty_precision,
+                "price_precision": price_precision
+            }
+
+            tk = ticker_map.get(sym, {})
+            vol_24h = float(tk.get("quoteVolume", 0) or 0)
+            exact_name = bingx_exact_name(sym)
+            cat = categorize_symbol(exact_name, sym)
+            sess = get_market_session_info(cat, exact_name, sym)
+            results.append({
+                "symbol": sym,
+                "bingxName": exact_name,
+                "displayName": exact_name,
+                "category": cat,
+                "session": sess,
+                "maxLeverage": max_lev,
+                "minQty": min_qty,
+                "pricePrecision": price_precision,
+                "lastPrice": float(tk.get("lastPrice", 0) or 0),
+                "priceChangePercent": float(tk.get("priceChangePercent", 0) or 0),
+                "volume24h": vol_24h,
+                "high24h": float(tk.get("highPrice", 0) or 0),
+                "low24h": float(tk.get("lowPrice", 0) or 0),
+            })
+        results.sort(key=lambda x: x["volume24h"], reverse=True)
+        CONTRACTS_CACHE["data"] = results
+        CONTRACTS_CACHE["symbol_set"] = symbol_set
+        CONTRACTS_CACHE["max_lev_map"] = max_lev_map
+        CONTRACTS_CACHE["contract_meta"] = contract_meta
+        CONTRACTS_CACHE["timestamp"] = now
+    return results
+
+
+def resolve_bingx_symbol(query_symbol: str) -> str:
+    clean = query_symbol.strip().upper().replace("/", "-")
+    if clean in CONTRACTS_CACHE["symbol_set"]:
+        return clean
+    if clean in BINGX_NAME_TO_API:
+        for cand in BINGX_NAME_TO_API[clean]:
+            if cand in CONTRACTS_CACHE["symbol_set"]:
+                return cand
+        return BINGX_NAME_TO_API[clean][0]
+    if "-" not in clean and clean.endswith("USDT"):
+        return clean[:-4] + "-USDT"
+    return clean
+
+
+def fetch_open_bingx_positions(signal_map: dict = None):
+    raw_pos = bingx_private_get("/openApi/swap/v2/user/positions")
+    pos_dict = {}
+    if not isinstance(raw_pos, list):
+        return pos_dict
+
+    for p in raw_pos:
+        amt = float(p.get("positionAmt", 0) or 0)
+        if abs(amt) <= 0:
+            continue
+        sym = p.get("symbol")
+        side = (p.get("positionSide") or ("LONG" if amt > 0 else "SHORT")).upper()
+        entry_px = float(p.get("avgPrice", 0) or 0)
+        mark_px = float(p.get("markPrice", 0) or entry_px)
+        pnl = float(p.get("unrealizedProfit", 0) or 0)
+        lev = float(p.get("leverage", 1) or 1)
+
+        sig_info = (signal_map or {}).get(sym, {})
+        tp_target = float(sig_info.get("levels", {}).get("tp2", 0) or 0)
+        sl_target = float(sig_info.get("levels", {}).get("sl", 0) or 0)
+
+        if tp_target <= 0 and entry_px > 0:
+            tp_target = entry_px * 1.025 if side == "LONG" else entry_px * 0.975
+
+        progress_pct = 0.0
+        if entry_px > 0 and tp_target != entry_px:
+            if side == "LONG":
+                progress_pct = ((mark_px - entry_px) / (tp_target - entry_px)) * 100.0
+            else:
+                progress_pct = ((entry_px - mark_px) / (entry_px - tp_target)) * 100.0
+
+        progress_clamped = round(max(0.0, min(100.0, progress_pct)), 1)
+
+        be_threshold = float(BRAIN_WEIGHTS.get("breakeven_at_tp_pct", 50.0))
+        be_key = f"{sym}_{side}"
+        if progress_clamped >= be_threshold and be_key not in AUTO_SCAN_STATE["breakeven_moved"] and entry_px > 0:
+            be_price = round(entry_px * (1.001 if side == "LONG" else 0.999), 6)
+            bingx_private_post("/openApi/swap/v2/trade/order", {
+                "symbol": sym,
+                "side": "SELL" if side == "LONG" else "BUY",
+                "positionSide": side,
+                "type": "STOP_MARKET",
+                "stopPrice": be_price,
+                "workingType": "MARK_PRICE",
+                "quantity": abs(amt)
+            })
+            AUTO_SCAN_STATE["breakeven_moved"].add(be_key)
+
+        pos_dict[sym] = {
+            "symbol": sym,
+            "bingx_name": bingx_exact_name(sym),
+            "side": side,
+            "size": abs(amt),
+            "entry_price": round(entry_px, 6),
+            "mark_price": round(mark_px, 6),
+            "tp_price": round(tp_target, 6),
+            "sl_price": round(sl_target, 6),
+            "tp_progress_pct": progress_clamped,
+            "unrealized_pnl": round(pnl, 2),
+            "leverage": lev
+        }
+    return pos_dict
+
+
+def set_bingx_leverage(symbol: str, position_side: str, leverage: int):
+    return bingx_private_post("/openApi/swap/v2/trade/leverage", {
+        "symbol": symbol,
+        "side": position_side,
+        "leverage": int(leverage)
+    })
+
+
+def normalize_order_qty(symbol: str, raw_qty: float, price: float, leverage: int, capital: float) -> float:
+    meta = CONTRACTS_CACHE["contract_meta"].get(symbol, {})
+    min_qty = float(meta.get("min_qty", 0.0) or 0.0)
+    precision = int(meta.get("qty_precision", 3) or 3)
+    precision = max(0, min(precision, 6))
+
+    qty = max(0.0, float(raw_qty or 0.0))
+    if qty > 0:
+        qty = round(qty, precision)
+
+    if qty > 0 and price > 0 and capital > 0:
+        max_notional = capital * max(leverage, 1) * 0.90
+        max_affordable_qty = round(max_notional / price, precision)
+        if max_affordable_qty > 0 and qty > max_affordable_qty:
+            qty = max_affordable_qty
+
+    if min_qty > 0 and qty > 0 and qty < min_qty:
+        min_notional = min_qty * price
+        if capital > 0 and min_notional <= capital * max(leverage, 1) * 0.95:
+            qty = round(min_qty, precision)
+    return qty
+
+
+def place_bingx_real_order(symbol: str, side: str, quantity, sl, tp, leverage: int = None):
+    real_symbol = resolve_bingx_symbol(symbol)
+    position_side = "LONG" if side == "BUY" else "SHORT"
+    exact_label = bingx_exact_name(real_symbol)
+
+    if float(quantity or 0) <= 0:
+        err = {"code": -2, "msg": "Quantità ordine nulla o insufficiente per il saldo corrente."}
+        log_trade_event(exact_label, side, quantity, sl, tp, err)
+        return err
+
+    if leverage:
+        set_bingx_leverage(real_symbol, position_side, leverage)
+
+    order_params = {
+        "symbol": real_symbol,
+        "side": side,
+        "positionSide": position_side,
+        "type": "MARKET",
+        "quantity": str(quantity)
+    }
+    if sl is not None and float(sl) > 0:
+        order_params["stopLoss"] = json.dumps({
+            "type": "STOP_MARKET",
+            "stopPrice": float(sl),
+            "workingType": "MARK_PRICE"
+        }, separators=(",", ":"))
+    if tp is not None and float(tp) > 0:
+        order_params["takeProfit"] = json.dumps({
+            "type": "TAKE_PROFIT_MARKET",
+            "stopPrice": float(tp),
+            "workingType": "MARK_PRICE"
+        }, separators=(",", ":"))
+
+    res = bingx_private_post("/openApi/swap/v2/trade/order", order_params)
+    log_trade_event(exact_label, side, quantity, sl, tp, res)
+    sync_bingx_balance_realtime()
+    return res
+
+
+def close_bingx_position(symbol: str, side: str, quantity):
+    real_symbol = resolve_bingx_symbol(symbol)
+    exact_label = bingx_exact_name(real_symbol)
+    close_side = "SELL" if side.upper() == "LONG" else "BUY"
+    res = bingx_private_post("/openApi/swap/v2/trade/order", {
+        "symbol": real_symbol,
+        "side": close_side,
+        "positionSide": side.upper(),
+        "type": "MARKET",
+        "quantity": str(quantity)
+    })
+    log_trade_event(exact_label, f"CLOSE_{side.upper()}", quantity, "-", "-", res)
+    sync_bingx_balance_realtime()
+    return res
+
+
+def calc_ema(prices: np.ndarray, period: int) -> np.ndarray:
+    alpha = 2.0 / (period + 1.0)
+    ema = np.zeros_like(prices)
+    ema[0] = prices[0]
+    for i in range(1, len(prices)):
+        ema[i] = alpha * prices[i] + (1.0 - alpha) * ema[i - 1]
+    return ema
+
+
+def calc_ema_series(values: np.ndarray, period: int) -> np.ndarray:
+    alpha = 2.0 / (period + 1.0)
+    out = np.zeros_like(values, dtype=float)
+    out[0] = values[0]
+    for i in range(1, len(values)):
+        out[i] = alpha * values[i] + (1.0 - alpha) * out[i - 1]
+    return out
+
+
+def calc_rsi(prices: np.ndarray, period: int = 14) -> float:
+    if len(prices) < period + 1:
+        return 50.0
+    deltas = np.diff(prices)
+    gains = np.where(deltas > 0, deltas, 0.0)
+    losses = np.where(deltas < 0, -deltas, 0.0)
+    avg_gain = np.mean(gains[:period])
+    avg_loss = np.mean(losses[:period])
+    for i in range(period, len(gains)):
+        avg_gain = (avg_gain * (period - 1) + gains[i]) / period
+        avg_loss = (avg_loss * (period - 1) + losses[i]) / period
+    if avg_loss == 0:
+        return 100.0
+    rs = avg_gain / avg_loss
+    return float(100.0 - (100.0 / (1.0 + rs)))
+
+
+def calc_atr_series(highs: np.ndarray, lows: np.ndarray, closes: np.ndarray, period: int = 14) -> np.ndarray:
+    if len(closes) < 2:
+        return np.array([float(highs[-1] - lows[-1])])
+    tr = np.maximum(
+        highs[1:] - lows[1:],
+        np.maximum(np.abs(highs[1:] - closes[:-1]), np.abs(lows[1:] - closes[:-1]))
+    )
+    atr_s = calc_ema_series(tr, min(period, len(tr)))
+    return np.concatenate([[atr_s[0]], atr_s])
+
+
+def calc_atr(highs: np.ndarray, lows: np.ndarray, closes: np.ndarray, period: int = 14) -> float:
+    s = calc_atr_series(highs, lows, closes, period)
+    return float(s[-1])
+
+
+def calc_adx(highs: np.ndarray, lows: np.ndarray, closes: np.ndarray, period: int = 14) -> float:
+    if len(closes) < period * 2:
+        return 20.0
+    up_move = highs[1:] - highs[:-1]
+    down_move = lows[:-1] - lows[1:]
+    plus_dm = np.where((up_move > down_move) & (up_move > 0), up_move, 0.0)
+    minus_dm = np.where((down_move > up_move) & (down_move > 0), down_move, 0.0)
+    tr = np.maximum(
+        highs[1:] - lows[1:],
+        np.maximum(np.abs(highs[1:] - closes[:-1]), np.abs(lows[1:] - closes[:-1]))
+    )
+    atr_s = np.convolve(tr, np.ones(period) / period, mode='valid')
+    p_di = 100 * (np.convolve(plus_dm, np.ones(period) / period, mode='valid') / (atr_s + 1e-9))
+    m_di = 100 * (np.convolve(minus_dm, np.ones(period) / period, mode='valid') / (atr_s + 1e-9))
+    dx = 100 * np.abs(p_di - m_di) / (p_di + m_di + 1e-9)
+    return float(np.mean(dx[-period:]))
+
+
+def detect_early_entry_setup(opens, highs, lows, closes, volumes, ema20_arr, ema50_arr, ema200_val, atr_series, rsi, z_score):
+    """
+    Rileva:
+    1) Accumulazione / Compressione (Squeeze ATR & range stretto)
+    2) Pullback su zona di valore (EMA 20/50 + non chasing verde/rosso)
+    3) Esaurimento / Liquidity Sweep (finto sfondamento riassorbito con wick)
+    """
+    price = closes[-1]
+    prev_high, prev_low = highs[-2], lows[-2]
+    curr_open, curr_high, curr_low, curr_close = opens[-1], highs[-1], lows[-1], closes[-1]
+
+    # Compressione ATR (ATR attuale sotto media 20)
+    atr_sma20 = float(np.mean(atr_series[-20:])) if len(atr_series) >= 20 else float(atr_series[-1])
+    is_compressed = atr_series[-1] < (atr_sma20 * 0.90)
+
+    # Non inseguire candele già esplose
+    candle_body_pct = abs(curr_close - curr_open) / (atr_series[-1] + 1e-9)
+    not_chasing = candle_body_pct < 1.35 and abs(z_score) <= 2.2
+
+    # Trend macro (EMA 200)
+    trend_bias = "BULL" if price >= ema200_val else "BEAR"
+
+    # Pullback verso EMA 20 o EMA 50
+    e20 = ema20_arr[-1]
+    e50 = ema50_arr[-1]
+    dist_e20_atr = abs(price - e20) / (atr_series[-1] + 1e-9)
+    dist_e50_atr = abs(price - e50) / (atr_series[-1] + 1e-9)
+    pullback_bull = (trend_bias == "BULL") and (min(dist_e20_atr, dist_e50_atr) <= 0.65) and (rsi < 58)
+    pullback_bear = (trend_bias == "BEAR") and (min(dist_e20_atr, dist_e50_atr) <= 0.65) and (rsi > 42)
+
+    # Liquidity Sweep / Rejection wick
+    sweep_bull = (curr_low < prev_low) and (curr_close > prev_low) and (curr_close > curr_open) and (curr_close >= e20 * 0.996)
+    sweep_bear = (curr_high > prev_high) and (curr_close < prev_high) and (curr_close < curr_open) and (curr_close <= e20 * 1.004)
+
+    # Volume in contrazione o assorbimento
+    vol_avg20 = float(np.mean(volumes[-20:])) if len(volumes) >= 20 else float(volumes[-1])
+    vol_calm_or_sweep = (volumes[-1] <= vol_avg20 * 1.25) or sweep_bull or sweep_bear
+
+    setup_type = "NESSUN SETUP ANTICIPATO"
+    direction = None
+    limit_price = round(float(min(e20, e50) if trend_bias == "BULL" else max(e20, e50)), 6)
+    order_type = "MARKET / CONFERMA"
+    trigger_sound = False
+
+    if sweep_bull and not_chasing:
+        setup_type = "SWEEP RIALZISTA (CACCIA STOP SHORT)"
+        direction = "LONG"
+        limit_price = round(float(min(curr_close, e20)), 6)
+        order_type = "BUY LIMIT / CONFERMA WICK"
+        trigger_sound = True
+    elif sweep_bear and not_chasing:
+        setup_type = "SWEEP RIBASSISTA (CACCIA STOP LONG)"
+        direction = "SHORT"
+        limit_price = round(float(max(curr_close, e20)), 6)
+        order_type = "SELL LIMIT / CONFERMA WICK"
+        trigger_sound = True
+    elif is_compressed and pullback_bull and vol_calm_or_sweep and not_chasing:
+        setup_type = "COMPRESSIONE + PULLBACK LONG"
+        direction = "LONG"
+        order_type = "BUY LIMIT SU ZONA VALORE"
+        trigger_sound = True
+    elif is_compressed and pullback_bear and vol_calm_or_sweep and not_chasing:
+        setup_type = "COMPRESSIONE + PULLBACK SHORT"
+        direction = "SHORT"
+        order_type = "SELL LIMIT SU ZONA VALORE"
+        trigger_sound = True
+    elif pullback_bull and not_chasing and rsi < 48:
+        setup_type = "PULLBACK SU EMA 20/50 LONG"
+        direction = "LONG"
+        order_type = "BUY LIMIT / PULLBACK"
+        trigger_sound = True
+    elif pullback_bear and not_chasing and rsi > 52:
+        setup_type = "PULLBACK SU EMA 20/50 SHORT"
+        direction = "SHORT"
+        order_type = "SELL LIMIT / PULLBACK"
+        trigger_sound = True
+    elif is_compressed and not_chasing:
+        setup_type = "FASE ACCUMULAZIONE / SQUEEZE"
+        direction = "LONG" if trend_bias == "BULL" else "SHORT"
+        order_type = "LIMIT IN ATTESA ROTTURA"
+
+    return {
+        "setup_type": setup_type,
+        "direction": direction,
+        "is_compressed": bool(is_compressed),
+        "not_chasing": bool(not_chasing),
+        "sweep_detected": bool(sweep_bull or sweep_bear),
+        "pullback_detected": bool(pullback_bull or pullback_bear),
+        "order_type": order_type,
+        "limit_price": limit_price,
+        "trigger_sound": bool(trigger_sound),
+        "candle_id": int(len(closes))
     }
 
-    async function saveBrainWeights() {
-      const payload = {
-        ema_weight: document.getElementById('wEma').value,
-        momentum_weight: document.getElementById('wMom').value,
-        volatility_weight: document.getElementById('wVol').value,
-        sentiment_weight: document.getElementById('wSent').value,
-        min_confidence: document.getElementById('wMinConf').value,
-        account_capital: accountBalance,
-        risk_per_trade_pct: parseFloat(document.getElementById('riskPctInput').value) || 1.5,
-        max_daily_loss_usdt: parseFloat(document.getElementById('maxLossInput').value) || 100.0
-      };
-      await fetch('/api/weights', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-      analyzeSymbol(activeSymbol);
+
+def compute_tp_timeframe_plan(interval: str, adx: float):
+    tf_map = {
+        "1m":  {"tp_tf": "5m",  "candles": 4 if adx >= 25 else 7, "minutes_per_candle": 5},
+        "5m":  {"tp_tf": "15m", "candles": 3 if adx >= 25 else 6, "minutes_per_candle": 15},
+        "15m": {"tp_tf": "1h",  "candles": 2 if adx >= 25 else 4, "minutes_per_candle": 60},
+        "1h":  {"tp_tf": "4h",  "candles": 2 if adx >= 25 else 3, "minutes_per_candle": 240},
+        "4h":  {"tp_tf": "1d",  "candles": 2 if adx >= 25 else 3, "minutes_per_candle": 1440},
+    }
+    cfg = tf_map.get(interval, {"tp_tf": "1h", "candles": 3, "minutes_per_candle": 60})
+    est_hours = round((cfg["candles"] * cfg["minutes_per_candle"]) / 60.0, 1)
+    return {
+        "tp_timeframe": cfg["tp_tf"],
+        "tp_candles": cfg["candles"],
+        "est_duration_h": est_hours,
+        "label": f"{cfg['tp_tf']} ({cfg['candles']} candele • ~{est_hours}h)"
     }
 
-    async function executeBingXOrder() {
-      if (!currentAnalysis) return alert("Analizza prima un simbolo.");
-      const qty = parseFloat(document.getElementById('orderQty').value);
-      if (!qty || qty <= 0) return alert("Inserisci una quantità valida.");
-      const side = currentAnalysis.composite_score >= 0 ? "BUY" : "SELL";
-      const lev = currentAnalysis.recommended_params?.leverage || 10;
 
-      if (!confirm(`Confermi ordine REALE su BingX?\nMercato: ${currentAnalysis.bingx_name}\nDirezione: ${side}\nLeva: ${lev}x\nQuantità: ${qty}\nSL: ${currentAnalysis.levels.sl}\nTP2: ${currentAnalysis.levels.tp2}`)) return;
+def calc_recommended_leverage(atr_pct: float, max_contract_lev: int, capital: float) -> int:
+    if atr_pct <= 0.15:
+        base_lev = 25
+    elif atr_pct <= 0.35:
+        base_lev = 15
+    elif atr_pct <= 0.75:
+        base_lev = 10
+    elif atr_pct <= 1.50:
+        base_lev = 6
+    else:
+        base_lev = 3
 
-      const res = await fetch('/api/execute_order', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ symbol: currentAnalysis.symbol, side, quantity: qty, sl: currentAnalysis.levels.sl, tp: currentAnalysis.levels.tp2, leverage: lev })
-      });
-      const json = await res.json();
-      alert("Risposta BingX: " + JSON.stringify(json));
-      pollAutoMonitor();
+    if 0 < capital <= 2.0:
+        base_lev = min(base_lev, 20)
+    return max(1, min(base_lev, max_contract_lev))
+
+
+def evaluate_profit_math_and_entry(
+    symbol, signal, confidence, rr_ratio, adx, r_squared, z_score, rsi,
+    min_conf, capital, risk_pct, stop_dist, price, rec_leverage,
+    ema_dir, mom_dir, vol_dir, final_sentiment, session_info, early_setup
+):
+    p_win = float(np.clip(0.45 + (confidence - 50.0) * 0.0045 + (r_squared - 0.3) * 0.12, 0.35, 0.76))
+    p_loss = 1.0 - p_win
+    reward_r = max(rr_ratio, 0.5)
+    expectancy_r = round((p_win * reward_r) - (p_loss * 1.0), 2)
+
+    kelly_raw = p_win - (p_loss / max(reward_r, 0.1))
+    half_kelly_pct = round(max(0.0, min(kelly_raw * 0.5 * 100.0, 5.0)), 2)
+
+    effective_capital = capital if capital > 0 else 0.0
+    risk_usd = effective_capital * (risk_pct / 100.0)
+    raw_qty = (risk_usd / stop_dist) if (stop_dist > 0 and risk_usd > 0) else 0.0
+    qty_fmt = normalize_order_qty(symbol, raw_qty, price, rec_leverage, effective_capital)
+    notional_usd = qty_fmt * price
+    margin_needed = round(notional_usd / max(rec_leverage, 1), 2)
+
+    session_ok = bool(session_info.get("session_ok", True))
+    bull_aligned = (ema_dir > 10) and (mom_dir > 10) and (vol_dir >= 0) and (final_sentiment >= -10)
+    bear_aligned = (ema_dir < -10) and (mom_dir < -10) and (vol_dir <= 0) and (final_sentiment <= 10)
+
+    certain_long = (
+        bull_aligned
+        and "LONG" in signal
+        and confidence >= min_conf
+        and expectancy_r > 0.20
+        and abs(z_score) <= 2.45
+        and rsi <= 78
+        and session_ok
+        and qty_fmt > 0
+    )
+    certain_short = (
+        bear_aligned
+        and "SHORT" in signal
+        and confidence >= min_conf
+        and expectancy_r > 0.20
+        and abs(z_score) <= 2.45
+        and rsi >= 22
+        and session_ok
+        and qty_fmt > 0
+    )
+
+    certain_signal = None
+    if certain_long:
+        certain_signal = "SEGNALE CERTO LONG"
+    elif certain_short:
+        certain_signal = "SEGNALE CERTO SHORT"
+
+    if not early_setup.get("not_chasing", True) or abs(z_score) > 2.45:
+        entry_rule = {"action": "NO ENTRY", "badge": "🚫 NON INSEGUIRE", "reason": f"Candela già estesa (Z={z_score:+.2f}σ): attendi ritracciamento."}
+    elif effective_capital <= 0:
+        entry_rule = {"action": "NO ENTRY", "badge": "🚫 NON ENTRARE", "reason": "Saldo BingX 0.00 USDT o non sincronizzato."}
+    elif not session_ok:
+        entry_rule = {"action": "NO ENTRY", "badge": "🚫 NON ENTRARE", "reason": f"Mercato {session_info.get('session_name')} ({session_info.get('hours_window')})."}
+    elif certain_signal:
+        entry_rule = {
+            "action": "ENTER NOW",
+            "badge": f"💎 {certain_signal}",
+            "reason": f"Parametri allineati • {early_setup.get('setup_type')} • Exp {expectancy_r:+.2f}R"
+        }
+    elif early_setup.get("trigger_sound") and session_ok:
+        entry_rule = {
+            "action": "ENTER NOW",
+            "badge": f"🎯 ANTICIPO {early_setup.get('direction')}",
+            "reason": f"{early_setup.get('setup_type')} • {early_setup.get('order_type')} @ {early_setup.get('limit_price')}"
+        }
+    elif expectancy_r <= 0:
+        entry_rule = {"action": "NO ENTRY", "badge": "🚫 NON ENTRARE", "reason": f"Expectancy {expectancy_r:+.2f}R non favorevole."}
+    elif confidence >= min_conf and expectancy_r > 0.15 and qty_fmt > 0:
+        entry_rule = {
+            "action": "ENTER NOW",
+            "badge": "✅ ENTRA ORA",
+            "reason": f"Exp {expectancy_r:+.2f}R • Conf {confidence}% • Kelly {half_kelly_pct}%."
+        }
+    else:
+        entry_rule = {
+            "action": "WAIT CONFIRMATION",
+            "badge": f"⏳ {early_setup.get('setup_type')}",
+            "reason": f"Confidenza {confidence}% • {early_setup.get('order_type')} @ {early_setup.get('limit_price')}"
+        }
+
+    recommended_params = {
+        "leverage": rec_leverage,
+        "qty": qty_fmt,
+        "margin_usdt": margin_needed,
+        "risk_usd": round(risk_usd, 4),
+        "p_win_pct": round(p_win * 100, 1),
+        "expectancy_r": expectancy_r,
+        "half_kelly_pct": half_kelly_pct,
+        "certain_signal": certain_signal,
+        "summary": f"Lev {rec_leverage}x • Size {qty_fmt} • Exp {expectancy_r:+.2f}R • Kelly {half_kelly_pct}%"
     }
+    return entry_rule, recommended_params, certain_signal
 
-    loadKeysStatus();
-    loadAllMarkets(false);
-    fetchAccountBalance();
-    pollAutoMonitor();
-    setInterval(pollAutoMonitor, 8000);
-  </script>
-</body>
-</html>
+
+def register_sound_alert_if_exact_moment(analysis: dict):
+    early = analysis.get("early_setup", {})
+    certain = analysis.get("certain_signal")
+    if not (early.get("trigger_sound") or certain):
+        return
+    if not analysis.get("session", {}).get("session_ok", True):
+        return
+
+    sym = analysis["symbol"]
+    side = certain or f"ANTICIPO_{early.get('direction')}_{early.get('setup_type')}"
+    candle_id = early.get("candle_id", 0)
+    alert_key = f"{sym}_{side}_{candle_id}"
+
+    existing_keys = {a["key"] for a in AUTO_SCAN_STATE["audio_alerts"][:25]}
+    if alert_key in existing_keys:
+        return
+
+    AUTO_SCAN_STATE["audio_alerts"].insert(0, {
+        "id": int(time.time() * 1000),
+        "key": alert_key,
+        "time": time.strftime("%H:%M:%S"),
+        "symbol": analysis["bingx_name"],
+        "title": certain or early.get("setup_type"),
+        "order_type": early.get("order_type"),
+        "price": analysis["price"],
+        "limit_price": early.get("limit_price"),
+        "sl": analysis["levels"]["sl"],
+        "tp2": analysis["levels"]["tp2"]
+    })
+    AUTO_SCAN_STATE["audio_alerts"] = AUTO_SCAN_STATE["audio_alerts"][:25]
+
+
+def analyze_symbol_math(symbol: str, interval: str = "15m", custom_sentiment: float = None):
+    real_symbol = resolve_bingx_symbol(symbol)
+    klines = bingx_public_get("/openApi/swap/v3/quote/klines", {
+        "symbol": real_symbol,
+        "interval": interval,
+        "limit": 220
+    })
+    depth = bingx_public_get("/openApi/swap/v2/quote/depth", {"symbol": real_symbol, "limit": 20})
+    premium = bingx_public_get("/openApi/swap/v2/quote/premiumIndex", {"symbol": real_symbol})
+
+    if not klines or len(klines) < 50:
+        return None
+
+    klines = sorted(klines, key=lambda x: int(x["time"]))
+    opens = np.array([float(k.get("open", k["close"])) for k in klines], dtype=float)
+    closes = np.array([float(k["close"]) for k in klines], dtype=float)
+    highs = np.array([float(k["high"]) for k in klines], dtype=float)
+    lows = np.array([float(k["low"]) for k in klines], dtype=float)
+    volumes = np.array([float(k["volume"]) for k in klines], dtype=float)
+
+    price = closes[-1]
+    ema9 = calc_ema(closes, 9)
+    ema20 = calc_ema(closes, 20)
+    ema21 = calc_ema(closes, 21)
+    ema50 = calc_ema(closes, 50)
+    ema200 = calc_ema(closes, 200 if len(closes) >= 200 else len(closes) - 1)
+
+    e9, e21, e50, e200 = ema9[-1], ema21[-1], ema50[-1], ema200[-1]
+    ema_slope = ((ema21[-1] - ema21[-5]) / (ema21[-5] + 1e-9)) * 100
+
+    ema_dir = 0.0
+    if e9 > e21: ema_dir += 30
+    else: ema_dir -= 30
+    if e21 > e50: ema_dir += 30
+    else: ema_dir -= 30
+    if price > e200: ema_dir += 25
+    else: ema_dir -= 25
+    ema_dir = float(np.clip(ema_dir + np.clip(ema_slope * 20, -15, 15), -100, 100))
+
+    rsi = calc_rsi(closes, 14)
+    ema12 = calc_ema(closes, 12)
+    ema26 = calc_ema(closes, 26)
+    macd_line = ema12 - ema26
+    signal_line = calc_ema(macd_line, 9)
+    macd_hist = macd_line[-1] - signal_line[-1]
+    adx = calc_adx(highs, lows, closes, 14)
+
+    mom_dir = 0.0
+    if 52 < rsi < 74: mom_dir += 40
+    elif rsi >= 74: mom_dir -= 20
+    elif 26 < rsi < 48: mom_dir -= 40
+    elif rsi <= 26: mom_dir += 20
+
+    if macd_hist > 0 and macd_line[-1] > signal_line[-1]:
+        mom_dir += 40
+    elif macd_hist < 0 and macd_line[-1] < signal_line[-1]:
+        mom_dir -= 40
+
+    adx_multiplier = 1.2 if adx >= 25 else 0.85
+    mom_dir = float(np.clip(mom_dir * adx_multiplier, -100, 100))
+
+    sma20 = np.mean(closes[-20:])
+    std20 = np.std(closes[-20:]) + 1e-9
+    bb_upper = sma20 + 2 * std20
+    bb_lower = sma20 - 2 * std20
+    bb_percent = ((price - bb_lower) / (bb_upper - bb_lower + 1e-9)) * 100
+    z_score = (price - sma20) / std20
+
+    x_idx = np.arange(20)
+    corr_matrix = np.corrcoef(x_idx, closes[-20:])
+    r_squared = float(corr_matrix[0, 1] ** 2) if not np.isnan(corr_matrix[0, 1]) else 0.0
+
+    vol_dir = 0.0
+    if 0.3 < z_score < 2.1: vol_dir += 50 * r_squared + 30
+    elif -2.1 < z_score < -0.3: vol_dir -= 50 * r_squared + 30
+    vol_dir = float(np.clip(vol_dir, -100, 100))
+
+    bid_vol = sum(float(b[1]) for b in (depth.get("bids", []) if depth else []))
+    ask_vol = sum(float(a[1]) for a in (depth.get("asks", []) if depth else []))
+    ob_imbalance = ((bid_vol - ask_vol) / (bid_vol + ask_vol + 1e-9)) * 100
+
+    funding_rate = float(premium.get("lastFundingRate", 0) or 0) * 100 if isinstance(premium, dict) else 0.0
+    vol_ratio = volumes[-1] / (np.mean(volumes[-20:]) + 1e-9)
+
+    calc_sentiment = float(np.clip(
+        ob_imbalance * 0.7 + (20 if vol_ratio > 1.3 and closes[-1] > closes[-2] else (-20 if vol_ratio > 1.3 else 0)),
+        -100,
+        100
+    ))
+    final_sentiment = float(custom_sentiment) if custom_sentiment is not None else calc_sentiment
+
+    w_ema = BRAIN_WEIGHTS["ema_weight"]
+    w_mom = BRAIN_WEIGHTS["momentum_weight"]
+    w_vol = BRAIN_WEIGHTS["volatility_weight"]
+    w_sent = BRAIN_WEIGHTS["sentiment_weight"]
+    total_w = max(w_ema + w_mom + w_vol + w_sent, 1)
+
+    composite_score = (
+        ema_dir * w_ema +
+        mom_dir * w_mom +
+        vol_dir * w_vol +
+        final_sentiment * w_sent
+    ) / total_w
+
+    raw_conf = min(abs(composite_score) * 1.15 + (r_squared * 12) + (min(adx, 40) * 0.25), 99.4)
+    confidence = round(float(raw_conf), 1)
+
+    min_conf = BRAIN_WEIGHTS["min_confidence"]
+    if composite_score > 18 and confidence >= min_conf:
+        signal = "STRONG LONG"
+    elif composite_score > 10:
+        signal = "LONG"
+    elif composite_score < -18 and confidence >= min_conf:
+        signal = "STRONG SHORT"
+    elif composite_score < -10:
+        signal = "SHORT"
+    else:
+        signal = "NEUTRAL / WAIT"
+
+    atr_series = calc_atr_series(highs, lows, closes, 14)
+    atr = float(atr_series[-1])
+    atr_pct = (atr / (price + 1e-9)) * 100
+    decimals = len(str(price).split(".")[1]) if "." in str(price) else 2
+    decimals = min(max(decimals, 2), 6)
+
+    early_setup = detect_early_entry_setup(
+        opens, highs, lows, closes, volumes, ema20, ema50, e200, atr_series, rsi, z_score
+    )
+
+    sl_m = float(BRAIN_WEIGHTS.get("sl_mult", 1.5))
+    tp1_m = float(BRAIN_WEIGHTS.get("tp1_mult", 2.2))
+    tp2_m = float(BRAIN_WEIGHTS.get("tp2_mult", 3.5))
+    tp3_m = float(BRAIN_WEIGHTS.get("tp3_mult", 5.0))
+
+    ref_dir = early_setup["direction"] if early_setup.get("direction") else ("LONG" if composite_score >= 0 else "SHORT")
+    if ref_dir == "LONG":
+        entry = round(price, decimals)
+        sl = round(price - sl_m * atr, decimals)
+        tp1 = round(price + tp1_m * atr, decimals)
+        tp2 = round(price + tp2_m * atr, decimals)
+        tp3 = round(price + tp3_m * atr, decimals)
+    else:
+        entry = round(price, decimals)
+        sl = round(price + sl_m * atr, decimals)
+        tp1 = round(price - tp1_m * atr, decimals)
+        tp2 = round(price - tp2_m * atr, decimals)
+        tp3 = round(price - tp3_m * atr, decimals)
+
+    stop_dist = max(abs(entry - sl), 1e-9)
+    rr_ratio = round(abs(tp2 - entry) / stop_dist, 2)
+    tp_plan = compute_tp_timeframe_plan(interval, adx)
+
+    exact_name = bingx_exact_name(real_symbol)
+    category = categorize_symbol(exact_name, real_symbol)
+    session_info = get_market_session_info(category, exact_name, real_symbol)
+
+    max_lev = CONTRACTS_CACHE["max_lev_map"].get(real_symbol, 50)
+    capital = float(BALANCE_STATE.get("balance_usdt", BRAIN_WEIGHTS.get("account_capital", 0.0)) or 0.0)
+    risk_pct = float(BRAIN_WEIGHTS.get("risk_per_trade_pct", 1.5))
+    rec_lev = calc_recommended_leverage(atr_pct, max_lev, capital)
+
+    entry_rule, recommended_params, certain_signal = evaluate_profit_math_and_entry(
+        symbol=real_symbol, signal=signal, confidence=confidence, rr_ratio=rr_ratio,
+        adx=adx, r_squared=r_squared, z_score=z_score, rsi=rsi,
+        min_conf=min_conf, capital=capital, risk_pct=risk_pct,
+        stop_dist=stop_dist, price=price, rec_leverage=rec_lev,
+        ema_dir=ema_dir, mom_dir=mom_dir, vol_dir=vol_dir, final_sentiment=final_sentiment,
+        session_info=session_info, early_setup=early_setup
+    )
+
+    result_obj = {
+        "symbol": real_symbol,
+        "bingx_name": exact_name,
+        "display_name": exact_name,
+        "category": category,
+        "session": session_info,
+        "early_setup": early_setup,
+        "timeframe": interval,
+        "price": price,
+        "signal": signal,
+        "certain_signal": certain_signal,
+        "entry_rule": entry_rule,
+        "recommended_params": recommended_params,
+        "tp_plan": tp_plan,
+        "composite_score": round(float(composite_score), 1),
+        "confidence": confidence,
+        "sentiment": round(final_sentiment, 1),
+        "account_balance": capital,
+        "indicators": {
+            "ema9": round(float(e9), decimals),
+            "ema21": round(float(e21), decimals),
+            "ema50": round(float(e50), decimals),
+            "ema200": round(float(e200), decimals),
+            "rsi": round(rsi, 2),
+            "macd_hist": round(float(macd_hist), decimals + 2),
+            "adx": round(adx, 2),
+            "bb_percent": round(float(bb_percent), 1),
+            "z_score": round(float(z_score), 2),
+            "r_squared": round(r_squared, 3),
+            "atr": round(atr, decimals),
+            "ob_imbalance": round(float(ob_imbalance), 1),
+            "funding_rate": round(funding_rate, 4)
+        },
+        "levels": {
+            "entry": entry,
+            "sl": sl,
+            "tp1": tp1,
+            "tp2": tp2,
+            "tp3": tp3,
+            "rr": rr_ratio
+        }
+    }
+    register_sound_alert_if_exact_moment(result_obj)
+    return result_obj
+
+
+def maybe_auto_execute_trade(analysis: dict):
+    if not BRAIN_WEIGHTS.get("auto_trade_enabled", False):
+        return
+    if not BINGX_API_KEY or not BINGX_SECRET_KEY:
+        return
+
+    bal = float(BALANCE_STATE.get("balance_usdt", 0.0) or 0.0)
+    if bal <= 0:
+        return
+
+    if not analysis.get("session", {}).get("session_ok", True):
+        return
+
+    total_open_pnl = sum(p.get("unrealized_pnl", 0.0) for p in AUTO_SCAN_STATE["open_positions"].values())
+    if total_open_pnl <= -abs(float(BRAIN_WEIGHTS.get("max_daily_loss_usdt", 100.0))):
+        return
+
+    certain = analysis.get("certain_signal")
+    early = analysis.get("early_setup", {})
+    sig = analysis.get("signal", "")
+    action = analysis.get("entry_rule", {}).get("action", "")
+
+    is_valid_entry = (
+        (certain is not None)
+        or (early.get("trigger_sound") and action == "ENTER NOW")
+        or (action == "ENTER NOW" and sig in ("STRONG LONG", "STRONG SHORT"))
+    )
+    if not is_valid_entry:
+        return
+
+    sym = analysis["symbol"]
+    if sym in AUTO_SCAN_STATE["open_positions"]:
+        return
+
+    now = time.time()
+    cooldown = int(BRAIN_WEIGHTS.get("auto_trade_cooldown_sec", 300))
+    last_ts = AUTO_SCAN_STATE["last_auto_trade"].get(sym, 0)
+    if now - last_ts < cooldown:
+        return
+
+    rp = analysis.get("recommended_params", {})
+    qty = float(rp.get("qty", 0) or 0)
+    if qty <= 0:
+        return
+
+    chosen_dir = certain or early.get("direction") or sig
+    side = "BUY" if "LONG" in chosen_dir else "SELL"
+    sl = analysis["levels"]["sl"]
+    tp = analysis["levels"]["tp2"]
+    lev = rp.get("leverage", 10)
+
+    AUTO_SCAN_STATE["last_auto_trade"][sym] = now
+    place_bingx_real_order(sym, side, qty, sl, tp, leverage=lev)
+
+
+def auto_market_monitor_loop():
+    AUTO_SCAN_STATE["running"] = True
+    while True:
+        try:
+            sync_bingx_balance_realtime()
+            if BRAIN_WEIGHTS.get("auto_monitor_enabled", True):
+                contracts = get_all_bingx_contracts()
+                top_symbols = [c["symbol"] for c in contracts[:25]]
+                interval = AUTO_SCAN_STATE.get("interval", "15m")
+                updated = dict(AUTO_SCAN_STATE["signals"])
+                for sym in top_symbols:
+                    res = analyze_symbol_math(sym, interval)
+                    if res:
+                        updated[sym] = res
+                        maybe_auto_execute_trade(res)
+                    time.sleep(0.15)
+
+                AUTO_SCAN_STATE["signals"] = updated
+                AUTO_SCAN_STATE["open_positions"] = fetch_open_bingx_positions(updated)
+                AUTO_SCAN_STATE["last_run"] = time.strftime("%H:%M:%S")
+        except Exception as e:
+            print(f"[AutoMonitor Error] {e}")
+
+        sleep_sec = max(8, int(BRAIN_WEIGHTS.get("auto_scan_interval", 20)))
+        time.sleep(sleep_sec)
+
+
+monitor_thread = threading.Thread(target=auto_market_monitor_loop, daemon=True)
+monitor_thread.start()
+
+
+@app.route("/")
+def index():
+    return render_template("index.html")
+
+
+@app.route("/api/keys", methods=["GET", "POST"])
+def api_keys():
+    global BINGX_API_KEY, BINGX_SECRET_KEY
+    if request.method == "POST":
+        data = request.json or {}
+        ak = (data.get("api_key") or "").strip()
+        sk = (data.get("secret_key") or "").strip()
+        if not ak or not sk:
+            return jsonify({"status": "error", "msg": "Inserisci sia API Key che Secret Key"}), 400
+        BINGX_API_KEY = ak
+        BINGX_SECRET_KEY = sk
+        save_keys_to_disk(ak, sk)
+        bal_info = sync_bingx_balance_realtime()
+        AUTO_SCAN_STATE["open_positions"] = fetch_open_bingx_positions(AUTO_SCAN_STATE["signals"])
+        return jsonify({
+            "status": "ok",
+            "msg": f"Chiavi API BingX salvate! Saldo attuale: {bal_info['balance_usdt']:.2f} USDT"
+        })
+
+    masked_key = f"{BINGX_API_KEY[:6]}...{BINGX_API_KEY[-4:]}" if len(BINGX_API_KEY) > 10 else ("Configurata" if BINGX_API_KEY else "Non impostata")
+    masked_sec = f"{BINGX_SECRET_KEY[:4]}...{BINGX_SECRET_KEY[-4:]}" if len(BINGX_SECRET_KEY) > 8 else ("Configurata" if BINGX_SECRET_KEY else "Non impostata")
+    return jsonify({
+        "status": "ok",
+        "has_keys": bool(BINGX_API_KEY and BINGX_SECRET_KEY),
+        "masked_api_key": masked_key,
+        "masked_secret_key": masked_sec
+    })
+
+
+@app.route("/api/markets")
+def api_markets():
+    force = request.args.get("force", "0") == "1"
+    contracts = get_all_bingx_contracts(force=force)
+    for c in contracts:
+        c["session"] = get_market_session_info(c["category"], c["bingxName"], c["symbol"])
+    return jsonify({"status": "ok", "count": len(contracts), "markets": contracts})
+
+
+@app.route("/api/close_position", methods=["POST"])
+def api_close_position():
+    data = request.json or {}
+    sym = data.get("symbol")
+    side = data.get("side")
+    qty = data.get("quantity")
+    if not all([sym, side, qty]):
+        return jsonify({"status": "error", "msg": "Dati chiusura mancanti"}), 400
+    res = close_bingx_position(sym, side, qty)
+    AUTO_SCAN_STATE["open_positions"] = fetch_open_bingx_positions(AUTO_SCAN_STATE["signals"])
+    return jsonify(res)
+
+
+@app.route("/api/auto_monitor_status", methods=["GET", "POST"])
+def api_auto_monitor_status():
+    profile = None
+    if request.method == "POST":
+        data = request.json or {}
+        if "enabled" in data:
+            BRAIN_WEIGHTS["auto_monitor_enabled"] = bool(data["enabled"])
+        if "auto_trade_enabled" in data:
+            BRAIN_WEIGHTS["auto_trade_enabled"] = bool(data["auto_trade_enabled"])
+        if "interval" in data:
+            AUTO_SCAN_STATE["interval"] = data["interval"]
+            if data.get("apply_profile", True):
+                profile = apply_timeframe_profile(data["interval"])
+        if "scan_interval_sec" in data:
+            BRAIN_WEIGHTS["auto_scan_interval"] = max(8, int(data["scan_interval_sec"]))
+
+    bal_info = sync_bingx_balance_realtime()
+    positions = fetch_open_bingx_positions(AUTO_SCAN_STATE["signals"])
+    AUTO_SCAN_STATE["open_positions"] = positions
+
+    return jsonify({
+        "status": "ok",
+        "running": AUTO_SCAN_STATE["running"],
+        "enabled": BRAIN_WEIGHTS.get("auto_monitor_enabled", True),
+        "auto_trade_enabled": BRAIN_WEIGHTS.get("auto_trade_enabled", False),
+        "last_run": AUTO_SCAN_STATE["last_run"],
+        "interval": AUTO_SCAN_STATE["interval"],
+        "profile": profile or TIMEFRAME_PROFILES.get(AUTO_SCAN_STATE["interval"]),
+        "weights": BRAIN_WEIGHTS,
+        "scan_interval_sec": BRAIN_WEIGHTS.get("auto_scan_interval", 20),
+        "balance_info": bal_info,
+        "signals": AUTO_SCAN_STATE["signals"],
+        "open_positions": positions,
+        "trade_logs": AUTO_SCAN_STATE["trade_logs"],
+        "audio_alerts": AUTO_SCAN_STATE["audio_alerts"]
+    })
+
+
+@app.route("/api/analyze", methods=["GET", "POST"])
+def api_analyze():
+    if request.method == "POST":
+        data = request.json or {}
+        symbol = data.get("symbol", "BTC-USDT")
+        interval = data.get("interval", "15m")
+        custom_sentiment = data.get("custom_sentiment", None)
+    else:
+        symbol = request.args.get("symbol", "BTC-USDT")
+        interval = request.args.get("interval", "15m")
+        custom_sentiment = None
+
+    res = analyze_symbol_math(symbol, interval, custom_sentiment)
+    if not res:
+        return jsonify({"status": "error", "msg": "Contratto non trovato o dati insufficienti su BingX"}), 400
+    return jsonify({"status": "ok", "data": res, "audio_alerts": AUTO_SCAN_STATE["audio_alerts"]})
+
+
+@app.route("/api/scan_top", methods=["POST"])
+def api_scan_top():
+    data = request.json or {}
+    symbols = data.get("symbols", [])
+    interval = data.get("interval", "15m")
+    overrides = data.get("overrides", {})
+
+    results = []
+    for sym in symbols[:30]:
+        ov = overrides.get(sym, {})
+        custom_sent = ov.get("sentiment", None)
+        analysis = analyze_symbol_math(sym, interval, custom_sent)
+        if analysis:
+            if "score_override" in ov and ov["score_override"] is not None:
+                analysis["composite_score"] = float(ov["score_override"])
+                analysis["confidence"] = min(round(abs(analysis["composite_score"]) * 1.15, 1), 99.9)
+            results.append(analysis)
+    return jsonify({"status": "ok", "signals": results, "audio_alerts": AUTO_SCAN_STATE["audio_alerts"]})
+
+
+@app.route("/api/weights", methods=["GET", "POST"])
+def api_weights():
+    if request.method == "POST":
+        data = request.json or {}
+        for k in BRAIN_WEIGHTS:
+            if k in data:
+                if k in ("auto_monitor_enabled", "auto_trade_enabled"):
+                    BRAIN_WEIGHTS[k] = bool(data[k])
+                else:
+                    BRAIN_WEIGHTS[k] = float(data[k])
+    return jsonify({"status": "ok", "weights": BRAIN_WEIGHTS})
+
+
+@app.route("/api/account_balance")
+def api_account_balance():
+    info = sync_bingx_balance_realtime()
+    return jsonify({
+        "status": "ok" if info.get("source") == "bingx_live" else "error",
+        "balance": info["balance_usdt"],
+        "available": info["available_usdt"],
+        "unrealized_pnl": info["unrealized_pnl_usdt"],
+        "equity": info["equity_usdt"],
+        "last_sync": info["last_sync"],
+        "error": info.get("last_error")
+    })
+
+
+@app.route("/api/execute_order", methods=["POST"])
+def api_execute_order():
+    data = request.json or {}
+    symbol = data.get("symbol", "")
+    side = data.get("side")
+    quantity = data.get("quantity")
+    sl = data.get("sl")
+    tp = data.get("tp")
+    leverage = data.get("leverage")
+
+    if not all([symbol, side, quantity]):
+        return jsonify({"status": "error", "msg": "Parametri ordine incompleti"}), 400
+
+    res = place_bingx_real_order(symbol, side, quantity, sl, tp, leverage=leverage)
+    AUTO_SCAN_STATE["open_positions"] = fetch_open_bingx_positions(AUTO_SCAN_STATE["signals"])
+    return jsonify(res)
+
+
+if __name__ == "__main__":
+    port = int(os.getenv("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=False)
