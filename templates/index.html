@@ -18,7 +18,7 @@
       gap: 10px;
     }
     .panel { width: 100%; max-width: 430px; }
-    .tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+    .tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 6px; }
     .tab-btn {
       padding: 6px 10px;
       border-radius: 10px;
@@ -30,6 +30,7 @@
       cursor: pointer;
     }
     .tab-btn.active { background: #2563eb; border-color: #60a5fa; }
+    .cat-btn.active { background: #0f766e; border-color: #2dd4bf; }
     .card {
       width: 100%;
       max-width: 430px;
@@ -116,16 +117,26 @@
       padding: 5px;
       font-size: 12px;
     }
+    .btn-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+    .btn-lock {
+      background: #d97706;
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      padding: 11px;
+      font-size: 12px;
+      font-weight: 800;
+      cursor: pointer;
+    }
     .btn-save {
-      width: 100%;
       background: #2563eb;
       color: #fff;
       border: none;
-      border-radius: 10px;
-      padding: 9px;
+      border-radius: 12px;
+      padding: 11px;
+      font-size: 12px;
       font-weight: 800;
       cursor: pointer;
-      margin-top: 6px;
     }
     .btn-copy {
       width: 100%;
@@ -138,25 +149,44 @@
       font-weight: 800;
       cursor: pointer;
     }
+    .mon-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 7px 9px;
+      border-radius: 10px;
+      background: #0b1220;
+      border: 1px solid #1e293b;
+      margin-bottom: 6px;
+      font-size: 11px;
+      cursor: pointer;
+    }
+    .lock-item {
+      background: #1a1508;
+      border: 1px solid #b45309;
+      border-radius: 10px;
+      padding: 8px 10px;
+      margin-bottom: 6px;
+      font-size: 11px;
+    }
   </style>
 </head>
 <body>
   <div class="panel">
-    <div class="tabs" id="assetTabs">
-      <button type="button" data-sym="BTC-USDT" class="tab-btn active">BTC</button>
-      <button type="button" data-sym="EUR-USDT" class="tab-btn">EURUSDT</button>
-      <button type="button" data-sym="XAU-USDT" class="tab-btn">ORO</button>
-      <button type="button" data-sym="OIL-USDT" class="tab-btn">PETROLIO</button>
-      <button type="button" data-sym="TSLA-USDT" class="tab-btn">TSLA</button>
-      <button type="button" data-sym="NVDA-USDT" class="tab-btn">NVDA</button>
+    <div class="tabs" id="categoryTabs">
+      <button type="button" data-cat="Crypto" class="tab-btn cat-btn active">CRYPTO</button>
+      <button type="button" data-cat="Forex" class="tab-btn cat-btn">FOREX</button>
+      <button type="button" data-cat="Materie prime" class="tab-btn cat-btn">MATERIE PRIME</button>
+      <button type="button" data-cat="Azioni" class="tab-btn cat-btn">AZIONI</button>
     </div>
+    <div class="tabs" id="symbolTabs"></div>
   </div>
 
   <div class="card">
     <div class="top-bar">
       <div>
         <strong id="symbolTitle">BTC</strong> · <span id="wrText">WR 77%</span>
-        <div id="dirBadge" style="color:#22c55e;font-size:12px;font-weight:700;margin-top:2px;">▲ LONG · SCORE --</div>
+        <div id="dirBadge" style="color:#22c55e;font-size:12px;font-weight:700;margin-top:2px;">▲ NEUTRAL · SCORE --</div>
       </div>
       <span class="badge-top" id="catBadge">💎 CRYPTO</span>
     </div>
@@ -207,8 +237,9 @@
       <div class="risk-title" id="riskTitle">⛔ CONTROLLO RISCHIO & ANTI-FAKE</div>
       <div class="risk-sub" id="riskReason">Motivo: --</div>
       <div style="font-size:11px;color:#fcd34d;margin-top:4px;" id="antiFakeStatus">Anti-Fake: --</div>
+      <div style="font-size:11px;color:#93c5fd;margin-top:4px;" id="slTpInfo">SL: -- | TP: --</div>
       <div class="timer-row">
-        <span id="timerLabel">⏱ TEMPO RESIDUO</span>
+        <span id="timerLabel">⏱ CHIUSURA CANDELA</span>
         <span id="validityInfo">● VALIDO --% · --:--</span>
       </div>
       <div class="bar-bg" style="margin-top:6px;">
@@ -222,30 +253,21 @@
     </div>
 
     <div class="grid-4">
-      <div class="stat-box">
-        <div class="stat-val" style="color:#38bdf8;" id="rsiVal">--</div>
-        <div class="stat-lbl">RSI</div>
-      </div>
-      <div class="stat-box">
-        <div class="stat-val" style="color:#22c55e;" id="whaleVal">--%</div>
-        <div class="stat-lbl">BALENE</div>
-      </div>
-      <div class="stat-box">
-        <div class="stat-val" style="color:#f87171;" id="bearVal">--%</div>
-        <div class="stat-lbl">ORSI</div>
-      </div>
-      <div class="stat-box">
-        <div class="stat-val" style="color:#fbbf24;" id="scoreVal">--</div>
-        <div class="stat-lbl">SCORE</div>
-      </div>
+      <div class="stat-box"><div class="stat-val" style="color:#38bdf8;" id="rsiVal">--</div><div class="stat-lbl">RSI</div></div>
+      <div class="stat-box"><div class="stat-val" style="color:#22c55e;" id="whaleVal">--%</div><div class="stat-lbl">BALENE</div></div>
+      <div class="stat-box"><div class="stat-val" style="color:#f87171;" id="bearVal">--%</div><div class="stat-lbl">ORSI</div></div>
+      <div class="stat-box"><div class="stat-val" style="color:#fbbf24;" id="scoreVal">--</div><div class="stat-lbl">SCORE</div></div>
+    </div>
+
+    <div class="btn-row">
+      <button id="lockSignalBtn" class="btn-lock" type="button">🔒 BLOCCA SEGNALE CERTO</button>
+      <button id="saveParamsBtn" class="btn-save" type="button">💾 SALVA PARAMETRI</button>
     </div>
 
     <div class="cfg-box">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
         <strong>SCORE MINIMO: <span id="minScoreLabel">65</span></strong>
-        <label style="font-size:11px;">
-          <input id="antiFakeChk" type="checkbox" checked /> Anti-Fake Attivo
-        </label>
+        <label style="font-size:11px;"><input id="antiFakeChk" type="checkbox" checked /> Anti-Fake Attivo</label>
       </div>
       <input id="minScoreInput" type="range" min="0" max="100" value="65" style="width:100%;margin-bottom:8px;" />
 
@@ -270,14 +292,24 @@
           </div>
         </div>
       </div>
-
-      <button id="saveParamsBtn" class="btn-save" type="button">💾 SALVA SCORE E PARAMETRI</button>
     </div>
 
     <button class="btn-copy" id="copyBingxBtn" type="button">📋 COPIA SEGNALE PER APP BINGX</button>
+
+    <div class="cfg-box" style="margin-top:12px;margin-bottom:10px;">
+      <strong id="monitorTitle">📡 MONITORAGGIO CATEGORIA: CRYPTO</strong>
+      <div id="categoryMonitorList" style="margin-top:8px;"></div>
+    </div>
+
+    <div class="cfg-box" style="margin-bottom:0;">
+      <strong>🔒 SEGNALI CERTI BLOCCATI</strong>
+      <div id="lockedSignalsList" style="margin-top:8px;"></div>
+    </div>
   </div>
 
   <script>
+    let catalogGrouped = {};
+    let currentCategory = "Crypto";
     let currentSymbol = "BTC-USDT";
     let currentTimeframe = "15m";
     let latestData = null;
@@ -292,23 +324,101 @@
       needle.setAttribute("y2", y2.toFixed(1));
     }
 
-    async function loadInitialConfig() {
+    function renderSymbolTabs() {
+      const wrap = document.getElementById("symbolTabs");
+      wrap.innerHTML = "";
+      const list = catalogGrouped[currentCategory] || [];
+      list.forEach((item, idx) => {
+        if (idx === 0 && !list.some((x) => x.symbol === currentSymbol)) {
+          currentSymbol = item.symbol;
+        }
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "tab-btn" + (item.symbol === currentSymbol ? " active" : "");
+        btn.textContent = item.label;
+        btn.addEventListener("click", () => {
+          currentSymbol = item.symbol;
+          renderSymbolTabs();
+          pollTicker();
+        });
+        wrap.appendChild(btn);
+      });
+    }
+
+    async function loadCatalogAndConfig() {
+      const [catRes, cfgRes, locksRes] = await Promise.all([
+        fetch("/api/catalog"),
+        fetch("/api/config"),
+        fetch("/api/locked-signals"),
+      ]);
+      const catJson = await catRes.json();
+      catalogGrouped = catJson.grouped || {};
+      renderSymbolTabs();
+
+      const cfg = await cfgRes.json();
+      document.getElementById("minScoreInput").value = cfg.min_signal_score ?? 65;
+      document.getElementById("minScoreLabel").textContent = cfg.min_signal_score ?? 65;
+      document.getElementById("rsiPeriodInput").value = cfg.rsi_period ?? 14;
+      document.getElementById("macdFastInput").value = cfg.macd_fast ?? 12;
+      document.getElementById("macdSlowInput").value = cfg.macd_slow ?? 26;
+      document.getElementById("macdSigInput").value = cfg.macd_signal ?? 9;
+      document.getElementById("emaFastInput").value = cfg.ema_fast ?? 20;
+      document.getElementById("emaSlowInput").value = cfg.ema_slow ?? 50;
+      document.getElementById("antiFakeChk").checked = cfg.anti_fake_enabled ?? true;
+
+      const locksJson = await locksRes.json();
+      renderLockedSignals(locksJson.all || []);
+    }
+
+    function renderLockedSignals(list) {
+      const el = document.getElementById("lockedSignalsList");
+      if (!list.length) {
+        el.innerHTML = `<div style="color:#94a3b8;font-size:11px;">Nessun segnale bloccato al momento.</div>`;
+        return;
+      }
+      el.innerHTML = list.map((s) => `
+        <div class="lock-item">
+          <div style="display:flex;justify-content:space-between;font-weight:800;">
+            <span>🔒 ${s.label} (${s.timeframe}) · ${s.side}</span>
+            <span style="color:#fbbf24;">SCORE ${s.score}</span>
+          </div>
+          <div style="color:#fde68a;margin-top:3px;">
+            Entry: ${s.entry ?? "--"} | SL: ${s.sl ?? "--"} | TP: ${s.tp ?? "--"}
+          </div>
+          <div style="color:#94a3b8;font-size:10px;margin-top:2px;">
+            Bloccato alle ${s.lockedAt} · Chiusura candela ${s.candleClose}
+          </div>
+        </div>
+      `).join("");
+    }
+
+    async function pollCategoryMonitor() {
       try {
-        const r = await fetch("/api/config");
-        const cfg = await r.json();
-        document.getElementById("minScoreInput").value = cfg.min_signal_score ?? 65;
-        document.getElementById("minScoreLabel").textContent = cfg.min_signal_score ?? 65;
-        document.getElementById("rsiPeriodInput").value = cfg.rsi_period ?? 14;
-        document.getElementById("macdFastInput").value = cfg.macd_fast ?? 12;
-        document.getElementById("macdSlowInput").value = cfg.macd_slow ?? 26;
-        document.getElementById("macdSigInput").value = cfg.macd_signal ?? 9;
-        document.getElementById("emaFastInput").value = cfg.ema_fast ?? 20;
-        document.getElementById("emaSlowInput").value = cfg.ema_slow ?? 50;
-        document.getElementById("antiFakeChk").checked = cfg.anti_fake_enabled ?? true;
+        const res = await fetch(`/api/monitor-category?category=${encodeURIComponent(currentCategory)}&timeframe=${encodeURIComponent(currentTimeframe)}`);
+        const data = await res.json();
+        document.getElementById("monitorTitle").textContent = `📡 MONITORAGGIO CATEGORIA: ${data.category.toUpperCase()} (${data.timeframe})`;
+        const wrap = document.getElementById("categoryMonitorList");
+        wrap.innerHTML = (data.items || []).map((it) => {
+          const dec = Number.isInteger(it.priceDecimals) ? it.priceDecimals : 2;
+          const color = it.signalSide === "BUY" ? "#22c55e" : (it.signalSide === "SELL" ? "#ef4444" : "#fbbf24");
+          const lockTag = it.isCertainSignal ? " · 🔒 CERTO" : (it.isFalseSignal ? " · ⚠️ FAKE" : "");
+          return `
+            <div class="mon-item" onclick="selectFromMonitor('${it.symbol}')">
+              <span><strong>${it.label}</strong> ($${Number(it.lastPrice).toFixed(dec)})</span>
+              <span style="color:${color};font-weight:800;">${it.signalSide} (${it.signalScore})${lockTag}</span>
+            </div>
+          `;
+        }).join("");
       } catch (e) {
         console.error(e);
       }
     }
+
+    window.selectFromMonitor = function(sym) {
+      currentSymbol = sym;
+      renderSymbolTabs();
+      pollTicker();
+    };
 
     async function pollTicker() {
       try {
@@ -341,10 +451,10 @@
         document.getElementById("riskReason").textContent = `Motivo: ${d.riskReason}`;
 
         const af = d.antiFake || {};
-        const afText = af.isFalseSignal
+        document.getElementById("antiFakeStatus").textContent = af.isFalseSignal
           ? `Anti-Fake: BLOCCATO (${af.fakeBreakout}, penalità -${af.penaltyScore})`
           : `Anti-Fake: OK (penalità -${af.penaltyScore ?? 0})`;
-        document.getElementById("antiFakeStatus").textContent = afText;
+        document.getElementById("slTpInfo").textContent = `SL: ${d.suggestedSL ?? "--"} | TP: ${d.suggestedTP ?? "--"}`;
 
         document.getElementById("timerLabel").textContent = `⏱ CHIUSURA CANDELA (${d.timeframe})`;
         document.getElementById("validityInfo").textContent = `● VALIDO ${d.validityPct}% · ${d.remainingText}`;
@@ -380,22 +490,40 @@
       }
     }
 
-    document.querySelectorAll(".tab-btn[data-sym]").forEach((btn) => {
+    document.querySelectorAll(".cat-btn").forEach((btn) => {
       btn.addEventListener("click", () => {
-        document.querySelectorAll(".tab-btn[data-sym]").forEach((b) => b.classList.remove("active"));
+        document.querySelectorAll(".cat-btn").forEach((b) => b.classList.remove("active"));
         btn.classList.add("active");
-        currentSymbol = btn.getAttribute("data-sym");
+        currentCategory = btn.getAttribute("data-cat");
+        renderSymbolTabs();
         pollTicker();
+        pollCategoryMonitor();
       });
     });
 
     document.getElementById("tfSelect").addEventListener("change", (e) => {
       currentTimeframe = e.target.value;
       pollTicker();
+      pollCategoryMonitor();
     });
 
     document.getElementById("minScoreInput").addEventListener("input", (e) => {
       document.getElementById("minScoreLabel").textContent = e.target.value;
+    });
+
+    document.getElementById("lockSignalBtn").addEventListener("click", async () => {
+      const res = await fetch("/api/locked-signals", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ symbol: currentSymbol, timeframe: currentTimeframe }),
+      });
+      const out = await res.json();
+      if (out.status === "locked") {
+        renderLockedSignals(out.all || []);
+        alert(`Segnale bloccato su ${out.signal.label} (${out.signal.side})!`);
+      } else {
+        alert(out.reason || "Segnale non bloccabile al momento.");
+      }
     });
 
     document.getElementById("saveParamsBtn").addEventListener("click", async () => {
@@ -415,15 +543,15 @@
         body: JSON.stringify(payload),
       });
       pollTicker();
+      pollCategoryMonitor();
     });
 
     document.getElementById("copyBingxBtn").addEventListener("click", async () => {
       if (!latestData) return;
-      const ind = latestData.indicators || {};
       const txt = [
         `${latestData.symbol} (${latestData.timeframe}) | ${latestData.signalSide}`,
         `Prezzo: ${latestData.lastPrice} | Score: ${latestData.signalScore}/${latestData.minSignalScore}`,
-        `RSI(${ind.rsiPeriod}): ${ind.rsi} | MACD: ${ind.macdStatus} | ATR: ${ind.atr}`,
+        `SL: ${latestData.suggestedSL ?? "--"} | TP: ${latestData.suggestedTP ?? "--"}`,
         `Chiusura candela: ${latestData.closeTimeLocal}`,
       ].join("\n");
       await navigator.clipboard.writeText(txt);
@@ -433,9 +561,11 @@
       setTimeout(() => { btn.textContent = prev; }, 1500);
     });
 
-    loadInitialConfig().then(() => {
+    loadCatalogAndConfig().then(() => {
       pollTicker();
+      pollCategoryMonitor();
       setInterval(pollTicker, 3000);
+      setInterval(pollCategoryMonitor, 7000);
     });
   </script>
 </body>
