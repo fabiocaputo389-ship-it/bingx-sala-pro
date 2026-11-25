@@ -95,6 +95,7 @@
       border: 1px solid var(--border);
       border-radius: 10px;
       padding: 12px;
+      margin-bottom: 10px;
     }
     .card-header {
       display: flex;
@@ -131,6 +132,40 @@
     .ticket-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
     .pos-up { color: var(--green); }
     .pos-dn { color: var(--red); }
+
+    .room-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(275px, 1fr));
+      gap: 8px;
+    }
+    .room-card {
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px;
+    }
+    .room-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+    .room-levels {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 4px;
+      font-size: 11px;
+      margin-bottom: 6px;
+    }
+    .room-foot {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 10px;
+      color: var(--muted);
+      border-top: 1px solid #1d283b;
+      padding-top: 6px;
+    }
 
     .table-wrap {
       background: var(--panel);
@@ -233,7 +268,7 @@
   </div>
 
   <div class="pro-grid">
-    <div class="card">
+    <div class="card" style="margin-bottom:0;">
       <div class="card-header">
         <span class="card-title" id="chart-title">LIVE PRICE & LEVELS — BTC-USDT</span>
         <span id="chart-signal" class="sig-badge sig-neu">NEUTRAL</span>
@@ -247,7 +282,7 @@
       </div>
     </div>
 
-    <div class="card">
+    <div class="card" style="margin-bottom:0;">
       <div class="card-header">
         <span class="card-title">EXECUTION TICKET & POSITIONS</span>
         <span id="ticket-sym" style="color:var(--gold);font-weight:700;">BTC-USDT</span>
@@ -277,6 +312,16 @@
         <button class="btn-sell" onclick="sendOrder('SELL')">SHORT / SELL</button>
       </div>
       <div id="pos-list" style="margin-top:10px;font-size:11px;color:var(--muted);">Nessuna posizione aperta.</div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:10px;">
+    <div class="card-header">
+      <span class="card-title">VIP SIGNAL ROOM — SEGNALI ISTITUZIONALI LIVE</span>
+      <span id="room-count" class="pill pill-live">0 SIGNALS</span>
+    </div>
+    <div id="signal-room-grid" class="room-grid">
+      <div style="color:var(--muted);">In attesa di setup ad alta confidenza su BingX...</div>
     </div>
   </div>
 
@@ -371,6 +416,14 @@
       renderTable();
     }
 
+    function loadSignalToTicket(sym, bxSide, lev, tp3, sl) {
+      selectPair(sym, false);
+      document.getElementById("t-lev").value = lev;
+      if (tp3 > 0) document.getElementById("t-tp").value = tp3;
+      if (sl > 0) document.getElementById("t-sl").value = sl;
+      showToast(`Segnale ${sym} (${bxSide}) caricato nel Ticket`);
+    }
+
     function drawChart(row) {
       const canvas = document.getElementById("price-canvas");
       const ctx = canvas.getContext("2d");
@@ -389,7 +442,6 @@
 
       const yOf = v => h - 18 - ((v - minV) / span) * (h - 36);
 
-      // Griglia orizzontale
       ctx.strokeStyle = "#172030";
       ctx.lineWidth = 1;
       for (let i = 1; i <= 3; i++) {
@@ -397,7 +449,6 @@
         ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(w, gy); ctx.stroke();
       }
 
-      // Linee TP & SL
       if (row.tp > 0) {
         const ytp = yOf(row.tp);
         ctx.strokeStyle = "#00e676"; ctx.setLineDash([5, 4]);
@@ -414,7 +465,6 @@
       }
       ctx.setLineDash([]);
 
-      // Curva prezzo
       ctx.strokeStyle = "#38bdf8";
       ctx.lineWidth = 2;
       ctx.beginPath();
@@ -425,6 +475,47 @@
         else ctx.lineTo(x, y);
       });
       ctx.stroke();
+    }
+
+    function renderSignalRoom(roomList) {
+      const grid = document.getElementById("signal-room-grid");
+      document.getElementById("room-count").textContent = `${(roomList || []).length} SIGNALS`;
+      if (!roomList || !roomList.length) {
+        grid.innerHTML = `<div style="color:var(--muted);">Nessun segnale attivo al momento.</div>`;
+        return;
+      }
+
+      grid.innerHTML = roomList.slice(0, 8).map(item => {
+        const isLong = item.side === "LONG";
+        const dirCol = isLong ? "pos-up" : "pos-dn";
+        const stCol = item.status.includes("TP") ? "pos-up" : (item.status.includes("SL") ? "pos-dn" : "pill-warn");
+        return `
+          <div class="room-card">
+            <div class="room-top">
+              <div>
+                <strong style="font-size:13px;">${item.symbol}</strong>
+                <span class="${dirCol}" style="font-weight:800;margin-left:6px;">${item.signal} (${item.leverage}x)</span>
+              </div>
+              <span class="pill ${stCol}">${item.status}</span>
+            </div>
+            <div class="room-levels">
+              <div><span style="color:var(--muted);">Entry:</span> <strong>${item.entry}</strong></div>
+              <div><span style="color:var(--muted);">SL:</span> <strong class="pos-dn">${item.sl}</strong></div>
+              <div><span style="color:var(--muted);">R:R:</span> <strong>1:${item.rr}</strong></div>
+              <div><span style="color:var(--muted);">TP1:</span> <strong class="pos-up">${item.tp1}</strong></div>
+              <div><span style="color:var(--muted);">TP2:</span> <strong class="pos-up">${item.tp2}</strong></div>
+              <div><span style="color:var(--muted);">TP3:</span> <strong class="pos-up">${item.tp3}</strong></div>
+            </div>
+            <div class="room-foot">
+              <span>${item.time} · ${item.tf} · Conf ${item.confidence}% · Risk ${item.risk_pct}%</span>
+              <button class="${isLong ? "btn-buy" : "btn-sell"}" style="padding:4px 8px;font-size:10px;"
+                onclick="loadSignalToTicket('${item.symbol}','${item.bx_side}',${item.leverage},${item.tp3},${item.sl})">
+                LOAD ${item.side}
+              </button>
+            </div>
+          </div>
+        `;
+      }).join("");
     }
 
     function renderTable() {
@@ -565,6 +656,7 @@
           }
         });
 
+        renderSignalRoom(data.signal_room || []);
         renderTable();
         selectPair(selectedSymbol, false);
       } catch (err) {
