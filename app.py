@@ -17,6 +17,7 @@ SECRET_KEY = os.getenv("BINGX_SECRET_KEY", "")
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_PATH = os.path.join(BASE_DIR, "config", "runtime_config.json")
+LOCKS_PATH = os.path.join(BASE_DIR, "data", "locked_signals.json")
 
 TIMEFRAME_SECONDS = {
     "1m": 60,
@@ -27,17 +28,44 @@ TIMEFRAME_SECONDS = {
     "1d": 86400,
 }
 
+# Catalogo organizzato per categoria
 ASSET_CATALOG = {
+    # CRYPTO PIÙ FORTI
     "BTC-USDT": {"label": "BTC", "category": "Crypto", "price_decimals": 2, "win_rate": 77},
+    "ETH-USDT": {"label": "ETH", "category": "Crypto", "price_decimals": 2, "win_rate": 75},
+    "SOL-USDT": {"label": "SOL", "category": "Crypto", "price_decimals": 2, "win_rate": 74},
+    "BNB-USDT": {"label": "BNB", "category": "Crypto", "price_decimals": 2, "win_rate": 76},
+    "XRP-USDT": {"label": "XRP", "category": "Crypto", "price_decimals": 4, "win_rate": 72},
+    "DOGE-USDT": {"label": "DOGE", "category": "Crypto", "price_decimals": 5, "win_rate": 70},
+    "ADA-USDT": {"label": "ADA", "category": "Crypto", "price_decimals": 4, "win_rate": 71},
+    "AVAX-USDT": {"label": "AVAX", "category": "Crypto", "price_decimals": 2, "win_rate": 72},
+    "LINK-USDT": {"label": "LINK", "category": "Crypto", "price_decimals": 3, "win_rate": 73},
+    "SUI-USDT": {"label": "SUI", "category": "Crypto", "price_decimals": 4, "win_rate": 73},
+
+    # FOREX (incluso EURUSDT)
     "EUR-USDT": {"label": "EURUSDT", "category": "Forex", "price_decimals": 5, "win_rate": 74},
+    "GBP-USDT": {"label": "GBPUSDT", "category": "Forex", "price_decimals": 5, "win_rate": 72},
+    "USDJPY-USDT": {"label": "USDJPY", "category": "Forex", "price_decimals": 3, "win_rate": 71},
+    "AUD-USDT": {"label": "AUDUSDT", "category": "Forex", "price_decimals": 5, "win_rate": 70},
+
+    # MATERIE PRIME
     "XAU-USDT": {"label": "ORO (XAU)", "category": "Materie prime", "price_decimals": 2, "win_rate": 75},
+    "XAG-USDT": {"label": "ARGENTO", "category": "Materie prime", "price_decimals": 3, "win_rate": 72},
     "OIL-USDT": {"label": "PETROLIO", "category": "Materie prime", "price_decimals": 3, "win_rate": 71},
+    "NATGAS-USDT": {"label": "GAS NAT.", "category": "Materie prime", "price_decimals": 3, "win_rate": 69},
+
+    # AZIONI
     "TSLA-USDT": {"label": "TSLA", "category": "Azioni", "price_decimals": 2, "win_rate": 72},
     "NVDA-USDT": {"label": "NVDA", "category": "Azioni", "price_decimals": 2, "win_rate": 76},
+    "AAPL-USDT": {"label": "AAPL", "category": "Azioni", "price_decimals": 2, "win_rate": 73},
+    "MSFT-USDT": {"label": "MSFT", "category": "Azioni", "price_decimals": 2, "win_rate": 74},
+    "AMZN-USDT": {"label": "AMZN", "category": "Azioni", "price_decimals": 2, "win_rate": 72},
+    "META-USDT": {"label": "META", "category": "Azioni", "price_decimals": 2, "win_rate": 73},
 }
 
 DEFAULT_CONFIG = {
     "min_signal_score": 65.0,
+    "certain_lock_min_score": 75.0,
     "rsi_period": 14,
     "rsi_oversold": 30.0,
     "rsi_overbought": 70.0,
@@ -47,6 +75,8 @@ DEFAULT_CONFIG = {
     "ema_fast": 20,
     "ema_slow": 50,
     "atr_period": 14,
+    "sl_atr_mult": 1.5,
+    "tp_rr_mult": 2.0,
     "w_rsi": 0.30,
     "w_macd": 0.40,
     "w_ema": 0.30,
@@ -58,26 +88,30 @@ DEFAULT_CONFIG = {
 }
 
 
-def load_config() -> dict:
-    cfg = dict(DEFAULT_CONFIG)
-    if os.path.exists(CONFIG_PATH):
+def load_json(path: str, default):
+    if os.path.exists(path):
         try:
-            with open(CONFIG_PATH, "r", encoding="utf-8") as f:
-                saved = json.load(f)
-                if isinstance(saved, dict):
-                    cfg.update(saved)
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                if isinstance(default, dict) and isinstance(data, dict):
+                    merged = dict(default)
+                    merged.update(data)
+                    return merged
+                if isinstance(default, list) and isinstance(data, list):
+                    return data
         except Exception:
             pass
-    return cfg
+    return dict(default) if isinstance(default, dict) else list(default)
 
 
-def save_config(cfg: dict) -> None:
-    os.makedirs(os.path.dirname(CONFIG_PATH), exist_ok=True)
-    with open(CONFIG_PATH, "w", encoding="utf-8") as f:
-        json.dump(cfg, f, indent=2)
+def save_json(path: str, payload) -> None:
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(payload, f, indent=2)
 
 
-RUNTIME_CONFIG = load_config()
+RUNTIME_CONFIG = load_json(CONFIG_PATH, DEFAULT_CONFIG)
+LOCKED_SIGNALS = load_json(LOCKS_PATH, [])
 
 
 def normalize_symbol(raw_symbol: str) -> str:
@@ -277,7 +311,7 @@ def fetch_klines(symbol: str, interval: str, limit: int = 120):
     resp = requests.get(
         f"{BINGX_BASE_URL}/openApi/swap/v2/quote/klines",
         params={"symbol": symbol, "interval": interval, "limit": limit},
-        timeout=10,
+        timeout=8,
     )
     resp.raise_for_status()
     rows = resp.json().get("data", [])
@@ -299,70 +333,7 @@ def fetch_klines(symbol: str, interval: str, limit: int = 120):
     return last_price, opens, highs, lows, closes, volumes
 
 
-def sign_query(params: dict, secret: str) -> str:
-    ordered = sorted((k, v) for k, v in params.items() if v is not None)
-    qs = urlencode(ordered)
-    sig = hmac.new(secret.encode("utf-8"), qs.encode("utf-8"), hashlib.sha256).hexdigest()
-    return f"{qs}&signature={sig}"
-
-
-def bingx_signed_request(method: str, path: str, params: dict | None = None) -> dict:
-    payload = dict(params or {})
-    payload["timestamp"] = int(time.time() * 1000)
-    payload["recvWindow"] = 5000
-    signed_qs = sign_query(payload, SECRET_KEY)
-    headers = {"X-BX-APIKEY": API_KEY}
-    url = f"{BINGX_BASE_URL}{path}?{signed_qs}"
-    r = requests.get(url, headers=headers, timeout=10) if method.upper() == "GET" else requests.post(url, headers=headers, timeout=10)
-    r.raise_for_status()
-    return r.json()
-
-
-def dynamic_leverage(equity_usdt: float, category: str) -> int:
-    if equity_usdt <= 2.00:
-        return 20 if category == "Crypto" else 10
-    if category == "Forex":
-        return 10
-    if category == "Materie prime":
-        return 8
-    if category == "Azioni":
-        return 5
-    return 10 if equity_usdt <= 25.00 else 5
-
-
-@app.route("/")
-def index():
-    return render_template("index.html")
-
-
-@app.route("/api/config", methods=["GET", "POST"])
-def manage_config():
-    if request.method == "POST":
-        data = request.get_json(force=True) or {}
-        numeric_int_keys = ("rsi_period", "macd_fast", "macd_slow", "macd_signal", "ema_fast", "ema_slow", "atr_period", "fakeout_lookback")
-        numeric_float_keys = ("min_signal_score", "rsi_oversold", "rsi_overbought", "atr_spike_mult", "wick_ratio_limit", "min_breakout_vol_mult")
-
-        for k in numeric_int_keys:
-            if k in data:
-                RUNTIME_CONFIG[k] = int(data[k])
-        for k in numeric_float_keys:
-            if k in data:
-                RUNTIME_CONFIG[k] = float(data[k])
-        if "anti_fake_enabled" in data:
-            RUNTIME_CONFIG["anti_fake_enabled"] = bool(data["anti_fake_enabled"])
-
-        RUNTIME_CONFIG["min_signal_score"] = max(0.0, min(100.0, RUNTIME_CONFIG["min_signal_score"]))
-        save_config(RUNTIME_CONFIG)
-    return jsonify(RUNTIME_CONFIG)
-
-
-@app.route("/api/live-ticker")
-def live_ticker():
-    symbol = normalize_symbol(request.args.get("symbol", "BTC-USDT"))
-    timeframe = request.args.get("timeframe", "15m")
-    if timeframe not in TIMEFRAME_SECONDS:
-        timeframe = "15m"
-
+def analyze_symbol(symbol: str, timeframe: str) -> dict:
     meta = ASSET_CATALOG.get(symbol, {
         "label": symbol.replace("-", ""),
         "category": "Crypto",
@@ -408,11 +379,34 @@ def live_ticker():
     anti_fake = detect_anti_fake_filters(opens, highs, lows, closes, volumes, atr_val, RUNTIME_CONFIG)
     final_score = round(max(0.0, raw_abs_score - anti_fake["penaltyScore"]), 1)
     min_score = float(RUNTIME_CONFIG["min_signal_score"])
+    certain_min = float(RUNTIME_CONFIG["certain_lock_min_score"])
 
     if anti_fake["isFalseSignal"] or final_score < min_score:
         signal_side = "NEUTRAL"
     else:
         signal_side = "BUY" if raw_signed_score > 0 else "SELL"
+
+    # Calcolo livelli SL e TP basati su ATR
+    decimals = meta["price_decimals"]
+    sl_dist = atr_val * float(RUNTIME_CONFIG["sl_atr_mult"]) if atr_val > 0 else last_price * 0.005
+    tp_dist = sl_dist * float(RUNTIME_CONFIG["tp_rr_mult"])
+
+    if signal_side == "BUY" and last_price > 0:
+        sl_price = round(max(0.0, last_price - sl_dist), decimals)
+        tp_price = round(last_price + tp_dist, decimals)
+    elif signal_side == "SELL" and last_price > 0:
+        sl_price = round(last_price + sl_dist, decimals)
+        tp_price = round(max(0.0, last_price - tp_dist), decimals)
+    else:
+        sl_price = None
+        tp_price = None
+
+    is_certain = (
+        signal_side in ("BUY", "SELL")
+        and not anti_fake["isFalseSignal"]
+        and final_score >= certain_min
+        and last_price > 0
+    )
 
     whale_pct = int(max(10, min(90, round(50 + raw_signed_score * 0.4))))
     bear_pct = 100 - whale_pct
@@ -426,16 +420,21 @@ def live_ticker():
     else:
         risk_reason = f"Confluenza attiva su {meta['category']} (ATR {atr_val})"
 
-    return jsonify({
+    return {
         "symbol": symbol,
         "label": meta["label"],
         "category": meta["category"],
-        "priceDecimals": meta["price_decimals"],
+        "priceDecimals": decimals,
         "lastPrice": last_price,
         "signalSide": signal_side,
         "signalScore": final_score,
         "rawScore": round(raw_abs_score, 1),
         "minSignalScore": min_score,
+        "certainMinScore": certain_min,
+        "isCertainSignal": is_certain,
+        "suggestedEntry": round(last_price, decimals) if last_price > 0 else None,
+        "suggestedSL": sl_price,
+        "suggestedTP": tp_price,
         "winRate": meta["win_rate"],
         "trendHealth": trend_health,
         "whalePct": whale_pct,
@@ -447,15 +446,176 @@ def live_ticker():
             "macdSignal": macd_info["signal"],
             "macdHist": macd_info["hist"],
             "macdStatus": macd_info["status"],
-            "emaFast": round(ema_f_val, meta["price_decimals"]),
-            "emaSlow": round(ema_s_val, meta["price_decimals"]),
+            "emaFast": round(ema_f_val, decimals),
+            "emaSlow": round(ema_s_val, decimals),
             "atr": atr_val,
         },
         "antiFake": anti_fake,
         "highRiskWarning": high_risk,
         "riskReason": risk_reason,
         **close_meta,
-    })
+    }
+
+
+def sign_query(params: dict, secret: str) -> str:
+    ordered = sorted((k, v) for k, v in params.items() if v is not None)
+    qs = urlencode(ordered)
+    sig = hmac.new(secret.encode("utf-8"), qs.encode("utf-8"), hashlib.sha256).hexdigest()
+    return f"{qs}&signature={sig}"
+
+
+def bingx_signed_request(method: str, path: str, params: dict | None = None) -> dict:
+    payload = dict(params or {})
+    payload["timestamp"] = int(time.time() * 1000)
+    payload["recvWindow"] = 5000
+    signed_qs = sign_query(payload, SECRET_KEY)
+    headers = {"X-BX-APIKEY": API_KEY}
+    url = f"{BINGX_BASE_URL}{path}?{signed_qs}"
+    r = requests.get(url, headers=headers, timeout=10) if method.upper() == "GET" else requests.post(url, headers=headers, timeout=10)
+    r.raise_for_status()
+    return r.json()
+
+
+def dynamic_leverage(equity_usdt: float, category: str) -> int:
+    if equity_usdt <= 2.00:
+        return 20 if category == "Crypto" else 10
+    if category == "Forex":
+        return 10
+    if category == "Materie prime":
+        return 8
+    if category == "Azioni":
+        return 5
+    return 10 if equity_usdt <= 25.00 else 5
+
+
+@app.route("/")
+def index():
+    return render_template("index.html")
+
+
+@app.route("/api/catalog")
+def get_catalog():
+    grouped = {}
+    for sym, meta in ASSET_CATALOG.items():
+        cat = meta["category"]
+        grouped.setdefault(cat, []).append({
+            "symbol": sym,
+            "label": meta["label"],
+            "category": cat,
+            "priceDecimals": meta["price_decimals"],
+        })
+    return jsonify({"categories": list(grouped.keys()), "grouped": grouped})
+
+
+@app.route("/api/monitor-category")
+def monitor_category():
+    category = request.args.get("category", "Crypto")
+    timeframe = request.args.get("timeframe", "15m")
+    if timeframe not in TIMEFRAME_SECONDS:
+        timeframe = "15m"
+
+    symbols = [s for s, m in ASSET_CATALOG.items() if m["category"].lower() == category.lower()]
+    if not symbols:
+        symbols = ["BTC-USDT"]
+
+    items = []
+    for sym in symbols:
+        a = analyze_symbol(sym, timeframe)
+        items.append({
+            "symbol": a["symbol"],
+            "label": a["label"],
+            "category": a["category"],
+            "lastPrice": a["lastPrice"],
+            "priceDecimals": a["priceDecimals"],
+            "signalSide": a["signalSide"],
+            "signalScore": a["signalScore"],
+            "isCertainSignal": a["isCertainSignal"],
+            "isFalseSignal": a["antiFake"]["isFalseSignal"],
+            "remainingText": a["remainingText"],
+        })
+    return jsonify({"category": category, "timeframe": timeframe, "items": items})
+
+
+@app.route("/api/locked-signals", methods=["GET", "POST", "DELETE"])
+def locked_signals():
+    global LOCKED_SIGNALS
+    if request.method == "POST":
+        body = request.get_json(force=True) or {}
+        symbol = normalize_symbol(body.get("symbol", "BTC-USDT"))
+        timeframe = body.get("timeframe", "15m")
+        analysis = analyze_symbol(symbol, timeframe)
+
+        if not analysis["isCertainSignal"] and not bool(body.get("forceLock", False)):
+            return jsonify({
+                "status": "rejected",
+                "reason": (
+                    f"Segnale non certo: lato={analysis['signalSide']}, "
+                    f"score={analysis['signalScore']}/{analysis['certainMinScore']}, "
+                    f"falseSignal={analysis['antiFake']['isFalseSignal']}"
+                ),
+            }), 200
+
+        record = {
+            "id": f"{symbol}_{timeframe}_{int(time.time())}",
+            "symbol": symbol,
+            "label": analysis["label"],
+            "category": analysis["category"],
+            "timeframe": timeframe,
+            "side": analysis["signalSide"] if analysis["signalSide"] in ("BUY", "SELL") else "BUY",
+            "score": analysis["signalScore"],
+            "entry": analysis["suggestedEntry"],
+            "sl": analysis["suggestedSL"],
+            "tp": analysis["suggestedTP"],
+            "lockedAt": datetime.now().astimezone().strftime("%H:%M:%S"),
+            "candleClose": analysis["closeTimeLocal"],
+            "status": "LOCKED",
+        }
+        LOCKED_SIGNALS.insert(0, record)
+        LOCKED_SIGNALS = LOCKED_SIGNALS[:30]
+        save_json(LOCKS_PATH, LOCKED_SIGNALS)
+        return jsonify({"status": "locked", "signal": record, "all": LOCKED_SIGNALS})
+
+    if request.method == "DELETE":
+        sig_id = request.args.get("id")
+        if sig_id:
+            LOCKED_SIGNALS = [x for x in LOCKED_SIGNALS if x.get("id") != sig_id]
+        else:
+            LOCKED_SIGNALS = []
+        save_json(LOCKS_PATH, LOCKED_SIGNALS)
+        return jsonify({"status": "updated", "all": LOCKED_SIGNALS})
+
+    return jsonify({"all": LOCKED_SIGNALS})
+
+
+@app.route("/api/config", methods=["GET", "POST"])
+def manage_config():
+    if request.method == "POST":
+        data = request.get_json(force=True) or {}
+        int_keys = ("rsi_period", "macd_fast", "macd_slow", "macd_signal", "ema_fast", "ema_slow", "atr_period", "fakeout_lookback")
+        float_keys = ("min_signal_score", "certain_lock_min_score", "rsi_oversold", "rsi_overbought", "sl_atr_mult", "tp_rr_mult", "atr_spike_mult", "wick_ratio_limit", "min_breakout_vol_mult")
+
+        for k in int_keys:
+            if k in data:
+                RUNTIME_CONFIG[k] = int(data[k])
+        for k in float_keys:
+            if k in data:
+                RUNTIME_CONFIG[k] = float(data[k])
+        if "anti_fake_enabled" in data:
+            RUNTIME_CONFIG["anti_fake_enabled"] = bool(data["anti_fake_enabled"])
+
+        RUNTIME_CONFIG["min_signal_score"] = max(0.0, min(100.0, RUNTIME_CONFIG["min_signal_score"]))
+        RUNTIME_CONFIG["certain_lock_min_score"] = max(0.0, min(100.0, RUNTIME_CONFIG["certain_lock_min_score"]))
+        save_json(CONFIG_PATH, RUNTIME_CONFIG)
+    return jsonify(RUNTIME_CONFIG)
+
+
+@app.route("/api/live-ticker")
+def live_ticker():
+    symbol = normalize_symbol(request.args.get("symbol", "BTC-USDT"))
+    timeframe = request.args.get("timeframe", "15m")
+    if timeframe not in TIMEFRAME_SECONDS:
+        timeframe = "15m"
+    return jsonify(analyze_symbol(symbol, timeframe))
 
 
 @app.route("/api/income-history")
@@ -484,22 +644,17 @@ def income_history():
 def execute_signal():
     body = request.get_json(force=True)
     symbol = normalize_symbol(body.get("symbol", "BTC-USDT"))
-    side = (body.get("side") or "NEUTRAL").upper()
-    score = float(body.get("signalScore", 0.0))
-    is_false = bool(body.get("isFalseSignal", False))
-    min_score = float(RUNTIME_CONFIG["min_signal_score"])
+    timeframe = body.get("timeframe", "15m")
     equity = float(body.get("equity", 2.0))
-    tp_price = body.get("tpPrice")
-    sl_price = body.get("slPrice")
+    analysis = analyze_symbol(symbol, timeframe)
 
+    side = analysis["signalSide"]
     if side not in ("BUY", "SELL"):
         return jsonify({"status": "skipped", "reason": "Direzione NEUTRAL: nessun ordine inviato."}), 200
-    if is_false:
+    if analysis["antiFake"]["isFalseSignal"]:
         return jsonify({"status": "blocked", "reason": "Bloccato dal filtro anti-falsi segnali / falsa rottura."}), 200
-    if score < min_score:
-        return jsonify({"status": "blocked", "reason": f"Score {score} inferiore alla soglia minima {min_score}."}), 200
-    if tp_price is None or sl_price is None:
-        return jsonify({"status": "rejected", "reason": "TP e SL separati sono obbligatori."}), 400
+    if analysis["signalScore"] < float(RUNTIME_CONFIG["min_signal_score"]):
+        return jsonify({"status": "blocked", "reason": "Score sotto soglia minima."}), 200
 
     meta = ASSET_CATALOG.get(symbol, {"category": "Crypto"})
     lev = dynamic_leverage(equity, meta["category"])
@@ -513,10 +668,11 @@ def execute_signal():
         "status": "prepared",
         "symbol": symbol,
         "side": side,
-        "signalScore": score,
+        "signalScore": analysis["signalScore"],
         "leverage": lev,
-        "tpPrice": tp_price,
-        "slPrice": sl_price,
+        "entry": analysis["suggestedEntry"],
+        "slPrice": analysis["suggestedSL"],
+        "tpPrice": analysis["suggestedTP"],
     })
 
 
