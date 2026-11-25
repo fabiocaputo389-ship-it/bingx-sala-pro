@@ -49,11 +49,12 @@ ASSET_CATALOG = {
 DEFAULT_CONFIG = {
     "api_key": os.getenv("BINGX_API_KEY", ""),
     "secret_key": os.getenv("BINGX_SECRET_KEY", ""),
-    "mode": "AUTOMATICO",               # AUTOMATICO / MANUALE
+    "mode": "AUTOMATICO",
     "auto_trade": True,
     "scan_mode": "Auto Scan + Blocco Certo",
     "score_threshold": 60.0,
     "certain_min_pct": 70.0,
+    "order_type": "MARKET",
     "close_at_candle_end": False,
     "block_false_signals": True,
     "anti_breakout_enabled": True,
@@ -63,6 +64,15 @@ DEFAULT_CONFIG = {
     "default_qty": 0.0005,
     "default_leverage": 20,
     "equity_usdt": 1.44,
+    "ema_fast_period": 9,
+    "ema_mid_period": 21,
+    "ema_trend_period": 50,
+    "ema_slow_period": 200,
+    "rsi_period": 14,
+    "macd_fast": 12,
+    "macd_slow": 26,
+    "macd_signal": 9,
+    "atr_period": 14,
     "fakeout_lookback": 20,
     "atr_spike_mult": 2.5,
     "wick_ratio_limit": 0.55,
@@ -161,18 +171,19 @@ def ema_series(values: list[float], period: int) -> list[float]:
 
 
 def compute_rsi(closes: list[float], period: int = 14) -> float:
-    if len(closes) <= period:
+    p = max(2, int(period))
+    if len(closes) <= p:
         return 50.0
     gains, losses = [], []
     for i in range(1, len(closes)):
         d = closes[i] - closes[i - 1]
         gains.append(max(0.0, d))
         losses.append(max(0.0, -d))
-    ag = sum(gains[:period]) / period
-    al = sum(losses[:period]) / period
-    for i in range(period, len(gains)):
-        ag = (ag * (period - 1) + gains[i]) / period
-        al = (al * (period - 1) + losses[i]) / period
+    ag = sum(gains[:p]) / p
+    al = sum(losses[:p]) / p
+    for i in range(p, len(gains)):
+        ag = (ag * (p - 1) + gains[i]) / p
+        al = (al * (p - 1) + losses[i]) / p
     if al == 0:
         return 100.0 if ag > 0 else 50.0
     return round(100.0 - (100.0 / (1.0 + ag / al)), 2)
@@ -181,23 +192,25 @@ def compute_rsi(closes: list[float], period: int = 14) -> float:
 def compute_macd(closes: list[float], fast=12, slow=26, sig=9) -> dict:
     if len(closes) < slow + sig:
         return {"macd": 0.0, "signal": 0.0, "hist": 0.0, "status": "NEUTRAL"}
-    m_line = [a - b for a, b in zip(ema_series(closes, fast), ema_series(closes, slow))]
-    s_line = ema_series(m_line, sig)
+    m_line = [a - b for a, b in zip(ema_series(closes, int(fast)), ema_series(closes, int(slow)))]
+    s_line = ema_series(m_line, int(sig))
     hist = m_line[-1] - s_line[-1]
     status = "BULLISH" if hist > 0 and m_line[-1] > s_line[-1] else ("BEARISH" if hist < 0 and m_line[-1] < s_line[-1] else "NEUTRAL")
     return {"macd": round(m_line[-1], 5), "signal": round(s_line[-1], 5), "hist": round(hist, 5), "status": status}
 
 
 def compute_atr(highs: list[float], lows: list[float], closes: list[float], period=14) -> float:
+    p = max(2, int(period))
     if len(closes) < 2 or not (len(highs) == len(lows) == len(closes)):
         return 0.0
     trs = [max(highs[i] - lows[i], abs(highs[i] - closes[i - 1]), abs(lows[i] - closes[i - 1])) for i in range(1, len(closes))]
-    w = trs[-period:] if len(trs) >= period else trs
+    w = trs[-p:] if len(trs) >= p else trs
     return round(sum(w) / len(w), 5) if w else 0.0
 
 
 def compute_adx_approx(highs: list[float], lows: list[float], closes: list[float], period=14) -> float:
-    if len(closes) < period + 2:
+    p = max(2, int(period))
+    if len(closes) < p + 2:
         return 18.0
     plus_dm, minus_dm, tr_list = [], [], []
     for i in range(1, len(closes)):
@@ -206,26 +219,27 @@ def compute_adx_approx(highs: list[float], lows: list[float], closes: list[float
         plus_dm.append(up if (up > dn and up > 0) else 0.0)
         minus_dm.append(dn if (dn > up and dn > 0) else 0.0)
         tr_list.append(max(highs[i] - lows[i], abs(highs[i] - closes[i - 1]), abs(lows[i] - closes[i - 1])))
-    atr_v = sum(tr_list[-period:]) / period or 1e-9
-    p_di = 100.0 * (sum(plus_dm[-period:]) / period) / atr_v
-    m_di = 100.0 * (sum(minus_dm[-period:]) / period) / atr_v
+    atr_v = sum(tr_list[-p:]) / p or 1e-9
+    p_di = 100.0 * (sum(plus_dm[-p:]) / p) / atr_v
+    m_di = 100.0 * (sum(minus_dm[-p:]) / p) / atr_v
     dx = 100.0 * abs(p_di - m_di) / max(p_di + m_di, 1e-9)
     return round(dx, 2)
 
 
 def compute_zscore(closes: list[float], period=20) -> float:
-    if len(closes) < period:
+    p = max(5, int(period))
+    if len(closes) < p:
         return 0.0
-    w = closes[-period:]
-    mean = sum(w) / period
-    var = sum((x - mean) ** 2 for x in w) / period
+    w = closes[-p:]
+    mean = sum(w) / p
+    var = sum((x - mean) ** 2 for x in w) / p
     std = math.sqrt(var)
     if std == 0:
         return 0.0
     return round((closes[-1] - mean) / std, 2)
 
 
-def fetch_klines(symbol: str, interval: str, limit=120):
+def fetch_klines(symbol: str, interval: str, limit=210):
     r = requests.get(
         f"{BINGX_BASE_URL}/openApi/swap/v2/quote/klines",
         params={"symbol": symbol, "interval": interval, "limit": limit},
@@ -326,16 +340,21 @@ def analyze_market(symbol: str, tf: str) -> dict:
     except Exception:
         pass
 
-    rsi_v = compute_rsi(closes, 14)
-    macd_d = compute_macd(closes, 12, 26, 9)
-    atr_v = compute_atr(highs, lows, closes, 14)
-    adx_v = compute_adx_approx(highs, lows, closes, 14)
+    p_ema_f = int(CFG.get("ema_fast_period", 9))
+    p_ema_m = int(CFG.get("ema_mid_period", 21))
+    p_ema_t = int(CFG.get("ema_trend_period", 50))
+    p_ema_s = int(CFG.get("ema_slow_period", 200))
+
+    rsi_v = compute_rsi(closes, CFG.get("rsi_period", 14))
+    macd_d = compute_macd(closes, CFG.get("macd_fast", 12), CFG.get("macd_slow", 26), CFG.get("macd_signal", 9))
+    atr_v = compute_atr(highs, lows, closes, CFG.get("atr_period", 14))
+    adx_v = compute_adx_approx(highs, lows, closes, CFG.get("atr_period", 14))
     z_v = compute_zscore(closes, 20)
 
-    ema9 = ema_series(closes, 9)[-1] if closes else 0.0
-    ema21 = ema_series(closes, 21)[-1] if closes else 0.0
-    ema50 = ema_series(closes, 50)[-1] if closes else 0.0
-    ema200 = ema_series(closes, 200)[-1] if closes else 0.0
+    ema_f = ema_series(closes, p_ema_f)[-1] if closes else 0.0
+    ema_m = ema_series(closes, p_ema_m)[-1] if closes else 0.0
+    ema_t = ema_series(closes, p_ema_t)[-1] if closes else 0.0
+    ema_s = ema_series(closes, p_ema_s)[-1] if closes else 0.0
 
     filt = evaluate_filters(opens, highs, lows, closes, vols, atr_v)
 
@@ -345,9 +364,9 @@ def analyze_market(symbol: str, tf: str) -> dict:
     elif macd_d["status"] == "BEARISH":
         dir_pts -= 35.0
 
-    if ema9 > ema21:
+    if ema_f > ema_m:
         dir_pts += 30.0
-    elif ema9 < ema21:
+    elif ema_f < ema_m:
         dir_pts -= 30.0
 
     if rsi_v > 52:
@@ -371,7 +390,6 @@ def analyze_market(symbol: str, tf: str) -> dict:
     reliability_pct = int(max(35, min(98, round(45 + abs_score * 0.5))))
     is_certain_signal = (side in ("BUY", "SELL")) and (not filt["isFalseSignal"]) and (reliability_pct >= certain_min) and (price > 0)
 
-    # Decisione esplicita ENTRARE o NON ENTRARE + MOTIVO
     if filt["isFalseSignal"]:
         entry_decision = "NON ENTRARE"
         entry_reason = " / ".join(filt["reasons"]) or "Filtro anti-falsi segnali / falsa rottura attivo"
@@ -380,12 +398,15 @@ def analyze_market(symbol: str, tf: str) -> dict:
         entry_reason = f"Score {abs_score} sotto soglia {threshold} o mercato in attesa/laterale"
     elif reliability_pct < certain_min:
         entry_decision = "NON ENTRARE"
-        entry_reason = f"Affidabilità {reliability_pct}% inferiore alla soglia segnale certo ({certain_min}%)"
+        entry_reason = f"Affidabilità {reliability_pct}% sotto soglia segnale certo ({certain_min}%)"
     else:
         entry_decision = "ENTRA"
         entry_reason = f"Confluenza {side} validata (Score {abs_score}, Affidabilità {reliability_pct}%, ADX {adx_v})"
 
     sl_dist = atr_v * 1.5 if atr_v > 0 else price * 0.005
+    tp_pct = round((sl_dist * 1.8 / max(price, 1e-9)) * 100.0, 2)
+    sl_pct = round((sl_dist / max(price, 1e-9)) * 100.0, 2)
+
     if side == "BUY" and price > 0:
         sl_p = round(max(0.0, price - sl_dist), dec)
         tp1 = round(price + sl_dist * 1.0, dec)
@@ -404,6 +425,10 @@ def analyze_market(symbol: str, tf: str) -> dict:
     vol_last = vols[-1] if vols else 0.0
     vol_avg = (sum(vols[-20:]) / len(vols[-20:])) if vols else 1.0
     vol_ratio = round(vol_last / max(vol_avg, 1e-9), 2)
+
+    whale_pct = int(max(10, min(90, round(50 + signed_score * 0.4))))
+    bear_pct = 100 - whale_pct
+    trend_health = int(max(10, min(100, round(50 + abs(ema_f - ema_m) / max(price, 1e-9) * 10000))))
 
     return {
         "symbol": sym,
@@ -429,6 +454,11 @@ def analyze_market(symbol: str, tf: str) -> dict:
         "tp4": tp4,
         "suggestedSL": sl_p,
         "suggestedTP": tp2,
+        "tpPct": tp_pct,
+        "slPct": sl_pct,
+        "trendHealth": trend_health,
+        "whalePct": whale_pct,
+        "bearPct": bear_pct,
         "fundingRate": "0.0047%",
         "equityUsdt": float(CFG.get("equity_usdt", 1.44)),
         "leverage": dynamic_leverage(float(CFG.get("equity_usdt", 1.44)), meta["category"]),
@@ -437,10 +467,14 @@ def analyze_market(symbol: str, tf: str) -> dict:
             "rrWin": f"1.85R / {reliability_pct}%",
             "adx": adx_v,
             "zScore": z_v,
-            "ema9": round(ema9, dec),
-            "ema21": round(ema21, dec),
-            "ema50": round(ema50, dec),
-            "ema200": round(ema200, dec),
+            "emaFastPeriod": p_ema_f,
+            "emaMidPeriod": p_ema_m,
+            "emaTrendPeriod": p_ema_t,
+            "emaSlowPeriod": p_ema_s,
+            "emaFast": round(ema_f, dec),
+            "emaMid": round(ema_m, dec),
+            "emaTrend": round(ema_t, dec),
+            "emaSlow": round(ema_s, dec),
             "rsi": rsi_v,
             "macdStatus": macd_d["status"],
             "macd": macd_d["macd"],
@@ -501,7 +535,6 @@ def desk_state():
             "isCertainSignal": a["isCertainSignal"],
         })
 
-    # Order book live
     bids, asks, mid_p = [], [], market["price"]
     try:
         ob = requests.get(f"{BINGX_BASE_URL}/openApi/swap/v2/quote/depth", params={"symbol": sym, "limit": 10}, timeout=6)
@@ -514,7 +547,6 @@ def desk_state():
     except Exception:
         pass
 
-    # Posizioni aperte & income reali (se API impostate)
     positions = []
     income_rows = []
     api_connected = bool(CFG.get("api_key") and CFG.get("secret_key"))
@@ -581,20 +613,43 @@ def update_settings():
     if "secret_key" in body and body["secret_key"].strip():
         CFG["secret_key"] = body["secret_key"].strip()
 
-    for k in ("mode", "scan_mode"):
+    for k in ("mode", "scan_mode", "order_type"):
         if k in body:
             CFG[k] = body[k]
-    for k in ("auto_trade", "close_at_candle_end", "block_false_signals", "anti_breakout_enabled", "allow_manual_under_threshold", "sound_enabled", "voice_it_enabled"):
+    for k in (
+        "auto_trade",
+        "close_at_candle_end",
+        "block_false_signals",
+        "anti_breakout_enabled",
+        "allow_manual_under_threshold",
+        "sound_enabled",
+        "voice_it_enabled",
+    ):
         if k in body:
             CFG[k] = bool(body[k])
-    for k in ("score_threshold", "certain_min_pct", "default_qty", "default_leverage", "equity_usdt"):
+    for k in (
+        "score_threshold",
+        "certain_min_pct",
+        "default_qty",
+        "default_leverage",
+        "equity_usdt",
+        "ema_fast_period",
+        "ema_mid_period",
+        "ema_trend_period",
+        "ema_slow_period",
+        "rsi_period",
+        "macd_fast",
+        "macd_slow",
+        "macd_signal",
+        "atr_period",
+    ):
         if k in body:
-            CFG[k] = float(body[k])
+            CFG[k] = float(body[k]) if k in ("score_threshold", "certain_min_pct", "default_qty", "equity_usdt") else int(body[k])
 
     save_json(CONFIG_PATH, CFG)
 
     api_ok = False
-    msg = "Impostazioni salvate."
+    msg = "Impostazioni e parametri salvati."
     if body.get("test_api") and CFG.get("api_key") and CFG.get("secret_key"):
         try:
             bingx_signed_req("GET", "/openApi/swap/v2/user/balance")
@@ -687,9 +742,10 @@ def trade_action():
         return jsonify({"status": "ok", "live": executed_live})
 
     side = "BUY" if act == "buy" else "SELL"
-    if a["filters"]["isFalseSignal"] and not CFG.get("allow_manual_under_threshold", False):
+    allow_under = bool(CFG.get("allow_manual_under_threshold", False))
+    if a["filters"]["isFalseSignal"] and not allow_under:
         return jsonify({"status": "blocked", "reason": a["entryReason"]}), 200
-    if a["reliabilityPct"] < float(CFG.get("certain_min_pct", 70.0)) and not CFG.get("allow_manual_under_threshold", False):
+    if a["reliabilityPct"] < float(CFG.get("certain_min_pct", 70.0)) and not allow_under:
         return jsonify({"status": "blocked", "reason": a["entryReason"]}), 200
 
     qty = float(body.get("qty", CFG.get("default_qty", 0.0005)))
@@ -709,7 +765,7 @@ def trade_action():
                 "symbol": sym,
                 "side": side,
                 "positionSide": "LONG" if side == "BUY" else "SHORT",
-                "type": "MARKET",
+                "type": CFG.get("order_type", "MARKET"),
                 "quantity": qty,
             })
             live_sent = True
