@@ -3,43 +3,24 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>BINGX ELITE SIGNAL ROOM PRO — Live TP Progress & EURUSDT</title>
+  <title>BINGX ELITE SIGNAL ROOM PRO</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
   <style>
-    body {
-      background-color: #F4F7FA;
-      color: #0F172A;
-      font-family: 'Inter', sans-serif;
-    }
+    body { background-color: #F4F7FA; color: #0F172A; font-family: 'Inter', sans-serif; }
     .mono { font-family: 'JetBrains Mono', monospace; }
-    .card-white {
-      background: #FFFFFF;
-      border: 1px solid #E2E8F0;
-      box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.05);
-      border-radius: 14px;
-    }
-    .gauge-needle {
-      transition: transform 0.65s cubic-bezier(0.22, 1, 0.36, 1);
-      transform-origin: 100px 100px;
-    }
-    .tab-active {
-      background-color: #0F172A;
-      color: #FFFFFF;
-      border-color: #0F172A;
-    }
+    .card-white { background: #FFFFFF; border: 1px solid #E2E8F0; box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.05); border-radius: 14px; }
+    .gauge-needle { transition: transform 0.65s cubic-bezier(0.22, 1, 0.36, 1); transform-origin: 100px 100px; }
+    .tab-active { background-color: #0F172A; color: #FFFFFF; border-color: #0F172A; }
     input[type="number"]::-webkit-inner-spin-button { opacity: 1; }
   </style>
 </head>
 <body class="antialiased">
 
-  <!-- TOP BAR -->
   <header class="bg-white border-b border-slate-200 sticky top-0 z-40">
-    <div class="max-w-[1800px] mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+    <div class="max-w-[1840px] mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
       <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center font-extrabold text-lg">
-          BX
-        </div>
+        <div class="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center font-extrabold text-lg">BX</div>
         <div>
           <div class="flex flex-wrap items-center gap-2">
             <h1 class="font-extrabold text-slate-900 text-base md:text-lg tracking-tight">BINGX ELITE SIGNAL ROOM PRO</h1>
@@ -48,7 +29,7 @@
               AUTO-SCAN • <span id="lastScanTime">--:--:--</span>
             </span>
           </div>
-          <p class="text-xs text-slate-500">Barra Avanzamento TP Live • Posizioni Reali BingX • EURUSDT & Nomi Esteri • Auto-Trade TP/SL • Tachimetri</p>
+          <p class="text-xs text-slate-500">Nomi Esatti BingX • Avanzamento TP Live • Auto-Trade Reale • Auto-Breakeven</p>
         </div>
       </div>
 
@@ -61,51 +42,59 @@
           <option value="4h">4H (Macro Trend)</option>
         </select>
 
-        <button onclick="toggleAutoMonitor()" id="btnToggleAuto" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3.5 py-2 rounded-lg transition">
-          🤖 Auto-Scan: ON
-        </button>
-
-        <button onclick="toggleAutoTrade()" id="btnToggleAutoTrade" class="bg-amber-600 hover:bg-amber-700 text-white text-xs font-extrabold px-3.5 py-2 rounded-lg transition">
-          ⚡ Auto-Trade Reale: OFF
-        </button>
-
-        <button onclick="scanVisibleCategory()" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3.5 py-2 rounded-lg transition">
-          Scansiona Categoria
-        </button>
-
-        <button onclick="loadAllMarkets(true)" class="bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold px-3 py-2 rounded-lg border border-slate-300 transition">
-          ↻ Aggiorna BingX
-        </button>
-      </div>
-    </div>
-
-    <!-- BARRA SALVATAGGIO CHIAVI API BINGX -->
-    <div class="bg-slate-50 border-t border-slate-200 px-4 py-2">
-      <div class="max-w-[1800px] mx-auto flex flex-wrap items-center justify-between gap-2 text-xs">
-        <div class="flex items-center gap-2">
-          <span class="font-extrabold text-slate-700">🔑 Chiavi API BingX:</span>
-          <span id="keysStatusBadge" class="px-2 py-0.5 rounded font-bold bg-slate-200 text-slate-700">Verifica...</span>
-        </div>
-        <div class="flex flex-wrap items-center gap-2 flex-1 justify-end">
-          <input id="bingxApiKeyInput" type="password" placeholder="Inserisci BingX API Key" class="bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs mono w-56 focus:border-slate-900 focus:outline-none" />
-          <input id="bingxSecretKeyInput" type="password" placeholder="Inserisci BingX Secret Key" class="bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs mono w-64 focus:border-slate-900 focus:outline-none" />
-          <button onclick="saveApiKeys()" class="bg-slate-900 hover:bg-blue-700 text-white font-bold px-3.5 py-1.5 rounded-lg transition">
-            💾 Salva e Leggi Chiavi
-          </button>
-        </div>
+        <button onclick="toggleAutoMonitor()" id="btnToggleAuto" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3.5 py-2 rounded-lg transition">🤖 Auto-Scan: ON</button>
+        <button onclick="toggleAutoTrade()" id="btnToggleAutoTrade" class="bg-amber-600 hover:bg-amber-700 text-white text-xs font-extrabold px-3.5 py-2 rounded-lg transition">⚡ Auto-Trade Reale: OFF</button>
+        <button onclick="scanVisibleCategory()" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3.5 py-2 rounded-lg transition">Scansiona Categoria</button>
+        <button onclick="loadAllMarkets(true)" class="bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold px-3 py-2 rounded-lg border border-slate-300 transition">↻ Aggiorna BingX</button>
       </div>
     </div>
   </header>
 
-  <main class="max-w-[1800px] mx-auto px-4 py-6 space-y-6">
+  <main class="max-w-[1840px] mx-auto px-4 py-5 space-y-6">
 
-    <!-- BANNER REGOLA INGRESSO & EXPECTANCY -->
+    <!-- TABELLA ORIZZONTALE CHIAVI API BINGX -->
+    <div class="card-white p-4">
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-xs font-extrabold uppercase tracking-wider text-slate-700">🔑 Chiavi API BingX</span>
+        <span id="keysStatusBadge" class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-200 text-slate-700">Verifica...</span>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse text-xs">
+          <thead>
+            <tr class="bg-slate-50 border-y border-slate-200 text-[11px] font-extrabold text-slate-500 uppercase">
+              <th class="py-2 px-3">Stato</th>
+              <th class="py-2 px-3">Chiavi Salvate</th>
+              <th class="py-2 px-3">BingX API Key</th>
+              <th class="py-2 px-3">BingX Secret Key</th>
+              <th class="py-2 px-3 text-right">Salva</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="py-2 px-3 font-bold" id="keysTableState">--</td>
+              <td class="py-2 px-3 mono text-slate-600" id="keysTableMasked">--</td>
+              <td class="py-2 px-3">
+                <input id="bingxApiKeyInput" type="password" placeholder="Inserisci BingX API Key" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 text-xs mono focus:border-slate-900 focus:outline-none" />
+              </td>
+              <td class="py-2 px-3">
+                <input id="bingxSecretKeyInput" type="password" placeholder="Inserisci BingX Secret Key" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 text-xs mono focus:border-slate-900 focus:outline-none" />
+              </td>
+              <td class="py-2 px-3 text-right">
+                <button onclick="saveApiKeys()" class="bg-slate-900 hover:bg-blue-700 text-white font-bold px-4 py-1.5 rounded-lg transition whitespace-nowrap">💾 Salva</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- BANNER REGOLA INGRESSO -->
     <div id="entryRuleBanner" class="card-white p-4 border-l-4 border-l-slate-400 flex flex-wrap items-center justify-between gap-4">
       <div class="flex items-center gap-3">
         <span id="entryActionPill" class="px-3 py-1.5 rounded-lg text-xs font-extrabold bg-slate-100 text-slate-700">⏳ IN ATTESA</span>
         <div>
           <div class="text-xs font-bold uppercase text-slate-400">Motore Matematico Expectancy & Esecuzione TP/SL</div>
-          <div id="entryReasonText" class="text-sm font-bold text-slate-800">Seleziona un contratto BingX per verificare Expectancy, TP/SL esatti e timeframe candela TP.</div>
+          <div id="entryReasonText" class="text-sm font-bold text-slate-800">Seleziona un contratto per verificare Expectancy, TP/SL esatti e candela TP.</div>
         </div>
       </div>
       <div class="flex flex-wrap items-center gap-6 text-right">
@@ -120,23 +109,18 @@
       </div>
     </div>
 
-    <!-- SEZIONE 1: TACHIMETRI + SEGNALE ESATTO + RISK MANAGER -->
+    <!-- TACHIMETRI + LIVELLI -->
     <div class="grid grid-cols-1 xl:grid-cols-12 gap-6">
-
-      <!-- 6 TACHIMETRI (8 COLONNE) -->
       <div class="xl:col-span-8 card-white p-5">
         <div class="flex flex-wrap items-center justify-between gap-2 pb-4 mb-4 border-b border-slate-100">
           <div>
             <span class="text-[11px] font-bold uppercase tracking-wider text-blue-600">Telemetria Quantitativa Live</span>
             <h2 class="text-xl font-extrabold text-slate-900 flex flex-wrap items-center gap-2">
-              <span id="activeSymbolTitle">BTC-USDT</span>
-              <span id="activeAliasTitle" class="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">BTCUSDT</span>
+              <span id="activeSymbolTitle">BTCUSDT</span>
               <span id="activePriceBadge" class="mono text-base font-bold px-2.5 py-0.5 rounded-md bg-slate-100 text-slate-800">--</span>
             </h2>
           </div>
-          <div id="signalMasterBadge" class="px-4 py-1.5 rounded-lg font-extrabold text-sm bg-slate-100 text-slate-700 border border-slate-200">
-            IN ATTESA
-          </div>
+          <div id="signalMasterBadge" class="px-4 py-1.5 rounded-lg font-extrabold text-sm bg-slate-100 text-slate-700 border border-slate-200">IN ATTESA</div>
         </div>
 
         <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -144,11 +128,7 @@
             <span class="text-[11px] font-bold text-slate-500 uppercase">Certezza Matematica</span>
             <svg viewBox="0 0 200 120" class="w-40 h-24">
               <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="url(#gradConf)" stroke-width="14" stroke-linecap="round"/>
-              <defs>
-                <linearGradient id="gradConf" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stop-color="#EF4444"/><stop offset="50%" stop-color="#F59E0B"/><stop offset="100%" stop-color="#10B981"/>
-                </linearGradient>
-              </defs>
+              <defs><linearGradient id="gradConf" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#EF4444"/><stop offset="50%" stop-color="#F59E0B"/><stop offset="100%" stop-color="#10B981"/></linearGradient></defs>
               <line id="needleConf" class="gauge-needle" x1="100" y1="100" x2="100" y2="30" stroke="#0F172A" stroke-width="3.5" stroke-linecap="round" style="transform: rotate(-90deg)"/>
               <circle cx="100" cy="100" r="6" fill="#0F172A"/>
             </svg>
@@ -160,11 +140,7 @@
             <span class="text-[11px] font-bold text-slate-500 uppercase">Alpha Score (-100/+100)</span>
             <svg viewBox="0 0 200 120" class="w-40 h-24">
               <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="url(#gradAlpha)" stroke-width="14" stroke-linecap="round"/>
-              <defs>
-                <linearGradient id="gradAlpha" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stop-color="#DC2626"/><stop offset="50%" stop-color="#94A3B8"/><stop offset="100%" stop-color="#059669"/>
-                </linearGradient>
-              </defs>
+              <defs><linearGradient id="gradAlpha" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#DC2626"/><stop offset="50%" stop-color="#94A3B8"/><stop offset="100%" stop-color="#059669"/></linearGradient></defs>
               <line id="needleScore" class="gauge-needle" x1="100" y1="100" x2="100" y2="30" stroke="#0F172A" stroke-width="3.5" stroke-linecap="round" style="transform: rotate(0deg)"/>
               <circle cx="100" cy="100" r="6" fill="#0F172A"/>
             </svg>
@@ -218,50 +194,22 @@
         </div>
 
         <div class="mt-4 pt-4 border-t border-slate-100 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2 text-center">
-          <div class="bg-slate-50 p-2 rounded-lg border border-slate-200/60">
-            <div class="text-[10px] font-bold text-slate-400">EMA 9</div>
-            <div id="indEma9" class="mono text-xs font-bold text-slate-800">--</div>
-          </div>
-          <div class="bg-slate-50 p-2 rounded-lg border border-slate-200/60">
-            <div class="text-[10px] font-bold text-slate-400">EMA 21</div>
-            <div id="indEma21" class="mono text-xs font-bold text-slate-800">--</div>
-          </div>
-          <div class="bg-slate-50 p-2 rounded-lg border border-slate-200/60">
-            <div class="text-[10px] font-bold text-slate-400">EMA 50</div>
-            <div id="indEma50" class="mono text-xs font-bold text-slate-800">--</div>
-          </div>
-          <div class="bg-slate-50 p-2 rounded-lg border border-slate-200/60">
-            <div class="text-[10px] font-bold text-slate-400">EMA 200</div>
-            <div id="indEma200" class="mono text-xs font-bold text-slate-800">--</div>
-          </div>
-          <div class="bg-slate-50 p-2 rounded-lg border border-slate-200/60">
-            <div class="text-[10px] font-bold text-slate-400">MACD HIST</div>
-            <div id="indMacd" class="mono text-xs font-bold text-slate-800">--</div>
-          </div>
-          <div class="bg-slate-50 p-2 rounded-lg border border-slate-200/60">
-            <div class="text-[10px] font-bold text-slate-400">ATR (14)</div>
-            <div id="indAtr" class="mono text-xs font-bold text-slate-800">--</div>
-          </div>
-          <div class="bg-slate-50 p-2 rounded-lg border border-slate-200/60">
-            <div class="text-[10px] font-bold text-slate-400">FUNDING</div>
-            <div id="indFunding" class="mono text-xs font-bold text-slate-800">--</div>
-          </div>
-          <div class="bg-slate-50 p-2 rounded-lg border border-slate-200/60">
-            <div class="text-[10px] font-bold text-slate-400">R² LIN.</div>
-            <div id="indR2" class="mono text-xs font-bold text-slate-800">--</div>
-          </div>
+          <div class="bg-slate-50 p-2 rounded-lg border border-slate-200/60"><div class="text-[10px] font-bold text-slate-400">EMA 9</div><div id="indEma9" class="mono text-xs font-bold text-slate-800">--</div></div>
+          <div class="bg-slate-50 p-2 rounded-lg border border-slate-200/60"><div class="text-[10px] font-bold text-slate-400">EMA 21</div><div id="indEma21" class="mono text-xs font-bold text-slate-800">--</div></div>
+          <div class="bg-slate-50 p-2 rounded-lg border border-slate-200/60"><div class="text-[10px] font-bold text-slate-400">EMA 50</div><div id="indEma50" class="mono text-xs font-bold text-slate-800">--</div></div>
+          <div class="bg-slate-50 p-2 rounded-lg border border-slate-200/60"><div class="text-[10px] font-bold text-slate-400">EMA 200</div><div id="indEma200" class="mono text-xs font-bold text-slate-800">--</div></div>
+          <div class="bg-slate-50 p-2 rounded-lg border border-slate-200/60"><div class="text-[10px] font-bold text-slate-400">MACD HIST</div><div id="indMacd" class="mono text-xs font-bold text-slate-800">--</div></div>
+          <div class="bg-slate-50 p-2 rounded-lg border border-slate-200/60"><div class="text-[10px] font-bold text-slate-400">ATR (14)</div><div id="indAtr" class="mono text-xs font-bold text-slate-800">--</div></div>
+          <div class="bg-slate-50 p-2 rounded-lg border border-slate-200/60"><div class="text-[10px] font-bold text-slate-400">FUNDING</div><div id="indFunding" class="mono text-xs font-bold text-slate-800">--</div></div>
+          <div class="bg-slate-50 p-2 rounded-lg border border-slate-200/60"><div class="text-[10px] font-bold text-slate-400">R² LIN.</div><div id="indR2" class="mono text-xs font-bold text-slate-800">--</div></div>
         </div>
 
-        <!-- LOG ORDINI AUTOMATICI / REALI -->
         <div class="mt-4 pt-4 border-t border-slate-100">
           <div class="text-xs font-extrabold text-slate-700 uppercase mb-2">📜 Log Esecuzioni Reali / Auto-Trade BingX</div>
-          <div id="tradeLogsBox" class="bg-slate-50 border border-slate-200 rounded-lg p-2.5 max-h-28 overflow-y-auto mono text-[11px] text-slate-600">
-            Nessun ordine eseguito in questa sessione.
-          </div>
+          <div id="tradeLogsBox" class="bg-slate-50 border border-slate-200 rounded-lg p-2.5 max-h-28 overflow-y-auto mono text-[11px] text-slate-600">Nessun ordine eseguito in questa sessione.</div>
         </div>
       </div>
 
-      <!-- LIVELLI ESATTI + RISK CALCULATOR + CERVELLO (4 COLONNE) -->
       <div class="xl:col-span-4 space-y-6">
         <div class="card-white p-5">
           <div class="flex items-center justify-between mb-3">
@@ -270,26 +218,11 @@
           </div>
 
           <div class="space-y-2 text-sm">
-            <div class="flex justify-between items-center p-2.5 rounded-lg bg-slate-50 border border-slate-200">
-              <span class="font-semibold text-slate-600">ENTRY PRICE</span>
-              <span id="lvlEntry" class="mono font-extrabold text-slate-900">--</span>
-            </div>
-            <div class="flex justify-between items-center p-2.5 rounded-lg bg-red-50/70 border border-red-200">
-              <span class="font-semibold text-red-700">STOP LOSS (1.5x ATR)</span>
-              <span id="lvlSl" class="mono font-extrabold text-red-700">--</span>
-            </div>
-            <div class="flex justify-between items-center p-2 rounded-lg bg-emerald-50/60 border border-emerald-200">
-              <span class="font-semibold text-emerald-700">TAKE PROFIT 1</span>
-              <span id="lvlTp1" class="mono font-bold text-emerald-700">--</span>
-            </div>
-            <div class="flex justify-between items-center p-2 rounded-lg bg-emerald-50/90 border border-emerald-300">
-              <span class="font-semibold text-emerald-800">TAKE PROFIT 2 (Auto-Trade TP)</span>
-              <span id="lvlTp2" class="mono font-extrabold text-emerald-800">--</span>
-            </div>
-            <div class="flex justify-between items-center p-2 rounded-lg bg-emerald-100/70 border border-emerald-400">
-              <span class="font-semibold text-emerald-900">TAKE PROFIT 3 (Runner)</span>
-              <span id="lvlTp3" class="mono font-extrabold text-emerald-900">--</span>
-            </div>
+            <div class="flex justify-between items-center p-2.5 rounded-lg bg-slate-50 border border-slate-200"><span class="font-semibold text-slate-600">ENTRY PRICE</span><span id="lvlEntry" class="mono font-extrabold text-slate-900">--</span></div>
+            <div class="flex justify-between items-center p-2.5 rounded-lg bg-red-50/70 border border-red-200"><span class="font-semibold text-red-700">STOP LOSS (1.5x ATR)</span><span id="lvlSl" class="mono font-extrabold text-red-700">--</span></div>
+            <div class="flex justify-between items-center p-2 rounded-lg bg-emerald-50/60 border border-emerald-200"><span class="font-semibold text-emerald-700">TAKE PROFIT 1</span><span id="lvlTp1" class="mono font-bold text-emerald-700">--</span></div>
+            <div class="flex justify-between items-center p-2 rounded-lg bg-emerald-50/90 border border-emerald-300"><span class="font-semibold text-emerald-800">TAKE PROFIT 2 (Auto-Trade TP)</span><span id="lvlTp2" class="mono font-extrabold text-emerald-800">--</span></div>
+            <div class="flex justify-between items-center p-2 rounded-lg bg-emerald-100/70 border border-emerald-400"><span class="font-semibold text-emerald-900">TAKE PROFIT 3 (Runner)</span><span id="lvlTp3" class="mono font-extrabold text-emerald-900">--</span></div>
           </div>
 
           <div class="mt-3 p-3 rounded-lg bg-slate-50 border border-slate-200 text-xs space-y-2">
@@ -299,16 +232,16 @@
             </div>
             <div class="flex items-center justify-between gap-2">
               <label class="font-semibold text-slate-600">Rischio %:</label>
-              <input id="riskPctInput" type="number" step="0.5" value="1.5" onchange="syncCapitalAndRisk()" class="w-20 bg-white border border-slate-300 rounded px-2 py-1 mono font-bold" />
-              <span class="text-slate-500">Size: <strong id="suggestedSizeLbl" class="mono text-slate-900">--</strong></span>
+              <input id="riskPctInput" type="number" step="0.5" value="1.5" onchange="syncCapitalAndRisk()" class="w-16 bg-white border border-slate-300 rounded px-2 py-1 mono font-bold" />
+              <label class="font-semibold text-slate-600">Max Loss $:</label>
+              <input id="maxLossInput" type="number" step="10" value="100" onchange="syncCapitalAndRisk()" class="w-20 bg-white border border-slate-300 rounded px-2 py-1 mono font-bold" />
             </div>
+            <div class="text-[11px] text-slate-500">Size consigliata: <strong id="suggestedSizeLbl" class="mono text-slate-900">--</strong> • Breakeven automatico al <strong>50%</strong> del TP</div>
           </div>
 
           <div class="mt-3 pt-3 border-t border-slate-100 flex items-center gap-2">
             <input id="orderQty" type="number" step="any" placeholder="Quantità ordine" class="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs mono font-bold" />
-            <button onclick="executeBingXOrder()" class="w-1/2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-extrabold py-2.5 px-3 rounded-lg transition">
-              ESEGUI SU BINGX
-            </button>
+            <button onclick="executeBingXOrder()" class="w-1/2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-extrabold py-2.5 px-3 rounded-lg transition">ESEGUI SU BINGX</button>
           </div>
         </div>
 
@@ -318,42 +251,25 @@
             <button onclick="saveBrainWeights()" class="text-xs font-bold text-blue-600 hover:underline">Salva Pesi</button>
           </div>
           <div class="space-y-2 text-xs">
-            <div>
-              <div class="flex justify-between font-semibold text-slate-600"><span>EMA (9/21/50/200)</span><span id="lblWema" class="mono">30%</span></div>
-              <input id="wEma" type="range" min="0" max="100" value="30" oninput="document.getElementById('lblWema').innerText=this.value+'%'" class="w-full accent-slate-900">
-            </div>
-            <div>
-              <div class="flex justify-between font-semibold text-slate-600"><span>Momentum (RSI/MACD/ADX)</span><span id="lblWmom" class="mono">25%</span></div>
-              <input id="wMom" type="range" min="0" max="100" value="25" oninput="document.getElementById('lblWmom').innerText=this.value+'%'" class="w-full accent-slate-900">
-            </div>
-            <div>
-              <div class="flex justify-between font-semibold text-slate-600"><span>Volatilità (Z-Score/R²)</span><span id="lblWvol" class="mono">20%</span></div>
-              <input id="wVol" type="range" min="0" max="100" value="20" oninput="document.getElementById('lblWvol').innerText=this.value+'%'" class="w-full accent-slate-900">
-            </div>
-            <div>
-              <div class="flex justify-between font-semibold text-slate-600"><span>Sentiment (OB/Funding)</span><span id="lblWsent" class="mono">25%</span></div>
-              <input id="wSent" type="range" min="0" max="100" value="25" oninput="document.getElementById('lblWsent').innerText=this.value+'%'" class="w-full accent-slate-900">
-            </div>
-            <div>
-              <div class="flex justify-between font-bold text-blue-700"><span>Soglia Certezza Minima</span><span id="lblMinConf" class="mono">75%</span></div>
-              <input id="wMinConf" type="range" min="50" max="98" value="75" oninput="document.getElementById('lblMinConf').innerText=this.value+'%'" class="w-full accent-blue-600">
-            </div>
+            <div><div class="flex justify-between font-semibold text-slate-600"><span>EMA (9/21/50/200)</span><span id="lblWema" class="mono">30%</span></div><input id="wEma" type="range" min="0" max="100" value="30" oninput="document.getElementById('lblWema').innerText=this.value+'%'" class="w-full accent-slate-900"></div>
+            <div><div class="flex justify-between font-semibold text-slate-600"><span>Momentum (RSI/MACD/ADX)</span><span id="lblWmom" class="mono">25%</span></div><input id="wMom" type="range" min="0" max="100" value="25" oninput="document.getElementById('lblWmom').innerText=this.value+'%'" class="w-full accent-slate-900"></div>
+            <div><div class="flex justify-between font-semibold text-slate-600"><span>Volatilità (Z-Score/R²)</span><span id="lblWvol" class="mono">20%</span></div><input id="wVol" type="range" min="0" max="100" value="20" oninput="document.getElementById('lblWvol').innerText=this.value+'%'" class="w-full accent-slate-900"></div>
+            <div><div class="flex justify-between font-semibold text-slate-600"><span>Sentiment (OB/Funding)</span><span id="lblWsent" class="mono">25%</span></div><input id="wSent" type="range" min="0" max="100" value="25" oninput="document.getElementById('lblWsent').innerText=this.value+'%'" class="w-full accent-slate-900"></div>
+            <div><div class="flex justify-between font-bold text-blue-700"><span>Soglia Certezza Minima</span><span id="lblMinConf" class="mono">75%</span></div><input id="wMinConf" type="range" min="50" max="98" value="75" oninput="document.getElementById('lblMinConf').innerText=this.value+'%'" class="w-full accent-blue-600"></div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- SEZIONE 2: TABELLA COMPLETA MERCATI BINGX PER CATEGORIA -->
+    <!-- TABELLA MERCATI -->
     <div class="card-white p-5">
       <div class="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-200">
         <div>
-          <h2 class="text-lg font-extrabold text-slate-900">Mercati Futures BingX — Avanzamento TP Live, EURUSDT & Nomi Esteri</h2>
-          <p class="text-xs text-slate-500">Quando una posizione è aperta su BingX appare la <strong>barra di avanzamento TP in live</strong> con PnL e prezzi. Cerca <strong>EURUSDT</strong>, <strong>GOLD</strong>, <strong>WTI</strong>, <strong>SP500</strong> o qualsiasi contratto.</p>
+          <h2 class="text-lg font-extrabold text-slate-900">Mercati BingX — Nomi Esatti, Avanzamento TP Live & Chiusura Rapida</h2>
+          <p class="text-xs text-slate-500">Nomi esatti BingX (<strong>GOLD(XAU)</strong>, <strong>XAUT(GOLD)USDT</strong>, <strong>PAXG(GOLD)USDT</strong>, <strong>SILVER(XAG)</strong>, <strong>Oil WTI</strong>, <strong>Oil Brent</strong>, <strong>NASDAQ100</strong>, <strong>SOXL</strong>, <strong>GS</strong>, <strong>HYPEUSDT</strong>, <strong>EURUSDT</strong>) + barra avanzamento TP live.</p>
         </div>
 
-        <div class="flex flex-wrap items-center gap-2">
-          <input id="searchMarket" onkeyup="renderMarketsTable()" type="text" placeholder="Cerca EURUSDT, GOLD, WTI, BRENT, SP500, BTC..." class="bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs font-medium w-80 focus:outline-none focus:border-slate-900" />
-        </div>
+        <input id="searchMarket" onkeyup="renderMarketsTable()" type="text" placeholder="Cerca GOLD(XAU), SILVER(XAG), Oil WTI, Oil Brent, NASDAQ100, SOXL, GS..." class="bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs font-medium w-80 focus:outline-none focus:border-slate-900" />
       </div>
 
       <div class="flex flex-wrap gap-2 my-4" id="categoryTabs">
@@ -361,7 +277,7 @@
         <button onclick="setCategory('CRYPTO MAJOR')" data-cat="CRYPTO MAJOR" class="cat-btn bg-white text-slate-700 px-3.5 py-1.5 rounded-lg text-xs font-bold border border-slate-300 transition">CRYPTO MAJOR</button>
         <button onclick="setCategory('ALTCOIN & DEFI')" data-cat="ALTCOIN & DEFI" class="cat-btn bg-white text-slate-700 px-3.5 py-1.5 rounded-lg text-xs font-bold border border-slate-300 transition">ALTCOIN & DEFI</button>
         <button onclick="setCategory('METALLI & COMMODITIES')" data-cat="METALLI & COMMODITIES" class="cat-btn bg-white text-slate-700 px-3.5 py-1.5 rounded-lg text-xs font-bold border border-slate-300 transition">METALLI & COMMODITIES</button>
-        <button onclick="setCategory('FOREX & VALUTE')" data-cat="FOREX & VALUTE" class="cat-btn bg-white text-slate-700 px-3.5 py-1.5 rounded-lg text-xs font-bold border border-slate-300 transition">FOREX & VALUTE (EURUSDT)</button>
+        <button onclick="setCategory('FOREX & VALUTE')" data-cat="FOREX & VALUTE" class="cat-btn bg-white text-slate-700 px-3.5 py-1.5 rounded-lg text-xs font-bold border border-slate-300 transition">FOREX & VALUTE</button>
         <button onclick="setCategory('INDICI & AZIONI')" data-cat="INDICI & AZIONI" class="cat-btn bg-white text-slate-700 px-3.5 py-1.5 rounded-lg text-xs font-bold border border-slate-300 transition">INDICI & AZIONI</button>
       </div>
 
@@ -369,9 +285,9 @@
         <table class="w-full text-left border-collapse">
           <thead>
             <tr class="border-b-2 border-slate-200 text-[11px] font-extrabold text-slate-500 uppercase bg-slate-50">
-              <th class="py-3 px-3">Nome BingX & Estero</th>
+              <th class="py-3 px-3">Nome BingX</th>
               <th class="py-3 px-3 text-right">Prezzo / 24h</th>
-              <th class="py-3 px-3 text-center min-w-[190px]">Avanzamento TP Live (BingX)</th>
+              <th class="py-3 px-3 text-center min-w-[210px]">Avanzamento TP Live (BingX)</th>
               <th class="py-3 px-3 text-center">Parametri Consigliati</th>
               <th class="py-3 px-3 text-center">TP / SL Esatti</th>
               <th class="py-3 px-3 text-center">Candela TP</th>
@@ -384,7 +300,7 @@
             </tr>
           </thead>
           <tbody id="marketsTableBody" class="divide-y divide-slate-100 text-xs">
-            <tr><td colspan="12" class="py-8 text-center text-slate-400 font-semibold">Scaricamento contratti reali BingX in corso...</td></tr>
+            <tr><td colspan="12" class="py-8 text-center text-slate-400 font-semibold">Caricamento mercati BingX...</td></tr>
           </tbody>
         </table>
       </div>
@@ -412,12 +328,20 @@
       const res = await fetch('/api/keys');
       const json = await res.json();
       const badge = document.getElementById('keysStatusBadge');
+      const stateCell = document.getElementById('keysTableState');
+      const maskedCell = document.getElementById('keysTableMasked');
       if (json.has_keys) {
-        badge.innerText = `ATTIVE (${json.masked_api_key})`;
-        badge.className = 'px-2 py-0.5 rounded font-bold bg-emerald-100 text-emerald-800';
+        badge.innerText = 'CHIAVI ATTIVE';
+        badge.className = 'px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800';
+        stateCell.innerText = '✅ CONNESSO';
+        stateCell.className = 'py-2 px-3 font-bold text-emerald-700';
+        maskedCell.innerText = `API: ${json.masked_api_key} | SEC: ${json.masked_secret_key}`;
       } else {
         badge.innerText = 'NON IMPOSTATE';
-        badge.className = 'px-2 py-0.5 rounded font-bold bg-red-100 text-red-800';
+        badge.className = 'px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-red-100 text-red-800';
+        stateCell.innerText = '❌ MANCANTI';
+        stateCell.className = 'py-2 px-3 font-bold text-red-600';
+        maskedCell.innerText = 'Inserisci API Key e Secret Key';
       }
     }
 
@@ -449,9 +373,7 @@
           renderMarketsTable();
           analyzeSymbol(activeSymbol);
         }
-      } catch (e) {
-        console.error(e);
-      }
+      } catch (e) { console.error(e); }
     }
 
     function setCategory(cat) {
@@ -473,30 +395,37 @@
       return allMarkets.filter(m => {
         const matchCat = currentCategory === 'ALL' || m.category === currentCategory;
         const matchQ = !q ||
+          m.bingxName.toUpperCase().includes(q) ||
           m.symbol.includes(q) ||
-          m.symbol.replace('-', '').includes(q) ||
-          m.displayName.toUpperCase().includes(q) ||
-          m.category.includes(q) ||
-          (q.includes('EURUSDT') && m.symbol.includes('EUR')) ||
-          (q.includes('GOLD') && (m.symbol.includes('XAUT') || m.symbol.includes('PAXG'))) ||
-          (q.includes('OIL') && (m.symbol.includes('WTI') || m.symbol.includes('BRENT')));
+          m.category.includes(q);
         return matchCat && matchQ;
       });
     }
 
+    async function closeOpenPosition(symbol, side, size) {
+      if (!confirm(`Chiudere a mercato ${side} ${symbol} (qty ${size}) su BingX?`)) return;
+      const res = await fetch('/api/close_position', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ symbol, side, quantity: size })
+      });
+      const json = await res.json();
+      alert("Risposta chiusura BingX: " + JSON.stringify(json));
+      pollAutoMonitor();
+    }
+
     function renderTpProgressCell(symbol) {
       const pos = openPositions[symbol];
-      if (!pos) {
-        return `<span class="text-[10px] font-semibold text-slate-400">Nessuna posizione aperta</span>`;
-      }
+      if (!pos) return `<span class="text-[10px] font-semibold text-slate-400">Nessuna posizione aperta</span>`;
       const pct = Math.max(0, Math.min(100, pos.tp_progress_pct || 0));
       const pnlColor = pos.unrealized_pnl >= 0 ? 'text-emerald-700' : 'text-red-600';
       const barColor = pos.unrealized_pnl >= 0 ? 'bg-emerald-500' : 'bg-amber-500';
       return `
-        <div class="w-44 mx-auto space-y-1">
+        <div class="w-48 mx-auto space-y-1" onclick="event.stopPropagation()">
           <div class="flex justify-between items-center text-[10px] mono font-bold">
             <span class="px-1.5 py-0.5 rounded bg-slate-900 text-white">${pos.side} ${pos.leverage}x</span>
             <span class="${pnlColor}">${pos.unrealized_pnl >= 0 ? '+' : ''}${pos.unrealized_pnl} USDT</span>
+            <button onclick="closeOpenPosition('${pos.symbol}', '${pos.side}', ${pos.size})" class="bg-red-600 hover:bg-red-700 text-white px-1.5 py-0.5 rounded text-[9px] font-extrabold">CLOSE</button>
           </div>
           <div class="w-full h-2.5 bg-slate-200 rounded-full overflow-hidden border border-slate-300">
             <div class="${barColor} h-full transition-all duration-500" style="width: ${pct}%"></div>
@@ -513,7 +442,7 @@
       const filtered = getFilteredMarkets();
       const tbody = document.getElementById('marketsTableBody');
       if (!filtered.length) {
-        tbody.innerHTML = `<tr><td colspan="12" class="py-6 text-center text-slate-400">Nessun contratto trovato per il filtro selezionato.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="12" class="py-6 text-center text-slate-400">Nessun contratto trovato.</td></tr>`;
         return;
       }
 
@@ -545,17 +474,14 @@
         return `
           <tr class="hover:bg-blue-50/40 transition cursor-pointer ${openPositions[m.symbol] ? 'bg-emerald-50/30' : ''}" onclick="analyzeSymbol('${m.symbol}')">
             <td class="py-2.5 px-3">
-              <div class="font-extrabold text-slate-900">${m.symbol}</div>
-              <div class="text-[10px] font-semibold text-blue-600">${m.displayName}</div>
+              <div class="font-extrabold text-slate-900">${m.bingxName}</div>
               <div class="text-[10px] text-slate-400">${m.category}</div>
             </td>
             <td class="py-2.5 px-3 text-right mono font-bold text-slate-800">
               <div>${m.lastPrice}</div>
               <div class="text-[10px] ${chgColor}">${m.priceChangePercent > 0 ? '+' : ''}${m.priceChangePercent.toFixed(2)}%</div>
             </td>
-            <td class="py-2.5 px-3 text-center">
-              ${renderTpProgressCell(m.symbol)}
-            </td>
+            <td class="py-2.5 px-3 text-center">${renderTpProgressCell(m.symbol)}</td>
             <td class="py-2.5 px-3 text-center">
               <div class="mono text-[11px] font-extrabold text-slate-900">${recSummary}</div>
               ${recSub ? `<div class="text-[10px] text-slate-500 mono">${recSub}</div>` : ''}
@@ -589,9 +515,7 @@
               <span class="px-2 py-1 rounded-md text-[10px] font-extrabold ${sigBadgeClass}">${sigVal}</span>
             </td>
             <td class="py-2.5 px-3 text-right" onclick="event.stopPropagation()">
-              <button onclick="analyzeSymbol('${m.symbol}')" class="bg-slate-900 hover:bg-blue-600 text-white text-[11px] font-bold px-2.5 py-1 rounded-md transition">
-                Apri
-              </button>
+              <button onclick="analyzeSymbol('${m.symbol}')" class="bg-slate-900 hover:bg-blue-600 text-white text-[11px] font-bold px-2.5 py-1 rounded-md transition">Apri</button>
             </td>
           </tr>
         `;
@@ -600,11 +524,7 @@
 
     function updateManualScore(symbol, val) {
       if (!userOverrides[symbol]) userOverrides[symbol] = {};
-      if (val === '') {
-        delete userOverrides[symbol].score;
-        analyzeSymbol(symbol);
-        return;
-      }
+      if (val === '') { delete userOverrides[symbol].score; analyzeSymbol(symbol); return; }
       const num = Math.max(-100, Math.min(100, parseFloat(val)));
       userOverrides[symbol].score = num;
       const conf = Math.min(Math.round(Math.abs(num) * 1.15 * 10) / 10, 99.9);
@@ -629,12 +549,7 @@
       currentAnalysis = d;
       const ov = userOverrides[d.symbol] || {};
       const rp = d.recommended_params || {};
-
-      if (ov.score !== undefined) {
-        d.composite_score = ov.score;
-        d.confidence = ov.confidence;
-        d.signal = ov.signal;
-      }
+      if (ov.score !== undefined) { d.composite_score = ov.score; d.confidence = ov.confidence; d.signal = ov.signal; }
 
       userOverrides[d.symbol] = {
         ...ov,
@@ -650,8 +565,7 @@
       };
 
       if (activeSymbol === d.symbol) {
-        document.getElementById('activeSymbolTitle').innerText = d.symbol;
-        document.getElementById('activeAliasTitle').innerText = d.display_name || d.symbol;
+        document.getElementById('activeSymbolTitle').innerText = d.bingx_name || d.symbol;
         document.getElementById('activePriceBadge').innerText = d.price;
 
         const sigBadge = document.getElementById('signalMasterBadge');
@@ -704,9 +618,7 @@
 
         if (rp.qty !== undefined) {
           document.getElementById('suggestedSizeLbl').innerText = rp.qty;
-          if (!document.getElementById('orderQty').value) {
-            document.getElementById('orderQty').value = rp.qty;
-          }
+          if (!document.getElementById('orderQty').value) document.getElementById('orderQty').value = rp.qty;
         }
       }
     }
@@ -715,29 +627,22 @@
       activeSymbol = symbol;
       const interval = document.getElementById('timeframeSelect').value;
       const ov = userOverrides[symbol] || {};
-
       const res = await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          symbol,
-          interval,
-          custom_sentiment: ov.sentiment !== undefined && ov.sentiment !== 0 ? ov.sentiment : null
-        })
+        body: JSON.stringify({ symbol, interval, custom_sentiment: ov.sentiment !== undefined && ov.sentiment !== 0 ? ov.sentiment : null })
       });
       const json = await res.json();
-      if (json.status === 'ok') {
-        applyAnalysisToUI(json.data);
-        renderMarketsTable();
-      }
+      if (json.status === 'ok') { applyAnalysisToUI(json.data); renderMarketsTable(); }
     }
 
     async function syncCapitalAndRisk() {
       const riskPct = parseFloat(document.getElementById('riskPctInput').value) || 1.5;
+      const maxLoss = parseFloat(document.getElementById('maxLossInput').value) || 100.0;
       await fetch('/api/weights', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ account_capital: accountBalance, risk_per_trade_pct: riskPct })
+        body: JSON.stringify({ account_capital: accountBalance, risk_per_trade_pct: riskPct, max_daily_loss_usdt: maxLoss })
       });
       analyzeSymbol(activeSymbol);
     }
@@ -752,11 +657,7 @@
 
     async function onTimeframeChange() {
       const tf = document.getElementById('timeframeSelect').value;
-      await fetch('/api/auto_monitor_status', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ interval: tf })
-      });
+      await fetch('/api/auto_monitor_status', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ interval: tf }) });
       analyzeSymbol(activeSymbol);
     }
 
@@ -765,37 +666,22 @@
       const btn = document.getElementById('btnToggleAuto');
       btn.innerText = autoMonitorEnabled ? '🤖 Auto-Scan: ON' : '⏸ Auto-Scan: OFF';
       btn.className = (autoMonitorEnabled ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-slate-500 hover:bg-slate-600') + ' text-white text-xs font-bold px-3.5 py-2 rounded-lg transition';
-      await fetch('/api/auto_monitor_status', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ enabled: autoMonitorEnabled })
-      });
+      await fetch('/api/auto_monitor_status', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabled: autoMonitorEnabled }) });
     }
 
     async function toggleAutoTrade() {
-      if (!autoTradeEnabled && !confirm("⚠️ ATTENZIONE: Attivando l'Auto-Trade Reale, il sistema aprirà posizioni reali su BingX con TP2 e SL della Dashboard quando scatta ENTRA ORA. Procedere?")) {
-        return;
-      }
+      if (!autoTradeEnabled && !confirm("⚠️ Attivando l'Auto-Trade Reale, il sistema aprirà posizioni reali su BingX con TP2 e SL della Dashboard quando scatta ENTRA ORA. Procedere?")) return;
       autoTradeEnabled = !autoTradeEnabled;
       const btn = document.getElementById('btnToggleAutoTrade');
       btn.innerText = autoTradeEnabled ? '⚡ Auto-Trade Reale: ON' : '⚡ Auto-Trade Reale: OFF';
       btn.className = (autoTradeEnabled ? 'bg-red-600 hover:bg-red-700' : 'bg-amber-600 hover:bg-amber-700') + ' text-white text-xs font-extrabold px-3.5 py-2 rounded-lg transition';
-      await fetch('/api/auto_monitor_status', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ auto_trade_enabled: autoTradeEnabled })
-      });
+      await fetch('/api/auto_monitor_status', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ auto_trade_enabled: autoTradeEnabled }) });
     }
 
     function renderTradeLogs(logs) {
       const box = document.getElementById('tradeLogsBox');
-      if (!logs || !logs.length) {
-        box.innerText = "Nessun ordine eseguito in questa sessione.";
-        return;
-      }
-      box.innerHTML = logs.map(l =>
-        `<div class="py-0.5 border-b border-slate-100">[${l.time}] <strong>${l.symbol}</strong> ${l.side} qty=${l.qty} | TP=${l.tp} | SL=${l.sl} -> ${JSON.stringify(l.response)}</div>`
-      ).join('');
+      if (!logs || !logs.length) { box.innerText = "Nessun ordine eseguito in questa sessione."; return; }
+      box.innerHTML = logs.map(l => `<div class="py-0.5 border-b border-slate-100">[${l.time}] <strong>${l.symbol}</strong> ${l.side} qty=${l.qty} | TP=${l.tp} | SL=${l.sl} -> ${JSON.stringify(l.response)}</div>`).join('');
     }
 
     async function pollAutoMonitor() {
@@ -807,14 +693,10 @@
           openPositions = json.open_positions || {};
           renderTradeLogs(json.trade_logs);
           const sigMap = json.signals || {};
-          Object.keys(sigMap).forEach(sym => {
-            applyAnalysisToUI(sigMap[sym]);
-          });
+          Object.keys(sigMap).forEach(sym => applyAnalysisToUI(sigMap[sym]));
           renderMarketsTable();
         }
-      } catch (e) {
-        console.error(e);
-      }
+      } catch (e) { console.error(e); }
     }
 
     async function scanVisibleCategory() {
@@ -826,10 +708,7 @@
         body: JSON.stringify({ symbols: filtered, interval, overrides: userOverrides })
       });
       const json = await res.json();
-      if (json.status === 'ok') {
-        json.signals.forEach(s => applyAnalysisToUI(s));
-        renderMarketsTable();
-      }
+      if (json.status === 'ok') { json.signals.forEach(s => applyAnalysisToUI(s)); renderMarketsTable(); }
     }
 
     async function saveBrainWeights() {
@@ -840,13 +719,10 @@
         sentiment_weight: document.getElementById('wSent').value,
         min_confidence: document.getElementById('wMinConf').value,
         account_capital: accountBalance,
-        risk_per_trade_pct: parseFloat(document.getElementById('riskPctInput').value) || 1.5
+        risk_per_trade_pct: parseFloat(document.getElementById('riskPctInput').value) || 1.5,
+        max_daily_loss_usdt: parseFloat(document.getElementById('maxLossInput').value) || 100.0
       };
-      await fetch('/api/weights', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
+      await fetch('/api/weights', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
       analyzeSymbol(activeSymbol);
     }
 
@@ -857,19 +733,12 @@
       const side = currentAnalysis.composite_score >= 0 ? "BUY" : "SELL";
       const lev = currentAnalysis.recommended_params?.leverage || 10;
 
-      if (!confirm(`Confermi ordine REALE su BingX?\nSimbolo: ${currentAnalysis.symbol}\nDirezione: ${side}\nLeva: ${lev}x\nQuantità: ${qty}\nSL: ${currentAnalysis.levels.sl}\nTP2: ${currentAnalysis.levels.tp2}`)) return;
+      if (!confirm(`Confermi ordine REALE su BingX?\nMercato: ${currentAnalysis.bingx_name}\nDirezione: ${side}\nLeva: ${lev}x\nQuantità: ${qty}\nSL: ${currentAnalysis.levels.sl}\nTP2: ${currentAnalysis.levels.tp2}`)) return;
 
       const res = await fetch('/api/execute_order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          symbol: currentAnalysis.symbol,
-          side,
-          quantity: qty,
-          sl: currentAnalysis.levels.sl,
-          tp: currentAnalysis.levels.tp2,
-          leverage: lev
-        })
+        body: JSON.stringify({ symbol: currentAnalysis.symbol, side, quantity: qty, sl: currentAnalysis.levels.sl, tp: currentAnalysis.levels.tp2, leverage: lev })
       });
       const json = await res.json();
       alert("Risposta BingX: " + JSON.stringify(json));
