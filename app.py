@@ -59,70 +59,79 @@ BRAIN_WEIGHTS = {
     "auto_monitor_enabled": True,
     "auto_trade_enabled": False,
     "auto_trade_cooldown_sec": 300,
+    "breakeven_at_tp_pct": 50.0,
+    "max_daily_loss_usdt": 100.0,
     "account_capital": 1000.0,
     "risk_per_trade_pct": 1.5
 }
 
-BINGX_FOREIGN_MAP = {
-    # Forex / EURUSDT
-    "EURUSDT": ["EUR-USDT", "EURUSD-USDT"],
-    "EUR-USDT": ["EUR-USDT", "EURUSD-USDT"],
-    "EURUSD": ["EUR-USDT", "EURUSD-USDT"],
-    "GBPUSD": ["GBP-USDT", "GBPUSD-USDT"],
-    "USDJPY": ["JPY-USDT", "USDJPY-USDT"],
-    "AUDUSD": ["AUD-USDT", "AUDUSD-USDT"],
-    "USDCAD": ["CAD-USDT", "USDCAD-USDT"],
-    "USDCHF": ["CHF-USDT", "USDCHF-USDT"],
-    "EURJPY": ["EURJPY-USDT", "EUR-USDT"],
-    # Metalli Preziosi & Materie Prime
-    "GOLD(XAU)": ["XAUT-USDT", "PAXG-USDT", "GOLD-USDT", "XAU-USDT"],
-    "XAUUSD": ["XAUT-USDT", "PAXG-USDT", "XAU-USDT"],
-    "XAUT(GOLD)USDT": ["XAUT-USDT"],
-    "PAXG(GOLD)USDT": ["PAXG-USDT"],
-    "XAGUSD": ["XAG-USDT", "SILVER-USDT"],
-    "SILVER": ["XAG-USDT", "SILVER-USDT"],
-    "WTI": ["WTI-USDT", "OIL-USDT", "CRUDE-USDT"],
-    "BRENT": ["BRENT-USDT", "OIL-USDT"],
-    "CRUDE OIL": ["WTI-USDT", "BRENT-USDT", "OIL-USDT"],
-    "NATURAL GAS": ["NATGAS-USDT", "NG-USDT"],
-    "NATGAS": ["NATGAS-USDT"],
-    "COPPER": ["COPPER-USDT", "XCU-USDT"],
-    "XAUXPT": ["XAUT-USDT", "PAXG-USDT"],
-    "XAUEUR": ["XAUT-USDT", "PAXG-USDT"],
-    # Indici & Azioni Estere
-    "SP500": ["SPX-USDT", "SP500-USDT", "US500-USDT"],
-    "NASDAQ100": ["NDX-USDT", "NAS100-USDT", "NASDAQ100-USDT"],
-    "DOWJONES": ["US30-USDT", "DJI-USDT"],
-    "TSLA": ["TSLA-USDT"],
-    "NVDA": ["NVDA-USDT"],
-    "AAPL": ["AAPL-USDT"],
-    "MSFT": ["MSFT-USDT"],
-    "AMZN": ["AMZN-USDT"],
-    "GOOGL": ["GOOGL-USDT"],
-    "META": ["META-USDT"],
-    "GS": ["GS-USDT"]
+# Mappa simboli API BingX -> nome esatto visualizzato in app BingX
+API_TO_BINGX_NAME = {
+    "NCCOGOLD2USD-USDT": "GOLD(XAU)",
+    "GOLD-USDT": "GOLD(XAU)",
+    "XAU-USDT": "GOLD(XAU)",
+    "XAUT-USDT": "XAUT(GOLD)USDT",
+    "PAXG-USDT": "PAXG(GOLD)USDT",
+    "XAUXPT-USDT": "XAUXPT",
+    "XAUEUR-USDT": "XAUEUR",
+    "XAUZAR-USDT": "XAUZAR",
+    "XAUJPY-USDT": "XAUJPY",
+    "XAUAUD-USDT": "XAUAUD",
+    "XAUKRW-USDT": "XAUKRW",
+    "XAG-USDT": "SILVER(XAG)",
+    "SILVER-USDT": "SILVER(XAG)",
+    "WTI-USDT": "Oil WTI",
+    "OILWTI-USDT": "Oil WTI",
+    "BRENT-USDT": "Oil Brent",
+    "OILBRENT-USDT": "Oil Brent",
+    "NDX-USDT": "NASDAQ100",
+    "NAS100-USDT": "NASDAQ100",
+    "NASDAQ100-USDT": "NASDAQ100",
+    "SOXL-USDT": "SOXL",
+    "GS-USDT": "GS",
+    "EUR-USDT": "EURUSDT",
+    "EURUSD-USDT": "EURUSDT",
+    "BTC-USDT": "BTCUSDT",
+    "ETH-USDT": "ETHUSDT",
+    "SOL-USDT": "SOLUSDT",
+    "XRP-USDT": "XRPUSDT",
+    "BNB-USDT": "BNBUSDT",
+    "HYPE-USDT": "HYPEUSDT",
+    "ZEC-USDT": "ZECUSDT",
+    "JTO-USDT": "JTOUSDT",
+    "PEOPLE-USDT": "PEOPLEUSDT",
+    "SUI-USDT": "SUIUSDT",
+    "PENDLE-USDT": "PENDLEUSDT"
 }
 
-FOREIGN_DISPLAY_LABELS = {
-    "EUR-USDT": "EURUSDT • EUR/USD FX Perp",
-    "EURUSD-USDT": "EURUSDT • EUR/USD FX Perp",
-    "XAUT-USDT": "XAUT(GOLD)USDT • GOLD(XAU) / XAUUSD",
-    "PAXG-USDT": "PAXG(GOLD)USDT • GOLD(XAU) / XAUUSD",
-    "XAG-USDT": "XAGUSD • Silver Futures",
-    "WTI-USDT": "WTI Crude Oil • US Oil Perp",
-    "BRENT-USDT": "Brent Crude Oil • Global Oil Perp",
-    "NATGAS-USDT": "Natural Gas • Henry Hub Perp",
-    "GBP-USDT": "GBP/USD • British Pound FX Perp",
-    "JPY-USDT": "USD/JPY • Japanese Yen FX Perp",
-    "SPX-USDT": "S&P 500 (SP500) • US Index Perp",
-    "NDX-USDT": "NASDAQ 100 (NASDAQ100) • Tech Index Perp",
-    "TSLA-USDT": "Tesla Inc. (TSLA) • US Stock Perp",
-    "NVDA-USDT": "NVIDIA Corp. (NVDA) • US Stock Perp",
-    "AAPL-USDT": "Apple Inc. (AAPL) • US Stock Perp",
-    "MSFT-USDT": "Microsoft Corp. (MSFT) • US Stock Perp",
-    "AMZN-USDT": "Amazon.com (AMZN) • US Stock Perp",
-    "GOOGL-USDT": "Alphabet Inc. (GOOGL) • US Stock Perp",
-    "GS-USDT": "Goldman Sachs (GS) • US Stock Perp"
+BINGX_NAME_TO_API = {
+    "GOLD(XAU)": ["NCCOGOLD2USD-USDT", "XAUT-USDT", "PAXG-USDT", "GOLD-USDT", "XAU-USDT"],
+    "XAUT(GOLD)USDT": ["XAUT-USDT"],
+    "PAXG(GOLD)USDT": ["PAXG-USDT"],
+    "XAUXPT": ["XAUXPT-USDT", "XAUT-USDT", "PAXG-USDT"],
+    "XAUEUR": ["XAUEUR-USDT", "XAUT-USDT", "PAXG-USDT"],
+    "XAUZAR": ["XAUZAR-USDT", "XAUT-USDT"],
+    "XAUJPY": ["XAUJPY-USDT", "XAUT-USDT"],
+    "XAUAUD": ["XAUAUD-USDT", "XAUT-USDT"],
+    "XAUKRW": ["XAUKRW-USDT", "XAUT-USDT"],
+    "SILVER(XAG)": ["XAG-USDT", "SILVER-USDT"],
+    "OIL WTI": ["WTI-USDT", "OILWTI-USDT"],
+    "OIL BRENT": ["BRENT-USDT", "OILBRENT-USDT"],
+    "NASDAQ100": ["NDX-USDT", "NAS100-USDT", "NASDAQ100-USDT"],
+    "SOXL": ["SOXL-USDT"],
+    "GS": ["GS-USDT"],
+    "EURUSDT": ["EUR-USDT", "EURUSD-USDT"],
+    "BTCUSDT": ["BTC-USDT"],
+    "ETHUSDT": ["ETH-USDT"],
+    "SOLUSDT": ["SOL-USDT"],
+    "XRPUSDT": ["XRP-USDT"],
+    "BNBUSDT": ["BNB-USDT"],
+    "HYPEUSDT": ["HYPE-USDT"],
+    "ZECUSDT": ["ZEC-USDT"],
+    "JTOUSDT": ["JTO-USDT"],
+    "PEOPLEUSDT": ["PEOPLE-USDT"],
+    "SUIUSDT": ["SUI-USDT"],
+    "PENDLEUSDT": ["PENDLE-USDT"]
 }
 
 CONTRACTS_CACHE = {"timestamp": 0, "data": [], "symbol_set": set(), "max_lev_map": {}}
@@ -132,6 +141,7 @@ AUTO_SCAN_STATE = {
     "interval": "15m",
     "signals": {},
     "last_auto_trade": {},
+    "breakeven_moved": set(),
     "trade_logs": [],
     "open_positions": {}
 }
@@ -179,7 +189,7 @@ def bingx_private_get(endpoint: str, params: dict = None):
 
 def bingx_private_post(endpoint: str, params: dict):
     if not BINGX_API_KEY or not BINGX_SECRET_KEY:
-        return {"code": -1, "msg": "API Key / Secret Key BingX mancanti. Inseriscili e salvali nella Dashboard."}
+        return {"code": -1, "msg": "API Key / Secret Key BingX mancanti."}
     params["timestamp"] = int(time.time() * 1000)
     signed_qs = sign_request(params)
     url = f"{BASE_URL}{endpoint}?{signed_qs}"
@@ -191,22 +201,22 @@ def bingx_private_post(endpoint: str, params: dict):
         return {"code": -1, "msg": str(e)}
 
 
-def format_bingx_display_name(symbol: str) -> str:
-    s = symbol.upper()
-    if s in FOREIGN_DISPLAY_LABELS:
-        return FOREIGN_DISPLAY_LABELS[s]
+def bingx_exact_name(api_symbol: str) -> str:
+    s = api_symbol.upper()
+    if s in API_TO_BINGX_NAME:
+        return API_TO_BINGX_NAME[s]
     return s.replace("-", "")
 
 
-def categorize_symbol(symbol: str) -> str:
-    s = symbol.upper()
-    if any(k in s for k in ["XAUT", "PAXG", "XAU", "XAG", "GOLD", "SILVER", "OIL", "WTI", "BRENT", "NATGAS", "COPPER", "PLATINUM"]):
+def categorize_symbol(bingx_name: str, api_symbol: str) -> str:
+    s = f"{bingx_name} {api_symbol}".upper()
+    if any(k in s for k in ["GOLD", "XAU", "SILVER", "XAG", "WTI", "BRENT", "OIL", "NATGAS", "COPPER"]):
         return "METALLI & COMMODITIES"
-    if any(k in s for k in ["EUR-", "EURUSD", "GBP-", "JPY", "AUD-", "CAD-", "CHF-", "NZD-", "USDJPY", "GBPUSD"]):
+    if any(k in s for k in ["EURUSDT", "EUR-", "GBP", "JPY", "AUD", "CAD", "CHF", "NZD"]):
         return "FOREX & VALUTE"
-    if any(k in s for k in ["SPX", "NAS100", "NDX", "US30", "DJI", "DAX", "UK100", "NIKKEI", "TSLA", "NVDA", "AAPL", "MSFT", "AMZN", "GOOGL", "META", "GS-"]):
+    if any(k in s for k in ["NASDAQ100", "NDX", "NAS100", "SPX", "US30", "SOXL", "GS", "TSLA", "NVDA", "AAPL"]):
         return "INDICI & AZIONI"
-    if any(s.startswith(k) for k in ["BTC-", "ETH-", "SOL-", "BNB-", "XRP-", "ADA-", "AVAX-", "DOGE-", "DOT-", "LINK-", "TON-", "SUI-"]):
+    if any(k in s for k in ["BTCUSDT", "ETHUSDT", "SOLUSDT", "XRPUSDT", "BNBUSDT", "HYPEUSDT", "ZECUSDT", "JTOUSDT", "PEOPLEUSDT", "SUIUSDT", "PENDLEUSDT"]):
         return "CRYPTO MAJOR"
     return "ALTCOIN & DEFI"
 
@@ -233,10 +243,12 @@ def get_all_bingx_contracts(force: bool = False):
             max_lev_map[sym] = max_lev
             tk = ticker_map.get(sym, {})
             vol_24h = float(tk.get("quoteVolume", 0) or 0)
+            exact_name = bingx_exact_name(sym)
             results.append({
                 "symbol": sym,
-                "displayName": format_bingx_display_name(sym),
-                "category": categorize_symbol(sym),
+                "bingxName": exact_name,
+                "displayName": exact_name,
+                "category": categorize_symbol(exact_name, sym),
                 "maxLeverage": max_lev,
                 "pricePrecision": c.get("pricePrecision", 4),
                 "lastPrice": float(tk.get("lastPrice", 0) or 0),
@@ -255,18 +267,19 @@ def get_all_bingx_contracts(force: bool = False):
 
 def resolve_bingx_symbol(query_symbol: str) -> str:
     clean = query_symbol.strip().upper().replace("/", "-")
-    if clean in BINGX_FOREIGN_MAP:
-        for candidate in BINGX_FOREIGN_MAP[clean]:
-            if candidate in CONTRACTS_CACHE["symbol_set"]:
-                return candidate
-        return BINGX_FOREIGN_MAP[clean][0]
+    if clean in CONTRACTS_CACHE["symbol_set"]:
+        return clean
+    if clean in BINGX_NAME_TO_API:
+        for cand in BINGX_NAME_TO_API[clean]:
+            if cand in CONTRACTS_CACHE["symbol_set"]:
+                return cand
+        return BINGX_NAME_TO_API[clean][0]
     if "-" not in clean and clean.endswith("USDT"):
         return clean[:-4] + "-USDT"
     return clean
 
 
 def fetch_open_bingx_positions(signal_map: dict = None):
-    """Recupera le posizioni reali aperte su BingX e calcola la % di avanzamento verso il TP."""
     raw_pos = bingx_private_get("/openApi/swap/v2/user/positions")
     pos_dict = {}
     if not isinstance(raw_pos, list):
@@ -287,7 +300,6 @@ def fetch_open_bingx_positions(signal_map: dict = None):
         tp_target = float(sig_info.get("levels", {}).get("tp2", 0) or 0)
         sl_target = float(sig_info.get("levels", {}).get("sl", 0) or 0)
 
-        # Fallback TP teorico se non presente in cache (+2.5% long / -2.5% short)
         if tp_target <= 0 and entry_px > 0:
             tp_target = entry_px * 1.025 if side == "LONG" else entry_px * 0.975
 
@@ -300,8 +312,24 @@ def fetch_open_bingx_positions(signal_map: dict = None):
 
         progress_clamped = round(max(0.0, min(100.0, progress_pct)), 1)
 
+        be_threshold = float(BRAIN_WEIGHTS.get("breakeven_at_tp_pct", 50.0))
+        be_key = f"{sym}_{side}"
+        if progress_clamped >= be_threshold and be_key not in AUTO_SCAN_STATE["breakeven_moved"] and entry_px > 0:
+            be_price = round(entry_px * (1.001 if side == "LONG" else 0.999), 6)
+            bingx_private_post("/openApi/swap/v2/trade/order", {
+                "symbol": sym,
+                "side": "SELL" if side == "LONG" else "BUY",
+                "positionSide": side,
+                "type": "STOP_MARKET",
+                "stopPrice": be_price,
+                "workingType": "MARK_PRICE",
+                "quantity": abs(amt)
+            })
+            AUTO_SCAN_STATE["breakeven_moved"].add(be_key)
+
         pos_dict[sym] = {
             "symbol": sym,
+            "bingx_name": bingx_exact_name(sym),
             "side": side,
             "size": abs(amt),
             "entry_price": round(entry_px, 6),
@@ -309,7 +337,6 @@ def fetch_open_bingx_positions(signal_map: dict = None):
             "tp_price": round(tp_target, 6),
             "sl_price": round(sl_target, 6),
             "tp_progress_pct": progress_clamped,
-            "raw_progress_pct": round(progress_pct, 1),
             "unrealized_pnl": round(pnl, 2),
             "leverage": lev
         }
@@ -317,12 +344,11 @@ def fetch_open_bingx_positions(signal_map: dict = None):
 
 
 def set_bingx_leverage(symbol: str, position_side: str, leverage: int):
-    params = {
+    return bingx_private_post("/openApi/swap/v2/trade/leverage", {
         "symbol": symbol,
         "side": position_side,
         "leverage": int(leverage)
-    }
-    return bingx_private_post("/openApi/swap/v2/trade/leverage", params)
+    })
 
 
 def place_bingx_real_order(symbol: str, side: str, quantity, sl, tp, leverage: int = None):
@@ -341,23 +367,41 @@ def place_bingx_real_order(symbol: str, side: str, quantity, sl, tp, leverage: i
         "takeProfit": f'{{"type": "TAKE_PROFIT_MARKET", "stopPrice": {tp}, "workingType": "MARK_PRICE"}}'
     }
     res = bingx_private_post("/openApi/swap/v2/trade/order", order_params)
-    log_entry = {
+    AUTO_SCAN_STATE["trade_logs"].insert(0, {
         "time": time.strftime("%H:%M:%S"),
-        "symbol": real_symbol,
+        "symbol": bingx_exact_name(real_symbol),
         "side": side,
         "qty": quantity,
         "sl": sl,
         "tp": tp,
         "response": res
-    }
-    AUTO_SCAN_STATE["trade_logs"].insert(0, log_entry)
+    })
     AUTO_SCAN_STATE["trade_logs"] = AUTO_SCAN_STATE["trade_logs"][:30]
     return res
 
 
-# ==============================================================================
-# CERVELLO MATEMATICO QUANTITATIVO
-# ==============================================================================
+def close_bingx_position(symbol: str, side: str, quantity):
+    real_symbol = resolve_bingx_symbol(symbol)
+    close_side = "SELL" if side.upper() == "LONG" else "BUY"
+    res = bingx_private_post("/openApi/swap/v2/trade/order", {
+        "symbol": real_symbol,
+        "side": close_side,
+        "positionSide": side.upper(),
+        "type": "MARKET",
+        "quantity": quantity
+    })
+    AUTO_SCAN_STATE["trade_logs"].insert(0, {
+        "time": time.strftime("%H:%M:%S"),
+        "symbol": bingx_exact_name(real_symbol),
+        "side": f"CLOSE_{side.upper()}",
+        "qty": quantity,
+        "sl": "-",
+        "tp": "-",
+        "response": res
+    })
+    AUTO_SCAN_STATE["trade_logs"] = AUTO_SCAN_STATE["trade_logs"][:30]
+    return res
+
 
 def calc_ema(prices: np.ndarray, period: int) -> np.ndarray:
     alpha = 2.0 / (period + 1.0)
@@ -650,10 +694,11 @@ def analyze_symbol_math(symbol: str, interval: str = "15m", custom_sentiment: fl
         stop_dist=stop_dist, price=price, rec_leverage=rec_lev
     )
 
+    exact_name = bingx_exact_name(real_symbol)
     return {
         "symbol": real_symbol,
-        "requested_symbol": symbol,
-        "display_name": format_bingx_display_name(real_symbol),
+        "bingx_name": exact_name,
+        "display_name": exact_name,
         "price": price,
         "signal": signal,
         "entry_rule": entry_rule,
@@ -694,12 +739,19 @@ def maybe_auto_execute_trade(analysis: dict):
     if not BINGX_API_KEY or not BINGX_SECRET_KEY:
         return
 
+    total_open_pnl = sum(p.get("unrealized_pnl", 0.0) for p in AUTO_SCAN_STATE["open_positions"].values())
+    if total_open_pnl <= -abs(float(BRAIN_WEIGHTS.get("max_daily_loss_usdt", 100.0))):
+        return
+
     sig = analysis.get("signal", "")
     action = analysis.get("entry_rule", {}).get("action", "")
     if action != "ENTER NOW" or sig not in ("STRONG LONG", "STRONG SHORT"):
         return
 
     sym = analysis["symbol"]
+    if sym in AUTO_SCAN_STATE["open_positions"]:
+        return
+
     now = time.time()
     cooldown = int(BRAIN_WEIGHTS.get("auto_trade_cooldown_sec", 300))
     last_ts = AUTO_SCAN_STATE["last_auto_trade"].get(sym, 0)
@@ -726,10 +778,7 @@ def auto_market_monitor_loop():
         try:
             if BRAIN_WEIGHTS.get("auto_monitor_enabled", True):
                 contracts = get_all_bingx_contracts()
-                top_symbols = [c["symbol"] for c in contracts[:20]]
-                if "EUR-USDT" in CONTRACTS_CACHE["symbol_set"] and "EUR-USDT" not in top_symbols:
-                    top_symbols.append("EUR-USDT")
-
+                top_symbols = [c["symbol"] for c in contracts[:25]]
                 interval = AUTO_SCAN_STATE.get("interval", "15m")
                 updated = dict(AUTO_SCAN_STATE["signals"])
                 for sym in top_symbols:
@@ -753,10 +802,6 @@ monitor_thread = threading.Thread(target=auto_market_monitor_loop, daemon=True)
 monitor_thread.start()
 
 
-# ==============================================================================
-# ROTTE API FLASK
-# ==============================================================================
-
 @app.route("/")
 def index():
     return render_template("index.html")
@@ -778,10 +823,12 @@ def api_keys():
         return jsonify({"status": "ok", "msg": "Chiavi API BingX salvate e attivate!"})
 
     masked_key = f"{BINGX_API_KEY[:6]}...{BINGX_API_KEY[-4:]}" if len(BINGX_API_KEY) > 10 else ("Configurata" if BINGX_API_KEY else "Non impostata")
+    masked_sec = f"{BINGX_SECRET_KEY[:4]}...{BINGX_SECRET_KEY[-4:]}" if len(BINGX_SECRET_KEY) > 8 else ("Configurata" if BINGX_SECRET_KEY else "Non impostata")
     return jsonify({
         "status": "ok",
         "has_keys": bool(BINGX_API_KEY and BINGX_SECRET_KEY),
-        "masked_api_key": masked_key
+        "masked_api_key": masked_key,
+        "masked_secret_key": masked_sec
     })
 
 
@@ -792,11 +839,17 @@ def api_markets():
     return jsonify({"status": "ok", "count": len(contracts), "markets": contracts})
 
 
-@app.route("/api/positions")
-def api_positions():
-    positions = fetch_open_bingx_positions(AUTO_SCAN_STATE["signals"])
-    AUTO_SCAN_STATE["open_positions"] = positions
-    return jsonify({"status": "ok", "positions": positions})
+@app.route("/api/close_position", methods=["POST"])
+def api_close_position():
+    data = request.json or {}
+    sym = data.get("symbol")
+    side = data.get("side")
+    qty = data.get("quantity")
+    if not all([sym, side, qty]):
+        return jsonify({"status": "error", "msg": "Dati chiusura mancanti"}), 400
+    res = close_bingx_position(sym, side, qty)
+    AUTO_SCAN_STATE["open_positions"] = fetch_open_bingx_positions(AUTO_SCAN_STATE["signals"])
+    return jsonify(res)
 
 
 @app.route("/api/auto_monitor_status", methods=["GET", "POST"])
@@ -843,7 +896,7 @@ def api_analyze():
 
     res = analyze_symbol_math(symbol, interval, custom_sentiment)
     if not res:
-        return jsonify({"status": "error", "msg": "Dati insufficienti da BingX"}), 400
+        return jsonify({"status": "error", "msg": "Contratto non trovato o dati insufficienti su BingX"}), 400
     return jsonify({"status": "ok", "data": res})
 
 
@@ -884,7 +937,7 @@ def api_weights():
 def api_account_balance():
     bal = bingx_private_get("/openApi/swap/v3/user/balance")
     if not bal:
-        return jsonify({"status": "demo", "balance": BRAIN_WEIGHTS.get("account_capital", 1000.0), "msg": "Usa saldo simulato o salva API Key BingX"})
+        return jsonify({"status": "demo", "balance": BRAIN_WEIGHTS.get("account_capital", 1000.0)})
     usdt_bal = 0.0
     if isinstance(bal, list):
         for item in bal:
