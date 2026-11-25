@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>BINGX ELITE SIGNAL ROOM PRO — Auto Monitor & Quant Terminal</title>
+  <title>BINGX ELITE SIGNAL ROOM PRO — Expectancy & Quant Terminal</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
   <style>
@@ -35,7 +35,7 @@
 
   <!-- TOP BAR -->
   <header class="bg-white border-b border-slate-200 sticky top-0 z-40">
-    <div class="max-w-[1680px] mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+    <div class="max-w-[1720px] mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
       <div class="flex items-center gap-3">
         <div class="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center font-extrabold text-lg">
           BX
@@ -48,7 +48,7 @@
               AUTO-MONITOR ATTIVO • <span id="lastScanTime">--:--:--</span>
             </span>
           </div>
-          <p class="text-xs text-slate-500">Nomi Reali BingX Swap v2 • Timeframe Candela TP • Filtro Entrata/No-Entry • Tachimetri & Score Live</p>
+          <p class="text-xs text-slate-500">Expectancy (+R) • Half-Kelly • Parametri Consigliati • Timeframe Candela TP • Nomi Reali BingX</p>
         </div>
       </div>
 
@@ -76,20 +76,26 @@
     </div>
   </header>
 
-  <main class="max-w-[1680px] mx-auto px-4 py-6 space-y-6">
+  <main class="max-w-[1720px] mx-auto px-4 py-6 space-y-6">
 
-    <!-- BANNER REGOLA INGRESSO ATTIVO -->
+    <!-- BANNER REGOLA INGRESSO & EXPECTANCY -->
     <div id="entryRuleBanner" class="card-white p-4 border-l-4 border-l-slate-400 flex flex-wrap items-center justify-between gap-4">
       <div class="flex items-center gap-3">
         <span id="entryActionPill" class="px-3 py-1.5 rounded-lg text-xs font-extrabold bg-slate-100 text-slate-700">⏳ IN ATTESA</span>
         <div>
-          <div class="text-xs font-bold uppercase text-slate-400">Protocollo Professionale Entrata / TP</div>
-          <div id="entryReasonText" class="text-sm font-bold text-slate-800">Seleziona un contratto BingX per verificare condizioni di ingresso e timeframe candela TP.</div>
+          <div class="text-xs font-bold uppercase text-slate-400">Motore Matematico Expectancy & Kelly</div>
+          <div id="entryReasonText" class="text-sm font-bold text-slate-800">Seleziona un contratto BingX per verificare Expectancy, parametri consigliati e timeframe candela TP.</div>
         </div>
       </div>
-      <div class="text-right">
-        <div class="text-[11px] font-bold text-slate-400 uppercase">Timeframe Candela TP Stimato</div>
-        <div id="tpTimeframeHighlight" class="mono text-sm font-extrabold text-blue-700">--</div>
+      <div class="flex flex-wrap items-center gap-6 text-right">
+        <div>
+          <div class="text-[11px] font-bold text-slate-400 uppercase">Parametri Consigliati</div>
+          <div id="recParamsHighlight" class="mono text-xs font-extrabold text-emerald-700">--</div>
+        </div>
+        <div>
+          <div class="text-[11px] font-bold text-slate-400 uppercase">Timeframe Candela TP</div>
+          <div id="tpTimeframeHighlight" class="mono text-sm font-extrabold text-blue-700">--</div>
+        </div>
       </div>
     </div>
 
@@ -190,7 +196,6 @@
           </div>
         </div>
 
-        <!-- INDICATORI EMA & TECNICI -->
         <div class="mt-4 pt-4 border-t border-slate-100 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2 text-center">
           <div class="bg-slate-50 p-2 rounded-lg border border-slate-200/60">
             <div class="text-[10px] font-bold text-slate-400">EMA 9</div>
@@ -258,16 +263,15 @@
             </div>
           </div>
 
-          <!-- Calcolatore Size da Capitale BingX -->
           <div class="mt-3 p-3 rounded-lg bg-slate-50 border border-slate-200 text-xs space-y-2">
             <div class="flex items-center justify-between font-bold text-slate-700">
-              <span>Saldo BingX (USDT): <span id="bingxBalanceVal" class="mono text-blue-700">1000.00</span></span>
-              <button onclick="fetchAccountBalance()" class="text-[11px] text-blue-600 hover:underline">Aggiorna Saldo</button>
+              <span>Capitale (USDT): <span id="bingxBalanceVal" class="mono text-blue-700">1000.00</span></span>
+              <button onclick="fetchAccountBalance()" class="text-[11px] text-blue-600 hover:underline">Sync BingX</button>
             </div>
-            <div class="flex items-center gap-2">
+            <div class="flex items-center justify-between gap-2">
               <label class="font-semibold text-slate-600">Rischio %:</label>
-              <input id="riskPctInput" type="number" step="0.5" value="1.5" oninput="calcSuggestedSize()" class="w-20 bg-white border border-slate-300 rounded px-2 py-1 mono font-bold" />
-              <span class="text-slate-500">Size sugg.: <strong id="suggestedSizeLbl" class="mono text-slate-900">--</strong></span>
+              <input id="riskPctInput" type="number" step="0.5" value="1.5" onchange="syncCapitalAndRisk()" class="w-20 bg-white border border-slate-300 rounded px-2 py-1 mono font-bold" />
+              <span class="text-slate-500">Size: <strong id="suggestedSizeLbl" class="mono text-slate-900">--</strong></span>
             </div>
           </div>
 
@@ -279,7 +283,6 @@
           </div>
         </div>
 
-        <!-- Pesi Cervello Matematico -->
         <div class="card-white p-5">
           <div class="flex items-center justify-between mb-3">
             <h3 class="font-extrabold text-slate-900 text-sm uppercase tracking-wider">🧠 Cervello Matematico</h3>
@@ -303,8 +306,8 @@
               <input id="wSent" type="range" min="0" max="100" value="25" oninput="document.getElementById('lblWsent').innerText=this.value+'%'" class="w-full accent-slate-900">
             </div>
             <div>
-              <div class="flex justify-between font-bold text-blue-700"><span>Soglia Certezza Minima</span><span id="lblMinConf" class="mono">78%</span></div>
-              <input id="wMinConf" type="range" min="50" max="98" value="78" oninput="document.getElementById('lblMinConf').innerText=this.value+'%'" class="w-full accent-blue-600">
+              <div class="flex justify-between font-bold text-blue-700"><span>Soglia Certezza Minima</span><span id="lblMinConf" class="mono">75%</span></div>
+              <input id="wMinConf" type="range" min="50" max="98" value="75" oninput="document.getElementById('lblMinConf').innerText=this.value+'%'" class="w-full accent-blue-600">
             </div>
           </div>
         </div>
@@ -316,7 +319,7 @@
       <div class="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-200">
         <div>
           <h2 class="text-lg font-extrabold text-slate-900">Mercati Futures BingX — Tabella Professionale</h2>
-          <p class="text-xs text-slate-500">Nomi reali BingX, timeframe esatto candela per TP, regola <strong>Entrare / Non Entrare</strong>, <strong>Score</strong> e <strong>Sentiment</strong> modificabili live.</p>
+          <p class="text-xs text-slate-500">Nomi reali BingX, <strong>Parametri Consigliati</strong> (Leva, Size, Expectancy +R, Half-Kelly), timeframe candela TP, regola <strong>Entrare / Non Entrare</strong>, <strong>Score</strong> e <strong>Sentiment</strong> modificabili live.</p>
         </div>
 
         <div class="flex flex-wrap items-center gap-2">
@@ -324,31 +327,29 @@
         </div>
       </div>
 
-      <!-- TAB CATEGORIE -->
       <div class="flex flex-wrap gap-2 my-4" id="categoryTabs">
         <button onclick="setCategory('ALL')" data-cat="ALL" class="cat-btn tab-active px-3.5 py-1.5 rounded-lg text-xs font-bold border border-slate-300 transition">TUTTI I MERCATI</button>
         <button onclick="setCategory('CRYPTO MAJOR')" data-cat="CRYPTO MAJOR" class="cat-btn bg-white text-slate-700 px-3.5 py-1.5 rounded-lg text-xs font-bold border border-slate-300 transition">CRYPTO MAJOR</button>
         <button onclick="setCategory('ALTCOIN & DEFI')" data-cat="ALTCOIN & DEFI" class="cat-btn bg-white text-slate-700 px-3.5 py-1.5 rounded-lg text-xs font-bold border border-slate-300 transition">ALTCOIN & DEFI</button>
-        <button onclick="setCategory('METALLI & COMMODITIES')" data-cat="METALLI & COMMODITIES" class="cat-btn bg-white text-slate-700 px-3.5 py-1.5 rounded-lg text-xs font-bold border border-slate-300 transition">METALLI & COMMODITIES (XAUT/PAXG/GOLD)</button>
+        <button onclick="setCategory('METALLI & COMMODITIES')" data-cat="METALLI & COMMODITIES" class="cat-btn bg-white text-slate-700 px-3.5 py-1.5 rounded-lg text-xs font-bold border border-slate-300 transition">METALLI & COMMODITIES</button>
         <button onclick="setCategory('FOREX & VALUTE')" data-cat="FOREX & VALUTE" class="cat-btn bg-white text-slate-700 px-3.5 py-1.5 rounded-lg text-xs font-bold border border-slate-300 transition">FOREX & VALUTE</button>
         <button onclick="setCategory('INDICI & AZIONI')" data-cat="INDICI & AZIONI" class="cat-btn bg-white text-slate-700 px-3.5 py-1.5 rounded-lg text-xs font-bold border border-slate-300 transition">INDICI & AZIONI</button>
       </div>
 
-      <!-- TABELLA -->
       <div class="overflow-x-auto">
         <table class="w-full text-left border-collapse">
           <thead>
             <tr class="border-b-2 border-slate-200 text-[11px] font-extrabold text-slate-500 uppercase bg-slate-50">
-              <th class="py-3 px-3">Nome BingX (API & App)</th>
-              <th class="py-3 px-3 text-right">Prezzo Live</th>
-              <th class="py-3 px-3 text-right">24h %</th>
+              <th class="py-3 px-3">Nome BingX</th>
+              <th class="py-3 px-3 text-right">Prezzo / 24h</th>
+              <th class="py-3 px-3 text-center">Parametri Consigliati</th>
               <th class="py-3 px-3 text-center">Timeframe Candela TP</th>
-              <th class="py-3 px-3 text-center">Quando Entrare / Non Entrare</th>
+              <th class="py-3 px-3 text-center">Entrare / Non Entrare</th>
               <th class="py-3 px-3 text-center">Score Modificabile</th>
               <th class="py-3 px-3 text-center">Sentiment Modificabile</th>
               <th class="py-3 px-3 text-center">Certezza %</th>
               <th class="py-3 px-3 text-center">Segnale</th>
-              <th class="py-3 px-3 text-right">Dettagli</th>
+              <th class="py-3 px-3 text-right">Apri</th>
             </tr>
           </thead>
           <tbody id="marketsTableBody" class="divide-y divide-slate-100 text-xs">
@@ -430,6 +431,8 @@
         const confVal = ov.confidence !== undefined ? `${ov.confidence}%` : '--';
         const sigVal = ov.signal || 'SCAN...';
         const tpLabel = ov.tpLabel || '--';
+        const recSummary = ov.recSummary || `Lev ${Math.min(10, m.maxLeverage)}x • In attesa`;
+        const recSub = ov.recSub || '';
         const entryBadge = ov.entryBadge || '⏳ IN ANALISI';
         const entryReason = ov.entryReason || '';
         const chgColor = m.priceChangePercent >= 0 ? 'text-emerald-600' : 'text-red-600';
@@ -452,12 +455,18 @@
               <div class="text-[10px] font-semibold text-blue-600">${m.displayName}</div>
               <div class="text-[10px] text-slate-400">${m.category}</div>
             </td>
-            <td class="py-2.5 px-3 text-right mono font-bold text-slate-800">${m.lastPrice}</td>
-            <td class="py-2.5 px-3 text-right mono font-bold ${chgColor}">${m.priceChangePercent > 0 ? '+' : ''}${m.priceChangePercent.toFixed(2)}%</td>
+            <td class="py-2.5 px-3 text-right mono font-bold text-slate-800">
+              <div>${m.lastPrice}</div>
+              <div class="text-[10px] ${chgColor}">${m.priceChangePercent > 0 ? '+' : ''}${m.priceChangePercent.toFixed(2)}%</div>
+            </td>
+            <td class="py-2.5 px-3 text-center">
+              <div class="mono text-[11px] font-extrabold text-slate-900">${recSummary}</div>
+              ${recSub ? `<div class="text-[10px] text-slate-500 mono">${recSub}</div>` : ''}
+            </td>
             <td class="py-2.5 px-3 text-center mono font-bold text-indigo-700">${tpLabel}</td>
             <td class="py-2.5 px-3 text-center">
               <span class="px-2 py-1 rounded text-[10px] font-extrabold ${entryClass}">${entryBadge}</span>
-              ${entryReason ? `<div class="text-[10px] text-slate-500 mt-0.5 max-w-[200px] mx-auto">${entryReason}</div>` : ''}
+              ${entryReason ? `<div class="text-[10px] text-slate-500 mt-0.5 max-w-[210px] mx-auto">${entryReason}</div>` : ''}
             </td>
             <td class="py-2.5 px-3 text-center" onclick="event.stopPropagation()">
               <input type="number" min="-100" max="100" step="1" value="${scoreVal}" placeholder="Auto"
@@ -518,6 +527,7 @@
     function applyAnalysisToUI(d) {
       currentAnalysis = d;
       const ov = userOverrides[d.symbol] || {};
+      const rp = d.recommended_params || {};
 
       if (ov.score !== undefined) {
         d.composite_score = ov.score;
@@ -531,6 +541,8 @@
         confidence: d.confidence,
         signal: d.signal,
         tpLabel: d.tp_plan?.label || '--',
+        recSummary: rp.summary || '--',
+        recSub: rp.margin_usdt !== undefined ? `Margine ~$${rp.margin_usdt} • Win ${rp.p_win_pct}%` : '',
         entryBadge: d.entry_rule?.badge || '--',
         entryReason: d.entry_rule?.reason || ''
       };
@@ -547,7 +559,6 @@
           d.signal.includes('SHORT') ? 'bg-red-600 text-white' : 'bg-slate-200 text-slate-800'
         );
 
-        // Banner Entrata / TP
         const er = d.entry_rule || {};
         const pill = document.getElementById('entryActionPill');
         pill.innerText = er.badge || '⏳ IN ATTESA';
@@ -556,9 +567,9 @@
           (er.badge || '').includes('NON ENTRARE') ? 'bg-red-600 text-white' : 'bg-amber-500 text-white'
         );
         document.getElementById('entryReasonText').innerText = er.reason || '';
+        document.getElementById('recParamsHighlight').innerText = rp.summary || '--';
         document.getElementById('tpTimeframeHighlight').innerText = d.tp_plan?.label || '--';
 
-        // Tachimetri
         document.getElementById('valConf').innerText = d.confidence.toFixed(1) + '%';
         setNeedle('needleConf', ((d.confidence / 100) * 180) - 90);
         document.getElementById('valScore').innerText = d.composite_score.toFixed(1);
@@ -589,7 +600,12 @@
         document.getElementById('lvlTp3').innerText = d.levels.tp3;
         document.getElementById('rrBadge').innerText = `R:R 1:${d.levels.rr}`;
 
-        calcSuggestedSize();
+        if (rp.qty !== undefined) {
+          document.getElementById('suggestedSizeLbl').innerText = rp.qty;
+          if (!document.getElementById('orderQty').value) {
+            document.getElementById('orderQty').value = rp.qty;
+          }
+        }
       }
     }
 
@@ -614,16 +630,14 @@
       }
     }
 
-    function calcSuggestedSize() {
-      if (!currentAnalysis) return;
-      const riskPct = parseFloat(document.getElementById('riskPctInput').value) || 1.0;
-      const riskUsd = accountBalance * (riskPct / 100.0);
-      const stopDist = Math.abs(currentAnalysis.levels.entry - currentAnalysis.levels.sl);
-      if (stopDist > 0) {
-        const qty = (riskUsd / stopDist);
-        const formatted = qty >= 1 ? qty.toFixed(2) : qty.toFixed(4);
-        document.getElementById('suggestedSizeLbl').innerText = formatted;
-      }
+    async function syncCapitalAndRisk() {
+      const riskPct = parseFloat(document.getElementById('riskPctInput').value) || 1.5;
+      await fetch('/api/weights', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ account_capital: accountBalance, risk_per_trade_pct: riskPct })
+      });
+      analyzeSymbol(activeSymbol);
     }
 
     async function fetchAccountBalance() {
@@ -631,7 +645,7 @@
       const json = await res.json();
       accountBalance = json.balance || 1000.0;
       document.getElementById('bingxBalanceVal').innerText = accountBalance.toFixed(2);
-      calcSuggestedSize();
+      analyzeSymbol(activeSymbol);
     }
 
     async function onTimeframeChange() {
@@ -694,7 +708,9 @@
         momentum_weight: document.getElementById('wMom').value,
         volatility_weight: document.getElementById('wVol').value,
         sentiment_weight: document.getElementById('wSent').value,
-        min_confidence: document.getElementById('wMinConf').value
+        min_confidence: document.getElementById('wMinConf').value,
+        account_capital: accountBalance,
+        risk_per_trade_pct: parseFloat(document.getElementById('riskPctInput').value) || 1.5
       };
       await fetch('/api/weights', {
         method: 'POST',
