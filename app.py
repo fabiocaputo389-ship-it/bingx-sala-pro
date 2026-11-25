@@ -1,10 +1,16 @@
+import os
 import time
 import hmac
 import hashlib
 import requests
 import numpy as np
 from urllib.parse import urlencode
-from flask import jsonify, request
+from flask import Flask, render_template, jsonify, request
+from dotenv import load_dotenv
+
+load_dotenv()
+
+app = Flask(__name__)
 
 BINGX_BASE = "https://open-api.bingx.com"
 SCANNER_SYMBOLS = [
@@ -160,6 +166,11 @@ def scan_bingx_market(interval: str = "5m") -> list:
     return rows
 
 
+@app.route("/")
+def index():
+    return render_template("index.html")
+
+
 @app.route("/api/vip-scan")
 def api_vip_scan():
     tf = request.args.get("tf", "5m")
@@ -187,3 +198,7 @@ def api_vip_scan():
             }
 
     return jsonify({"account": account, "signals": scan_bingx_market(tf)})
+
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000, debug=False)
