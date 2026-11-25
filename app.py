@@ -22,12 +22,13 @@ BRAIN_WEIGHTS = {
     "momentum_weight": 25,
     "volatility_weight": 20,
     "sentiment_weight": 25,
-    "min_confidence": 78,
+    "min_confidence": 75,
     "auto_scan_interval": 25,
-    "auto_monitor_enabled": True
+    "auto_monitor_enabled": True,
+    "account_capital": 1000.0,
+    "risk_per_trade_pct": 1.5
 }
 
-# Mappa etichette stile app BingX (es. screenshot) verso simboli Swap v2 reali
 BINGX_ALIAS_MAP = {
     "GOLD(XAU)": ["XAUT-USDT", "PAXG-USDT", "GOLD-USDT", "XAU-USDT"],
     "XAUT(GOLD)USDT": ["XAUT-USDT"],
@@ -37,7 +38,7 @@ BINGX_ALIAS_MAP = {
     "GS": ["GS-USDT", "SPY-USDT", "BTC-USDT"],
 }
 
-CONTRACTS_CACHE = {"timestamp": 0, "data": [], "symbol_set": set()}
+CONTRACTS_CACHE = {"timestamp": 0, "data": [], "symbol_set": set(), "max_lev_map": {}}
 AUTO_SCAN_STATE = {
     "running": False,
     "last_run": None,
@@ -133,19 +134,22 @@ def get_all_bingx_contracts(force: bool = False):
 
     results = []
     symbol_set = set()
+    max_lev_map = {}
     if raw_contracts:
         for c in raw_contracts:
             if c.get("status") != 1:
                 continue
             sym = c.get("symbol")
+            max_lev = int(c.get("maxLeverage", 50) or 50)
             symbol_set.add(sym)
+            max_lev_map[sym] = max_lev
             tk = ticker_map.get(sym, {})
             vol_24h = float(tk.get("quoteVolume", 0) or 0)
             results.append({
                 "symbol": sym,
                 "displayName": format_bingx_display_name(sym),
                 "category": categorize_symbol(sym),
-                "maxLeverage": c.get("maxLeverage", 50),
+                "maxLeverage": max_lev,
                 "pricePrecision": c.get("pricePrecision", 4),
                 "lastPrice": float(tk.get("lastPrice", 0) or 0),
                 "priceChangePercent": float(tk.get("priceChangePercent", 0) or 0),
@@ -156,6 +160,7 @@ def get_all_bingx_contracts(force: bool = False):
         results.sort(key=lambda x: x["volume24h"], reverse=True)
         CONTRACTS_CACHE["data"] = results
         CONTRACTS_CACHE["symbol_set"] = symbol_set
+        CONTRACTS_CACHE["max_lev_map"] = max_lev_map
         CONTRACTS_CACHE["timestamp"] = now
     return results
 
@@ -173,7 +178,7 @@ def resolve_bingx_symbol(query_symbol: str) -> str:
 
 
 # ==============================================================================
-# CERVELLO MATEMATICO QUANTITATIVO & REGOLE PROFESSIONALI DI INGRESSO / TP
+# CERVELLO MATEMATICO QUANTITATIVO: EXPECTANCY, KELLY & PARAMETRI CONSIGLIATI
 # ==============================================================================
 
 def calc_ema(prices: np.ndarray, period: int) -> np.ndarray:
@@ -237,8 +242,7 @@ def calc_adx(highs: np.ndarray, lows: np.ndarray, closes: np.ndarray, period: in
     return float(np.mean(dx[-period:]))
 
 
-def compute_tp_timeframe_plan(interval: str, adx: float, atr_pct: float):
-    """Calcola il timeframe esatto della candela per il raggiungimento del Take Profit."""
+def compute_tp_timeframe_plan(interval: str, adx: float):
     tf_map = {
         "1m":  {"tp_tf": "5m",  "candles": 4 if adx >= 25 else 7, "minutes_per_candle": 5},
         "5m":  {"tp_tf": "15m", "candles": 3 if adx >= 25 else 6, "minutes_per_candle": 15},
@@ -256,49 +260,128 @@ def compute_tp_timeframe_plan(interval: str, adx: float, atr_pct: float):
     }
 
 
-def evaluate_entry_rule(signal: str, confidence: float, adx: float, r_squared: float, z_score: float, rsi: float, min_conf: float):
-    """Determina con criteri istituzionali QUANDO ENTRARE o NON ENTRARE."""
-    if signal == "NEUTRAL / WAIT":
-        return {
+def calc_recommended_leverage(atr_pct: float, max_contract_lev: int, capital: float) -> int:
+    """Calcola la leva consigliata in base alla volatilità ATR% e al capitale disponibile."""
+    if atr_pct <= 0.15:
+        base_lev = 25
+    elif atr_pct <= 0.35:
+        base_lev = 15
+    elif atr_pct <= 0.75:
+        base_lev = 10
+    elif atr_pct <= 1.50:
+        base_lev = 6
+    else:
+        base_lev = 3
+
+    if capital <= 2.0:
+        base_lev = min(base_lev, 20)
+    return max(1, min(base_lev, max_contract_lev))
+
+
+def evaluate_profit_math_and_entry(
+    signal: str,
+    confidence: float,
+    rr_ratio: float,
+    adx: float,
+    r_squared: float,
+    z_score: float,
+    rsi: float,
+    min_conf: float,
+    capital: float,
+    risk_pct: float,
+    stop_dist: float,
+    price: float,
+    rec_leverage: int
+):
+    """
+    Calcola:
+    - Probabilità stimata di successo p_w (0.35 .. 0.78)
+    - Expectancy matematica E = p_w * R_reward - (1 - p_w) * 1.0
+    - Half-Kelly % prudente
+    - Size consigliata in unità asset e margine stimato
+    - Verdetto ENTRA ORA / NON ENTRARE
+    """
+    # Probabilità realistica calibrata su confidenza + R^2 + ADX (mai 100%)
+    p_win = float(np.clip(0.45 + (confidence - 50.0) * 0.0045 + (r_squared - 0.3) * 0.12, 0.35, 0.76))
+    p_loss = 1.0 - p_win
+    reward_r = max(rr_ratio, 0.5)
+
+    # Expectancy in unità di R (es. +0.45R significa che in media guadagni 0.45 volte il rischio per trade)
+    expectancy_r = round((p_win * reward_r) - (p_loss * 1.0), 2)
+
+    # Formula di Kelly: f* = p - q / b
+    kelly_raw = p_win - (p_loss / max(reward_r, 0.1))
+    half_kelly_pct = round(max(0.0, min(kelly_raw * 0.5 * 100.0, 5.0)), 2)
+
+    # Size basata su rischio % del capitale e distanza SL
+    risk_usd = capital * (risk_pct / 100.0)
+    suggested_qty = (risk_usd / stop_dist) if stop_dist > 0 else 0.0
+    qty_fmt = round(suggested_qty, 4) if suggested_qty < 1 else (round(suggested_qty, 2) if suggested_qty < 100 else round(suggested_qty, 1))
+    notional_usd = suggested_qty * price
+    margin_needed = round(notional_usd / max(rec_leverage, 1), 2)
+
+    # Regola di ingresso professionale
+    if expectancy_r <= 0:
+        entry_rule = {
             "action": "NO ENTRY",
             "badge": "🚫 NON ENTRARE",
-            "reason": "Direzione neutra: attendere rottura o allineamento EMA/MACD."
+            "reason": f"Expectancy negativa ({expectancy_r:+.2f}R): vantaggio matematico insufficiente."
         }
-    if abs(z_score) > 2.45:
-        return {
+    elif signal == "NEUTRAL / WAIT":
+        entry_rule = {
             "action": "NO ENTRY",
             "badge": "🚫 NON ENTRARE",
-            "reason": f"Prezzo in estensione estrema (Z={z_score:+.2f}σ): alto rischio ritracciamento."
+            "reason": "Setup neutro: nessun vantaggio direzionale confermato."
         }
-    if r_squared < 0.28 and adx < 22:
-        return {
+    elif abs(z_score) > 2.45:
+        entry_rule = {
+            "action": "NO ENTRY",
+            "badge": "🚫 NON ENTRARE",
+            "reason": f"Estensione statistica eccessiva (Z={z_score:+.2f}σ): rischio inversione."
+        }
+    elif r_squared < 0.28 and adx < 22:
+        entry_rule = {
             "action": "NO ENTRY",
             "badge": "🚫 NON ENTRARE",
             "reason": f"Mercato laterale/sporco (ADX {adx:.1f}, R² {r_squared:.2f})."
         }
-    if "LONG" in signal and rsi > 78:
-        return {
+    elif "LONG" in signal and rsi > 78:
+        entry_rule = {
             "action": "WAIT PULLBACK",
             "badge": "⏳ ATTENDI PULLBACK",
-            "reason": f"RSI in ipercomprato estremo ({rsi:.1f}): non inseguire il verde."
+            "reason": f"RSI in ipercomprato estremo ({rsi:.1f}): attendi ritracciamento su EMA."
         }
-    if "SHORT" in signal and rsi < 22:
-        return {
+    elif "SHORT" in signal and rsi < 22:
+        entry_rule = {
             "action": "WAIT PULLBACK",
             "badge": "⏳ ATTENDI PULLBACK",
-            "reason": f"RSI in ipervenduto estremo ({rsi:.1f}): non inseguire il rosso."
+            "reason": f"RSI in ipervenduto estremo ({rsi:.1f}): attendi rimbalzo su EMA."
         }
-    if confidence >= min_conf and adx >= 22:
-        return {
+    elif confidence >= min_conf and expectancy_r > 0.15:
+        entry_rule = {
             "action": "ENTER NOW",
             "badge": "✅ ENTRA ORA",
-            "reason": f"Conferma matematica attiva (Conf {confidence}%, ADX {adx:.1f}, R² {r_squared:.2f})."
+            "reason": f"Expectancy {expectancy_r:+.2f}R • Conf {confidence}% • Half-Kelly {half_kelly_pct}%."
         }
-    return {
-        "action": "WAIT CONFIRMATION",
-        "badge": "⏳ CONFERMA PARZIALE",
-        "reason": f"Confidenza {confidence}% sotto soglia {min_conf}% o trend in formazione."
+    else:
+        entry_rule = {
+            "action": "WAIT CONFIRMATION",
+            "badge": "⏳ CONFERMA PARZIALE",
+            "reason": f"Expectancy {expectancy_r:+.2f}R ma confidenza {confidence}% sotto soglia {min_conf}%."
+        }
+
+    recommended_params = {
+        "leverage": rec_leverage,
+        "qty": qty_fmt,
+        "margin_usdt": margin_needed,
+        "risk_usd": round(risk_usd, 2),
+        "p_win_pct": round(p_win * 100, 1),
+        "expectancy_r": expectancy_r,
+        "half_kelly_pct": half_kelly_pct,
+        "summary": f"Lev {rec_leverage}x • Size {qty_fmt} • Exp {expectancy_r:+.2f}R • Kelly {half_kelly_pct}%"
     }
+
+    return entry_rule, recommended_params
 
 
 def analyze_symbol_math(symbol: str, interval: str = "15m", custom_sentiment: float = None):
@@ -437,9 +520,30 @@ def analyze_symbol_math(symbol: str, interval: str = "15m", custom_sentiment: fl
         tp2 = round(price - 3.5 * atr, decimals)
         tp3 = round(price - 5.0 * atr, decimals)
 
-    rr_ratio = round(abs(tp2 - entry) / (abs(entry - sl) + 1e-9), 2)
-    tp_plan = compute_tp_timeframe_plan(interval, adx, atr_pct)
-    entry_rule = evaluate_entry_rule(signal, confidence, adx, r_squared, z_score, rsi, min_conf)
+    stop_dist = max(abs(entry - sl), 1e-9)
+    rr_ratio = round(abs(tp2 - entry) / stop_dist, 2)
+    tp_plan = compute_tp_timeframe_plan(interval, adx)
+
+    max_lev = CONTRACTS_CACHE["max_lev_map"].get(real_symbol, 50)
+    capital = float(BRAIN_WEIGHTS.get("account_capital", 1000.0))
+    risk_pct = float(BRAIN_WEIGHTS.get("risk_per_trade_pct", 1.5))
+    rec_lev = calc_recommended_leverage(atr_pct, max_lev, capital)
+
+    entry_rule, recommended_params = evaluate_profit_math_and_entry(
+        signal=signal,
+        confidence=confidence,
+        rr_ratio=rr_ratio,
+        adx=adx,
+        r_squared=r_squared,
+        z_score=z_score,
+        rsi=rsi,
+        min_conf=min_conf,
+        capital=capital,
+        risk_pct=risk_pct,
+        stop_dist=stop_dist,
+        price=price,
+        rec_leverage=rec_lev
+    )
 
     return {
         "symbol": real_symbol,
@@ -448,6 +552,7 @@ def analyze_symbol_math(symbol: str, interval: str = "15m", custom_sentiment: fl
         "price": price,
         "signal": signal,
         "entry_rule": entry_rule,
+        "recommended_params": recommended_params,
         "tp_plan": tp_plan,
         "composite_score": round(float(composite_score), 1),
         "confidence": confidence,
@@ -479,7 +584,6 @@ def analyze_symbol_math(symbol: str, interval: str = "15m", custom_sentiment: fl
 
 
 def auto_market_monitor_loop():
-    """Monitora automaticamente i mercati BingX in background senza intervento manuale."""
     AUTO_SCAN_STATE["running"] = True
     while True:
         try:
@@ -587,7 +691,12 @@ def api_weights():
         data = request.json or {}
         for k in BRAIN_WEIGHTS:
             if k in data:
-                BRAIN_WEIGHTS[k] = float(data[k]) if k != "auto_monitor_enabled" else bool(data[k])
+                if k == "auto_monitor_enabled":
+                    BRAIN_WEIGHTS[k] = bool(data[k])
+                elif k == "interval":
+                    pass
+                else:
+                    BRAIN_WEIGHTS[k] = float(data[k])
     return jsonify({"status": "ok", "weights": BRAIN_WEIGHTS})
 
 
@@ -595,7 +704,7 @@ def api_weights():
 def api_account_balance():
     bal = bingx_private_get("/openApi/swap/v3/user/balance")
     if not bal:
-        return jsonify({"status": "demo", "balance": 1000.0, "msg": "Usa saldo simulato o configura API Key in .env"})
+        return jsonify({"status": "demo", "balance": BRAIN_WEIGHTS.get("account_capital", 1000.0), "msg": "Usa saldo simulato o configura API Key in .env"})
     usdt_bal = 0.0
     if isinstance(bal, list):
         for item in bal:
@@ -604,6 +713,7 @@ def api_account_balance():
     elif isinstance(bal, dict):
         data_obj = bal.get("balance", bal)
         usdt_bal = float(data_obj.get("balance", 0) or 0)
+    BRAIN_WEIGHTS["account_capital"] = round(usdt_bal, 2)
     return jsonify({"status": "ok", "balance": round(usdt_bal, 2)})
 
 
