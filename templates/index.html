@@ -96,7 +96,7 @@
       </div>
     </div>
 
-    <!-- BANNER REGOLA INGRESSO ANTICIPATO + ORARI & TIPO MERCATO -->
+    <!-- BANNER REGOLA INGRESSO ANTICIPATO + SOGLIA & ORARI -->
     <div id="entryRuleBanner" class="card-white p-4 border-l-4 border-l-slate-400 flex flex-wrap items-center justify-between gap-4">
       <div class="flex items-center gap-3">
         <span id="entryActionPill" class="px-3 py-1.5 rounded-lg text-xs font-extrabold bg-slate-100 text-slate-700">⏳ IN ATTESA</span>
@@ -113,6 +113,10 @@
         <div>
           <div class="text-[11px] font-bold text-slate-400 uppercase">Ordine / Livello Chiave</div>
           <div id="limitOrderHighlight" class="mono text-xs font-extrabold text-indigo-700">--</div>
+        </div>
+        <div>
+          <div class="text-[11px] font-bold text-slate-400 uppercase">Soglia Max Ingresso</div>
+          <div id="entryThresholdHighlight" class="mono text-xs font-extrabold text-rose-700">--</div>
         </div>
         <div>
           <div class="text-[11px] font-bold text-slate-400 uppercase">Tipo & Ora Mercato</div>
@@ -292,6 +296,40 @@
       </div>
     </div>
 
+    <!-- TABELLA DEDICATA AI SEGNALI CERTI -->
+    <div class="card-white p-5 border-2 border-indigo-200">
+      <div class="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-indigo-100">
+        <div class="flex items-center gap-2">
+          <span class="px-2.5 py-1 rounded-lg bg-indigo-600 text-white text-xs font-extrabold">💎 SEGNALI CERTI</span>
+          <div>
+            <h2 class="text-base md:text-lg font-extrabold text-slate-900">Tabella Segnali Certi Confermati</h2>
+            <p class="text-xs text-slate-500">Solo asset allineati su direzione, anticipo, confidenza, expectancy, Z-score, finestra d'ingresso e sessione attiva.</p>
+          </div>
+        </div>
+        <span id="certainTableCountBadge" class="px-3 py-1 rounded-full text-xs font-extrabold mono bg-indigo-50 text-indigo-800 border border-indigo-200">0 Attivi</span>
+      </div>
+
+      <div class="overflow-x-auto mt-3">
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="border-b-2 border-indigo-100 text-[11px] font-extrabold text-indigo-900 uppercase bg-indigo-50/60">
+              <th class="py-2.5 px-3">Nome BingX</th>
+              <th class="py-2.5 px-3 text-center">Segnale Certo</th>
+              <th class="py-2.5 px-3 text-center">Setup & Ordine</th>
+              <th class="py-2.5 px-3 text-right">Prezzo</th>
+              <th class="py-2.5 px-3 text-center">TP2 / SL</th>
+              <th class="py-2.5 px-3 text-center">Parametri</th>
+              <th class="py-2.5 px-3 text-center">Certezza %</th>
+              <th class="py-2.5 px-3 text-right">Apri</th>
+            </tr>
+          </thead>
+          <tbody id="certainSignalsTableBody" class="divide-y divide-indigo-50 text-xs">
+            <tr><td colspan="8" class="py-5 text-center text-slate-400 font-semibold">Nessun Segnale Certo attivo al momento: il sistema continua a monitorare in automatico.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
     <!-- TABELLA MERCATI -->
     <div class="card-white p-5">
       <div class="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-200">
@@ -355,6 +393,44 @@
     let audioCtx = null;
     let openPositions = {};
     let userOverrides = {};
+
+    function computeClientEntryWindow(d, early) {
+      if (d && d.entry_window) return d.entry_window;
+      const dir = early?.direction || (d?.composite_score >= 0 ? 'LONG' : 'SHORT');
+      const price = parseFloat(d?.price || 0);
+      const refPrice = parseFloat(early?.limit_price || d?.levels?.entry || price || 0);
+      const atr = parseFloat(d?.indicators?.atr || 0);
+      const z = parseFloat(d?.indicators?.z_score || 0);
+      if (!dir || !refPrice || !atr) {
+        return { in_window: false, exceeded: false, threshold_price: null, status_badge: '⏳ IN ATTESA', reason: '' };
+      }
+      const stretch = parseFloat(d?.weights?.max_entry_atr_stretch || 1.25);
+      const maxZ = parseFloat(d?.weights?.max_entry_z_abs || 2.20);
+      if (dir === 'LONG') {
+        const thr = Number((refPrice + stretch * atr).toFixed(6));
+        const exceeded = (price > thr) || (z > maxZ);
+        return {
+          in_window: !exceeded,
+          exceeded,
+          threshold_price: thr,
+          status_badge: exceeded ? '🛑 OLTRE SOGLIA — NON ENTRARE' : '✅ FINESTRA INGRESSO LONG',
+          reason: exceeded
+            ? `Prezzo ${price} oltre soglia max ${thr} (rif. ${refPrice} + ${stretch}x ATR, Z=${z >= 0 ? '+' : ''}${z.toFixed(2)}σ). Non inseguire.`
+            : `Prezzo ${price} entro la soglia max ${thr} (rif. ${refPrice}). Momento valido per valutare l'ingresso.`
+        };
+      }
+      const thr = Number((refPrice - stretch * atr).toFixed(6));
+      const exceeded = (price < thr) || (z < -maxZ);
+      return {
+        in_window: !exceeded,
+        exceeded,
+        threshold_price: thr,
+        status_badge: exceeded ? '🛑 OLTRE SOGLIA — NON ENTRARE' : '✅ FINESTRA INGRESSO SHORT',
+        reason: exceeded
+          ? `Prezzo ${price} sceso oltre soglia max ${thr} (rif. ${refPrice} - ${stretch}x ATR, Z=${z >= 0 ? '+' : ''}${z.toFixed(2)}σ). Non inseguire.`
+          : `Prezzo ${price} entro la soglia max ${thr} (rif. ${refPrice}). Momento valido per valutare l'ingresso.`
+      };
+    }
 
     function playChime(mode = 'anticipo') {
       if (!soundEnabled && mode !== 'anticipo') return;
@@ -599,7 +675,69 @@
       `;
     }
 
+    function renderCertainSignalsTable() {
+      const q = document.getElementById('searchMarket').value.trim().toUpperCase();
+      const tbody = document.getElementById('certainSignalsTableBody');
+      const badge = document.getElementById('certainTableCountBadge');
+
+      const certainList = allMarkets.filter(m => {
+        const ov = userOverrides[m.symbol] || {};
+        if (!ov.certainSignal || ov.entryWindow?.exceeded) return false;
+        const matchCat =
+          currentCategory === 'ALL' ||
+          currentCategory === 'CERTAIN' ||
+          m.category === currentCategory;
+        const matchQ = !q ||
+          m.bingxName.toUpperCase().includes(q) ||
+          m.symbol.includes(q) ||
+          m.category.includes(q);
+        return matchCat && matchQ;
+      });
+
+      badge.innerText = `${certainList.length} ${certainList.length === 1 ? 'Attivo' : 'Attivi'}`;
+
+      if (!certainList.length) {
+        tbody.innerHTML = `<tr><td colspan="8" class="py-5 text-center text-slate-400 font-semibold">Nessun Segnale Certo attivo al momento: il sistema continua a monitorare in automatico.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = certainList.map(m => {
+        const ov = userOverrides[m.symbol] || {};
+        const early = ov.earlySetup || {};
+        const tpSl = ov.tpSlText || {};
+        const isLong = String(ov.certainSignal || '').includes('LONG');
+        const sigClass = isLong ? 'bg-emerald-600 text-white' : 'bg-red-600 text-white';
+
+        return `
+          <tr class="hover:bg-indigo-50/60 transition cursor-pointer bg-indigo-50/20" onclick="analyzeSymbol('${m.symbol}')">
+            <td class="py-2.5 px-3">
+              <div class="font-extrabold text-slate-900">${m.bingxName}</div>
+              <div class="text-[10px] text-slate-500">${m.category}</div>
+            </td>
+            <td class="py-2.5 px-3 text-center">
+              <span class="px-2.5 py-1 rounded-md text-[10px] font-extrabold ${sigClass}">💎 ${ov.certainSignal}</span>
+            </td>
+            <td class="py-2.5 px-3 text-center">
+              <div class="text-[10px] font-bold text-slate-800">${early.setup_type || '--'}</div>
+              <div class="text-[10px] mono text-indigo-700">${early.order_type || ''} ${early.limit_price ? '@ ' + early.limit_price : ''}</div>
+            </td>
+            <td class="py-2.5 px-3 text-right mono font-bold text-slate-900">${m.lastPrice}</td>
+            <td class="py-2.5 px-3 text-center mono text-[11px] font-bold">
+              <div class="text-emerald-700">TP2: ${tpSl.tp2 || '--'}</div>
+              <div class="text-red-600">SL: ${tpSl.sl || '--'}</div>
+            </td>
+            <td class="py-2.5 px-3 text-center mono text-[11px] font-bold text-slate-800">${ov.recSummary || '--'}</td>
+            <td class="py-2.5 px-3 text-center mono font-extrabold text-indigo-800">${ov.confidence !== undefined ? ov.confidence + '%' : '--'}</td>
+            <td class="py-2.5 px-3 text-right" onclick="event.stopPropagation()">
+              <button onclick="analyzeSymbol('${m.symbol}')" class="bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-bold px-2.5 py-1 rounded-md transition">Apri</button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
     function renderMarketsTable() {
+      renderCertainSignalsTable();
       const filtered = getFilteredMarkets();
       const tbody = document.getElementById('marketsTableBody');
       if (!filtered.length) {
@@ -611,31 +749,32 @@
         const ov = userOverrides[m.symbol] || {};
         const sess = ov.session || m.session || {};
         const early = ov.earlySetup || {};
+        const ew = ov.entryWindow || {};
         const scoreVal = ov.score !== undefined ? ov.score : '';
         const sentVal = ov.sentiment !== undefined ? ov.sentiment : 0;
         const confVal = ov.confidence !== undefined ? `${ov.confidence}%` : '--';
         const sigVal = ov.signal || 'SCAN...';
-        const certainSig = ov.certainSignal || null;
+        const certainSig = ew.exceeded ? null : (ov.certainSignal || null);
         const tpLabel = ov.tpLabel || '--';
         const tpSlText = ov.tpSlText || {};
         const recSummary = ov.recSummary || `Lev ${Math.min(10, m.maxLeverage)}x • In attesa`;
         const recSub = ov.recSub || '';
-        const entryBadge = ov.entryBadge || '⏳ IN ANALISI';
-        const entryReason = ov.entryReason || '';
+        const entryBadge = ew.exceeded ? ew.status_badge : (ov.entryBadge || '⏳ IN ANALISI');
+        const entryReason = ew.exceeded ? ew.reason : (ov.entryReason || '');
         const chgColor = m.priceChangePercent >= 0 ? 'text-emerald-600' : 'text-red-600';
 
         let sigBadgeClass = 'bg-slate-100 text-slate-600';
         if (certainSig) sigBadgeClass = 'bg-indigo-600 text-white ring-2 ring-indigo-300';
-        else if (ov.triggerSound) sigBadgeClass = 'bg-amber-500 text-white';
+        else if (ov.triggerSound && !ew.exceeded) sigBadgeClass = 'bg-amber-500 text-white';
         else if (sigVal.includes('STRONG LONG')) sigBadgeClass = 'bg-emerald-600 text-white';
         else if (sigVal.includes('LONG')) sigBadgeClass = 'bg-emerald-100 text-emerald-800';
         else if (sigVal.includes('STRONG SHORT')) sigBadgeClass = 'bg-red-600 text-white';
         else if (sigVal.includes('SHORT')) sigBadgeClass = 'bg-red-100 text-red-800';
 
         let entryClass = 'bg-slate-100 text-slate-700';
-        if (certainSig) entryClass = 'bg-indigo-100 text-indigo-900 border border-indigo-400';
-        else if (entryBadge.includes('ANTICIPO') || entryBadge.includes('ENTRA ORA')) entryClass = 'bg-emerald-100 text-emerald-800 border border-emerald-300';
-        else if (entryBadge.includes('NON')) entryClass = 'bg-red-100 text-red-800 border border-red-300';
+        if (ew.exceeded || entryBadge.includes('OLTRE SOGLIA') || entryBadge.includes('NON')) entryClass = 'bg-red-100 text-red-800 border border-red-300';
+        else if (certainSig) entryClass = 'bg-indigo-100 text-indigo-900 border border-indigo-400';
+        else if (entryBadge.includes('FINESTRA') || entryBadge.includes('ANTICIPO') || entryBadge.includes('ENTRA ORA')) entryClass = 'bg-emerald-100 text-emerald-800 border border-emerald-300';
         else entryClass = 'bg-amber-100 text-amber-800 border border-amber-300';
 
         return `
@@ -669,7 +808,7 @@
             <td class="py-2.5 px-3 text-center mono font-bold text-indigo-700">${tpLabel}</td>
             <td class="py-2.5 px-3 text-center">
               <span class="px-2 py-1 rounded text-[10px] font-extrabold ${entryClass}">${entryBadge}</span>
-              ${entryReason ? `<div class="text-[10px] text-slate-500 mt-0.5 max-w-[180px] mx-auto">${entryReason}</div>` : ''}
+              ${entryReason ? `<div class="text-[10px] text-slate-500 mt-0.5 max-w-[190px] mx-auto">${entryReason}</div>` : ''}
             </td>
             <td class="py-2.5 px-3 text-center" onclick="event.stopPropagation()">
               <input type="number" min="-100" max="100" step="1" value="${scoreVal}" placeholder="Auto"
@@ -727,7 +866,12 @@
       const rp = d.recommended_params || {};
       const sess = d.session || ov.session || {};
       const early = d.early_setup || {};
+      const ew = computeClientEntryWindow(d, early);
       if (ov.score !== undefined) { d.composite_score = ov.score; d.confidence = ov.confidence; d.signal = ov.signal; }
+
+      const effectiveCertain = ew.exceeded ? null : (d.certain_signal || null);
+      const effectiveEntryBadge = ew.exceeded ? ew.status_badge : (d.entry_rule?.badge || '--');
+      const effectiveEntryReason = ew.exceeded ? ew.reason : (d.entry_rule?.reason || '');
 
       if (d.account_balance !== undefined) {
         updateBalanceUI(d.account_balance);
@@ -737,17 +881,18 @@
         ...ov,
         session: sess,
         earlySetup: early,
-        triggerSound: Boolean(early.trigger_sound),
+        entryWindow: ew,
+        triggerSound: Boolean(early.trigger_sound) && !ew.exceeded,
         score: d.composite_score,
         confidence: d.confidence,
         signal: d.signal,
-        certainSignal: d.certain_signal || null,
+        certainSignal: effectiveCertain,
         tpLabel: d.tp_plan?.label || '--',
         tpSlText: { tp2: d.levels?.tp2, sl: d.levels?.sl },
         recSummary: rp.summary || '--',
         recSub: rp.margin_usdt !== undefined ? `Margine ~$${rp.margin_usdt} • Win ${rp.p_win_pct}%` : '',
-        entryBadge: d.entry_rule?.badge || '--',
-        entryReason: d.entry_rule?.reason || ''
+        entryBadge: effectiveEntryBadge,
+        entryReason: effectiveEntryReason
       };
       updateCertainSignalsCounter();
 
@@ -765,31 +910,41 @@
         document.getElementById('earlySetupPill').innerText = `Setup: ${early.setup_type || '--'}`;
         document.getElementById('limitOrderHighlight').innerText = `${early.order_type || '--'} @ ${early.limit_price || '--'}`;
 
+        const thrEl = document.getElementById('entryThresholdHighlight');
+        if (ew.threshold_price !== null && ew.threshold_price !== undefined) {
+          thrEl.innerText = `${ew.threshold_price} (${ew.exceeded ? 'SUPERATA' : 'IN FINESTRA'})`;
+          thrEl.className = ew.exceeded
+            ? 'mono text-xs font-extrabold text-red-700'
+            : 'mono text-xs font-extrabold text-emerald-700';
+        } else {
+          thrEl.innerText = '--';
+          thrEl.className = 'mono text-xs font-extrabold text-slate-600';
+        }
+
         const sigBadge = document.getElementById('signalMasterBadge');
-        sigBadge.innerText = d.certain_signal ? `💎 ${d.certain_signal} (${d.confidence}%)` : `${d.signal} (${d.confidence}%)`;
+        sigBadge.innerText = effectiveCertain ? `💎 ${effectiveCertain} (${d.confidence}%)` : `${d.signal} (${d.confidence}%)`;
         sigBadge.className = 'px-4 py-1.5 rounded-lg font-extrabold text-sm ' + (
-          d.certain_signal ? 'bg-indigo-600 text-white' :
+          effectiveCertain ? 'bg-indigo-600 text-white' :
           d.signal.includes('LONG') ? 'bg-emerald-600 text-white' :
           d.signal.includes('SHORT') ? 'bg-red-600 text-white' : 'bg-slate-200 text-slate-800'
         );
 
         const certPill = document.getElementById('certainSignalPill');
-        if (d.certain_signal) {
-          certPill.innerText = `💎 ${d.certain_signal}`;
+        if (effectiveCertain) {
+          certPill.innerText = `💎 ${effectiveCertain}`;
           certPill.classList.remove('hidden');
         } else {
           certPill.classList.add('hidden');
         }
 
-        const er = d.entry_rule || {};
         const pill = document.getElementById('entryActionPill');
-        pill.innerText = er.badge || '⏳ IN ATTESA';
+        pill.innerText = effectiveEntryBadge || '⏳ IN ATTESA';
         pill.className = 'px-3 py-1.5 rounded-lg text-xs font-extrabold ' + (
-          d.certain_signal ? 'bg-indigo-600 text-white' :
-          (er.badge || '').includes('ANTICIPO') || (er.badge || '').includes('ENTRA ORA') ? 'bg-emerald-600 text-white' :
-          (er.badge || '').includes('NON') ? 'bg-red-600 text-white' : 'bg-amber-500 text-white'
+          ew.exceeded || effectiveEntryBadge.includes('OLTRE SOGLIA') || effectiveEntryBadge.includes('NON') ? 'bg-red-600 text-white' :
+          effectiveCertain ? 'bg-indigo-600 text-white' :
+          effectiveEntryBadge.includes('FINESTRA') || effectiveEntryBadge.includes('ANTICIPO') || effectiveEntryBadge.includes('ENTRA ORA') ? 'bg-emerald-600 text-white' : 'bg-amber-500 text-white'
         );
-        document.getElementById('entryReasonText').innerText = er.reason || '';
+        document.getElementById('entryReasonText').innerText = effectiveEntryReason || '';
         document.getElementById('recParamsHighlight').innerText = rp.summary || '--';
         document.getElementById('tpTimeframeHighlight').innerText = d.tp_plan?.label || '--';
 
@@ -995,6 +1150,10 @@
 
     async function executeBingXOrder() {
       if (!currentAnalysis) return alert("Analizza prima un simbolo.");
+      const ew = currentAnalysis.entry_window || computeClientEntryWindow(currentAnalysis, currentAnalysis.early_setup || {});
+      if (ew.exceeded) {
+        return alert(`🛑 OLTRE SOGLIA — NON ENTRARE\n${ew.reason}`);
+      }
       const qty = parseFloat(document.getElementById('orderQty').value);
       if (!qty || qty <= 0) return alert("Inserisci una quantità valida.");
       const side = currentAnalysis.composite_score >= 0 ? "BUY" : "SELL";
