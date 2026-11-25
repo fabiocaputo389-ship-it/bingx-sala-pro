@@ -20,6 +20,9 @@ SCANNER_SYMBOLS = [
     "SUI-USDT", "ADA-USDT", "TON-USDT", "PEPE-USDT"
 ]
 
+SIGNAL_HISTORY = []
+_SEEN_SIGNAL_KEYS = set()
+
 
 def _creds():
     return (
@@ -208,6 +211,100 @@ def scan_bingx_market(interval: str = "5m") -> list:
     return rows
 
 
+def _evaluate_signal_status(sig: dict, current_price: float) -> str:
+    side = sig["side"]
+    tp1, tp2, tp3, sl = sig["tp1"], sig["tp2"], sig["tp3"], sig["sl"]
+    if side == "LONG":
+        if current_price <= sl:
+            return "SL HIT"
+        if current_price >= tp3:
+            return "TP3 HIT"
+        if current_price >= tp2:
+            return "TP2 HIT"
+        if current_price >= tp1:
+            return "TP1 HIT"
+        return "ACTIVE"
+    else:
+        if current_price >= sl:
+            return "SL HIT"
+        if current_price <= tp3:
+            return "TP3 HIT"
+        if current_price <= tp2:
+            return "TP2 HIT"
+        if current_price <= tp1:
+            return "TP1 HIT"
+        return "ACTIVE"
+
+
+def build_signal_room(rows: list, interval: str, leverage: int) -> list:
+    now_ts = int(time.time())
+    now_str = time.strftime("%H:%M:%S")
+
+    for r in rows:
+        price = float(r["price"])
+        atr = float(r["atr"])
+        sig_type = r["signal"]
+        conf = float(r["confidence"])
+
+        if sig_type in ("STRONG BUY", "STRONG SELL") or (sig_type in ("BUY", "SELL") and conf >= 55.0):
+            is_long = "BUY" in sig_type
+            side = "LONG" if is_long else "SHORT"
+            bx_side = "BUY" if is_long else "SELL"
+
+            if is_long:
+                sl = round(price - 1.4 * atr, 6)
+                tp1 = round(price + 1.4 * atr, 6)
+                tp2 = round(price + 2.4 * atr, 6)
+                tp3 = round(price + 3.5 * atr, 6)
+            else:
+                sl = round(price + 1.4 * atr, 6)
+                tp1 = round(price - 1.4 * atr, 6)
+                tp2 = round(price - 2.4 * atr, 6)
+                tp3 = round(price - 3.5 * atr, 6)
+
+            risk_dist = abs(price - sl)
+            risk_pct = round((risk_dist / price) * 100.0, 2) if price > 0 else 0.0
+            rr_tp3 = round(abs(tp3 - price) / risk_dist, 2) if risk_dist > 0 else 0.0
+
+            key = f"{r['symbol']}-{interval}-{side}-{round(price, 4)}"
+            if key not in _SEEN_SIGNAL_KEYS:
+                _SEEN_SIGNAL_KEYS.add(key)
+                SIGNAL_HISTORY.insert(0, {
+                    "id": key,
+                    "time": now_str,
+                    "ts": now_ts,
+                    "symbol": r["symbol"],
+                    "tf": interval,
+                    "signal": sig_type,
+                    "side": side,
+                    "bx_side": bx_side,
+                    "leverage": leverage,
+                    "confidence": conf,
+                    "score": r["score"],
+                    "rsi": r["rsi"],
+                    "z_score": r["z_score"],
+                    "obi": r["obi"],
+                    "entry": price,
+                    "sl": sl,
+                    "tp1": tp1,
+                    "tp2": tp2,
+                    "tp3": tp3,
+                    "risk_pct": risk_pct,
+                    "rr": rr_tp3,
+                    "status": "ACTIVE"
+                })
+                SIGNAL_HISTORY[:] = SIGNAL_HISTORY[:40]
+
+    price_map = {r["symbol"]: float(r["price"]) for r in rows}
+    for item in SIGNAL_HISTORY:
+        live_p = price_map.get(item["symbol"])
+        if live_p:
+            item["current_price"] = live_p
+            item["status"] = _evaluate_signal_status(item, live_p)
+
+    return SIGNAL_HISTORY
+
+
 def fetch_account_and_positions(api_key: str, secret: str):
     account = {
         "connected": False,
@@ -273,10 +370,13 @@ def api_vip_scan():
     tf = request.args.get("tf", "5m")
     api_key, secret = _creds()
     account, positions = fetch_account_and_positions(api_key, secret)
+    signals = scan_bingx_market(tf)
+    room_signals = build_signal_room(signals, tf, account.get("leverage", 20))
     return jsonify({
         "account": account,
         "positions": positions,
-        "signals": scan_bingx_market(tf),
+        "signals": signals,
+        "signal_room": room_signals,
         "ts": int(time.time())
     })
 
@@ -286,7 +386,7 @@ def api_order():
     api_key, secret = _creds()
     data = request.json or {}
     symbol = data.get("symbol", "").strip()
-    side = data.get("side", "").upper()  # BUY o SELL
+    side = data.get("side", "").upper()
     margin_usdt = float(data.get("margin_usdt", 0.0))
     price = float(data.get("price", 0.0))
     tp = float(data.get("tp", 0.0))
