@@ -50,6 +50,7 @@
     }
     .pill-live { background: var(--green-soft); color: var(--green); border-color: rgba(0,230,118,0.3); }
     .pill-warn { background: rgba(245,176,65,0.14); color: var(--gold); border-color: rgba(245,176,65,0.35); }
+    .pill-danger { background: var(--red-soft); color: var(--red); border-color: rgba(255,59,92,0.35); }
     .pill-timer { background: rgba(56,189,248,0.14); color: var(--blue); border-color: rgba(56,189,248,0.35); }
     .toolbar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
     select, input, button {
@@ -147,6 +148,15 @@
       font-weight: 700;
       font-size: 11px;
     }
+    .alert-blocked {
+      background: rgba(245,176,65,0.12);
+      border: 1px solid rgba(245,176,65,0.4);
+      color: var(--gold);
+      padding: 7px 9px;
+      border-radius: 6px;
+      font-weight: 700;
+      font-size: 11px;
+    }
     .alert-exit {
       background: var(--red-soft);
       border: 1px solid rgba(255,59,92,0.35);
@@ -217,7 +227,7 @@
       overflow-x: auto;
       margin-bottom: 10px;
     }
-    table { width: 100%; border-collapse: collapse; min-width: 1120px; }
+    table { width: 100%; border-collapse: collapse; min-width: 1220px; }
     th, td { padding: 9px 10px; text-align: left; border-bottom: 1px solid #172030; white-space: nowrap; }
     th {
       background: #0b0f17;
@@ -265,9 +275,14 @@
       <span id="last-sync" style="color:var(--muted);font-size:11px;">--:--:--</span>
     </div>
     <div class="toolbar">
-      <input id="search-input" type="text" placeholder="Filtra coppia (es. BTC)..." style="width:140px;" />
+      <label style="color:var(--gold);font-size:11px;font-weight:700;">Min Score:</label>
+      <input id="min-score-input" type="number" min="10" max="95" step="5" value="65" style="width:68px;" />
+      <button class="btn-gold" onclick="applyMinScore()">SET SCORE</button>
+      <input id="search-input" type="text" placeholder="Filtra coppia..." style="width:125px;" />
       <select id="filter-sig">
-        <option value="ALL">Tutti i segnali</option>
+        <option value="ALL">Tutti</option>
+        <option value="CERTIFIED">Solo Entrata Certa</option>
+        <option value="NOFAKE">Anti-Fakeout OK</option>
         <option value="STRONG">Solo STRONG</option>
         <option value="BUY">Solo BUY</option>
         <option value="SELL">Solo SELL</option>
@@ -302,12 +317,12 @@
       <div class="kpi-value" style="color:var(--gold);" id="kpi-lev">20x</div>
     </div>
     <div class="kpi">
-      <div class="kpi-title">Candle Close Timer</div>
-      <div class="kpi-value" style="color:var(--blue);" id="kpi-timer">00:00</div>
+      <div class="kpi-title">Score Soglia Attivo</div>
+      <div class="kpi-value" style="color:var(--gold);" id="kpi-minscore">65.0</div>
     </div>
     <div class="kpi">
-      <div class="kpi-title">Active Setups</div>
-      <div class="kpi-value" style="color:var(--green);" id="kpi-setups">0</div>
+      <div class="kpi-title">Candle Timer</div>
+      <div class="kpi-value" style="color:var(--blue);" id="kpi-timer">00:00</div>
     </div>
   </div>
 
@@ -327,9 +342,9 @@
       </div>
       <div class="metrics-grid">
         <div class="mini-box"><div class="mini-lbl">EMA 9 / 21 / 55</div><div class="mini-val" id="m-emas" style="font-size:10px;">-</div></div>
-        <div class="mini-box"><div class="mini-lbl">Trend & Score</div><div class="mini-val" id="m-trend">-</div></div>
-        <div class="mini-box"><div class="mini-lbl">ATR / Vol Ratio</div><div class="mini-val" id="m-atr">-</div></div>
-        <div class="mini-box"><div class="mini-lbl">Risk / Reward</div><div class="mini-val" id="m-rr">-</div></div>
+        <div class="mini-box"><div class="mini-lbl">Score / Trend</div><div class="mini-val" id="m-trend">-</div></div>
+        <div class="mini-box"><div class="mini-lbl">Anti-Fakeout</div><div class="mini-val" id="m-fakeout" style="font-size:10px;">-</div></div>
+        <div class="mini-box"><div class="mini-lbl">ATR / R:R</div><div class="mini-val" id="m-rr">-</div></div>
       </div>
     </div>
 
@@ -358,6 +373,11 @@
           <input id="t-sl" type="number" step="any" placeholder="Auto SL" style="width:100%;margin-top:3px;" />
         </div>
       </div>
+      <div style="margin-bottom:6px;">
+        <label style="display:flex;align-items:center;gap:6px;font-size:10px;color:var(--muted);cursor:pointer;">
+          <input id="t-force" type="checkbox" /> Consenti ordine manuale anche se Score &lt; Soglia / Fakeout
+        </label>
+      </div>
       <div class="ticket-actions">
         <button class="btn-buy" onclick="sendOrder('BUY')">LONG / BUY</button>
         <button class="btn-sell" onclick="sendOrder('SELL')">SHORT / SELL</button>
@@ -368,11 +388,11 @@
 
   <div class="card" style="margin-top:10px;">
     <div class="card-header">
-      <span class="card-title">VIP SIGNAL ROOM — SEGNALI ISTITUZIONALI LIVE</span>
-      <span id="room-count" class="pill pill-live">0 SIGNALS</span>
+      <span class="card-title">VIP SIGNAL ROOM — SOLO SEGNALI CERTI &amp; ANTI-FAKEOUT</span>
+      <span id="room-count" class="pill pill-live">0 CERTIFIED</span>
     </div>
     <div id="signal-room-grid" class="room-grid">
-      <div style="color:var(--muted);">In attesa di setup ad alta certezza su BingX...</div>
+      <div style="color:var(--muted);">In attesa di segnali certi con score sopra soglia e senza false rotture...</div>
     </div>
   </div>
 
@@ -390,9 +410,9 @@
           <th onclick="sortBy('rsi')">RSI</th>
           <th onclick="sortBy('z_score')">Z-Score</th>
           <th onclick="sortBy('obi')">OBI %</th>
+          <th>Anti-Fakeout</th>
           <th>Avviso Entrata</th>
           <th>Avviso Uscita</th>
-          <th>TP / SL</th>
         </tr>
       </thead>
       <tbody id="vip-tbody"></tbody>
@@ -403,6 +423,10 @@
 
   <script>
     const TF_SEC = { "1m": 60, "5m": 300, "15m": 900, "1h": 3600, "4h": 14400 };
+    const savedScore = parseFloat(localStorage.getItem("vip_min_score") || "65");
+    let currentMinScore = isNaN(savedScore) ? 65 : savedScore;
+    document.getElementById("min-score-input").value = currentMinScore;
+
     let allSignals = [];
     let selectedSymbol = "BTC-USDT";
     let sortKey = "certainty_pct";
@@ -429,6 +453,19 @@
       const clock = formatClock(rem);
       document.getElementById("kpi-timer").textContent = clock;
       document.getElementById("candle-timer-pill").textContent = `CANDLE ${tf} · ${clock}`;
+    }
+
+    function applyMinScore() {
+      const val = parseFloat(document.getElementById("min-score-input").value);
+      if (isNaN(val) || val < 10 || val > 95) {
+        showToast("Inserisci un Score tra 10 e 95");
+        return;
+      }
+      currentMinScore = val;
+      localStorage.setItem("vip_min_score", String(val));
+      document.getElementById("kpi-minscore").textContent = val.toFixed(1);
+      showToast(`Score minimo impostato su ${val.toFixed(1)}`);
+      refreshVipScanner();
     }
 
     function showToast(msg) {
@@ -479,15 +516,20 @@
       badge.textContent = row.signal;
       badge.className = "sig-badge " + (row.signal.includes("BUY") ? "sig-buy" : (row.signal.includes("SELL") ? "sig-sell" : "sig-neu"));
 
-      document.getElementById("adv-entry").textContent = `ENTRATA: ${row.entry_alert}`;
+      const advEntryEl = document.getElementById("adv-entry");
+      advEntryEl.textContent = `ENTRATA: ${row.entry_alert}`;
+      advEntryEl.className = row.can_enter ? "alert-entry" : "alert-blocked";
+
       document.getElementById("adv-exit").textContent = `USCITA: ${row.exit_alert}`;
 
       document.getElementById("m-emas").textContent = `${row.ema9} / ${row.ema21} / ${row.ema55}`;
-      document.getElementById("m-trend").textContent = `${row.trend} (${row.score})`;
-      document.getElementById("m-atr").textContent = `${row.atr} (${row.vol_ratio}x)`;
-      document.getElementById("m-rr").textContent = row.rr > 0 ? `1 : ${row.rr}` : "-";
+      document.getElementById("m-trend").textContent = `${row.score} (${row.trend})`;
+      const fakeEl = document.getElementById("m-fakeout");
+      fakeEl.textContent = row.fakeout_summary;
+      fakeEl.className = `mini-val ${row.is_fakeout ? "pos-dn" : "pos-up"}`;
+      document.getElementById("m-rr").textContent = `${row.atr} / ${row.rr > 0 ? "1:" + row.rr : "-"}`;
 
-      if (autofillLevels && row.tp > 0 && row.sl > 0) {
+      if (autofillLevels && row.can_enter && row.tp > 0 && row.sl > 0) {
         document.getElementById("t-tp").value = row.tp;
         document.getElementById("t-sl").value = row.sl;
       }
@@ -500,7 +542,7 @@
       document.getElementById("t-lev").value = lev;
       if (tp3 > 0) document.getElementById("t-tp").value = tp3;
       if (sl > 0) document.getElementById("t-sl").value = sl;
-      showToast(`Segnale ${sym} (${bxSide}) caricato nel Ticket`);
+      showToast(`Segnale certificato ${sym} (${bxSide}) caricato nel Ticket`);
     }
 
     function drawChart(row) {
@@ -558,9 +600,9 @@
 
     function renderSignalRoom(roomList) {
       const grid = document.getElementById("signal-room-grid");
-      document.getElementById("room-count").textContent = `${(roomList || []).length} SIGNALS`;
+      document.getElementById("room-count").textContent = `${(roomList || []).length} CERTIFIED`;
       if (!roomList || !roomList.length) {
-        grid.innerHTML = `<div style="color:var(--muted);">Nessun segnale attivo al momento.</div>`;
+        grid.innerHTML = `<div style="color:var(--muted);">Nessun segnale certificato al momento (Score &ge; ${currentMinScore} e zero false rotture).</div>`;
         return;
       }
 
@@ -568,7 +610,7 @@
       grid.innerHTML = roomList.slice(0, 8).map(item => {
         const isLong = item.side === "LONG";
         const dirCol = isLong ? "pos-up" : "pos-dn";
-        const stCol = item.status.includes("TP") ? "pos-up" : (item.status.includes("SL") ? "pos-dn" : "pill-warn");
+        const stCol = item.status.includes("TP") ? "pos-up" : (item.status.includes("SL") ? "pos-dn" : "pill-live");
         const remCandle = item.candle_close_ts ? formatClock(item.candle_close_ts - nowSec) : "--:--";
         return `
           <div class="room-card">
@@ -581,7 +623,7 @@
               <span class="pill ${stCol}">${item.status}</span>
             </div>
             <div style="font-size:10px;color:var(--muted);margin-bottom:6px;">
-              Score: <strong>${item.score}</strong> · Certezza: <strong style="color:var(--gold);">${item.certainty_pct}%</strong> · EMA9/21: ${item.ema9}/${item.ema21}
+              Score: <strong style="color:var(--gold);">${item.score}</strong> · Certezza: <strong>${item.certainty_pct}%</strong> · ${item.fakeout_summary}
             </div>
             <div class="room-levels">
               <div><span style="color:var(--muted);">Entry:</span> <strong>${item.entry}</strong></div>
@@ -613,6 +655,8 @@
 
       let list = allSignals.filter(r => {
         if (q && !r.symbol.includes(q)) return false;
+        if (fSig === "CERTIFIED" && !r.can_enter) return false;
+        if (fSig === "NOFAKE" && r.is_fakeout) return false;
         if (fSig === "STRONG" && !r.signal.includes("STRONG")) return false;
         if (fSig === "BUY" && !r.signal.includes("BUY")) return false;
         if (fSig === "SELL" && !r.signal.includes("SELL")) return false;
@@ -632,6 +676,8 @@
         const barW = Math.min(100, Math.abs(s.obi));
         const barCol = s.obi >= 0 ? "#00e676" : "#ff3b5c";
         const selCls = s.symbol === selectedSymbol ? "selected-row" : "";
+        const fakeCls = s.is_fakeout ? "pill-danger" : "pill-live";
+        const entCls = s.can_enter ? "pos-up" : "pos-dn";
         return `
           <tr class="${selCls}" onclick="selectPair('${s.symbol}')">
             <td><strong>${s.symbol}</strong></td>
@@ -647,9 +693,9 @@
               <span class="bar-bg"><span class="bar-fill" style="width:${barW}%;background:${barCol};"></span></span>
               ${s.obi >= 0 ? "+" : ""}${s.obi}%
             </td>
-            <td class="pos-up" style="font-size:11px;">${s.entry_alert}</td>
-            <td class="pos-dn" style="font-size:11px;">${s.exit_alert}</td>
-            <td>${s.tp > 0 ? `<span class="pos-up">TP ${s.tp}</span> / <span class="pos-dn">SL ${s.sl}</span>` : "-"}</td>
+            <td><span class="pill ${fakeCls}">${s.is_fakeout ? "FAKEOUT" : "CLEAN"}</span></td>
+            <td class="${entCls}" style="font-size:11px;"><strong>${s.entry_alert}</strong></td>
+            <td style="font-size:11px;">${s.exit_alert}</td>
           </tr>
         `;
       }).join("");
@@ -661,11 +707,13 @@
       const payload = {
         symbol: selectedSymbol,
         side,
+        tf: document.getElementById("vip-tf").value,
         margin_usdt: parseFloat(document.getElementById("t-margin").value || "0.25"),
         leverage: parseInt(document.getElementById("t-lev").value || "20", 10),
         price: row.price,
         tp: parseFloat(document.getElementById("t-tp").value || "0"),
-        sl: parseFloat(document.getElementById("t-sl").value || "0")
+        sl: parseFloat(document.getElementById("t-sl").value || "0"),
+        force_override: document.getElementById("t-force").checked
       };
       const r = await fetch("/api/order", {
         method: "POST",
@@ -677,7 +725,7 @@
         showToast(`Ordine ${side} ${selectedSymbol} inviato su BingX!`);
         beep(1046);
       } else {
-        showToast(`Errore ordine: ${out.msg || "Verifica API/Saldo"}`);
+        showToast(out.msg || "Errore ordine: verifica API/Saldo/Score");
         beep(320);
       }
       refreshVipScanner();
@@ -686,8 +734,13 @@
     async function refreshVipScanner() {
       const tf = document.getElementById("vip-tf").value;
       try {
-        const res = await fetch(`/api/vip-scan?tf=${encodeURIComponent(tf)}`);
+        const res = await fetch(`/api/vip-scan?tf=${encodeURIComponent(tf)}&min_score=${encodeURIComponent(currentMinScore)}`);
         const data = await res.json();
+
+        if (typeof data.min_score === "number") {
+          currentMinScore = data.min_score;
+          document.getElementById("kpi-minscore").textContent = currentMinScore.toFixed(1);
+        }
 
         const badge = document.getElementById("api-badge");
         if (data.account && data.account.connected) {
@@ -730,15 +783,13 @@
           : "Nessuna posizione aperta.";
 
         allSignals = data.signals || [];
-        const activeCount = allSignals.filter(s => s.signal !== "NEUTRAL").length;
-        document.getElementById("kpi-setups").textContent = activeCount;
 
         allSignals.forEach(s => {
-          if (s.signal.includes("STRONG")) {
-            const key = `${s.symbol}-${s.signal}-${tf}`;
+          if (s.can_enter) {
+            const key = `${s.symbol}-${s.signal}-${tf}-${s.score}`;
             if (!seenStrong.has(key)) {
               seenStrong.add(key);
-              showToast(`${s.entry_alert} (${s.certainty_pct}%)`);
+              showToast(`${s.entry_alert} · Certezza ${s.certainty_pct}%`);
               beep(920);
             }
           }
