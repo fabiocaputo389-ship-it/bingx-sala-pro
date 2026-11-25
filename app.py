@@ -1,5 +1,6 @@
 import hashlib
 import hmac
+import json
 import math
 import os
 import time
@@ -13,6 +14,9 @@ app = Flask(__name__)
 BINGX_BASE_URL = "https://open-api.bingx.com"
 API_KEY = os.getenv("BINGX_API_KEY", "")
 SECRET_KEY = os.getenv("BINGX_SECRET_KEY", "")
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+CONFIG_PATH = os.path.join(BASE_DIR, "config", "runtime_config.json")
 
 TIMEFRAME_SECONDS = {
     "1m": 60,
@@ -32,9 +36,8 @@ ASSET_CATALOG = {
     "NVDA-USDT": {"label": "NVDA", "category": "Azioni", "price_decimals": 2, "win_rate": 76},
 }
 
-# Configurazione modificabile a runtime (score soglia e parametri indicatori)
-RUNTIME_CONFIG = {
-    "min_signal_score": 65,     # Soglia modificabile (0 - 100)
+DEFAULT_CONFIG = {
+    "min_signal_score": 65.0,
     "rsi_period": 14,
     "rsi_oversold": 30.0,
     "rsi_overbought": 70.0,
@@ -47,7 +50,34 @@ RUNTIME_CONFIG = {
     "w_rsi": 0.30,
     "w_macd": 0.40,
     "w_ema": 0.30,
+    "anti_fake_enabled": True,
+    "fakeout_lookback": 20,
+    "atr_spike_mult": 2.5,
+    "wick_ratio_limit": 0.55,
+    "min_breakout_vol_mult": 0.70,
 }
+
+
+def load_config() -> dict:
+    cfg = dict(DEFAULT_CONFIG)
+    if os.path.exists(CONFIG_PATH):
+        try:
+            with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+                saved = json.load(f)
+                if isinstance(saved, dict):
+                    cfg.update(saved)
+        except Exception:
+            pass
+    return cfg
+
+
+def save_config(cfg: dict) -> None:
+    os.makedirs(os.path.dirname(CONFIG_PATH), exist_ok=True)
+    with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+        json.dump(cfg, f, indent=2)
+
+
+RUNTIME_CONFIG = load_config()
 
 
 def normalize_symbol(raw_symbol: str) -> str:
@@ -74,7 +104,7 @@ def candle_close_info(interval: str, now_ts: float | None = None) -> dict:
     secs = remaining_sec % 60
     countdown = f"{hrs:02d}:{mins:02d}:{secs:02d}" if hrs > 0 else f"{mins:02d}:{secs:02d}"
 
-    close_iso_utc = datetime.fromtimestamp(next_close_ts, tz=timezone.utc).strftime("%H:%M:%S UTC")
+    close_utc = datetime.fromtimestamp(next_close_ts, tz=timezone.utc).strftime("%H:%M:%S UTC")
     close_local = datetime.fromtimestamp(next_close_ts).astimezone().strftime("%H:%M:%S")
 
     return {
@@ -86,7 +116,7 @@ def candle_close_info(interval: str, now_ts: float | None = None) -> dict:
         "remainingText": countdown,
         "validityPct": pct_remaining,
         "elapsedPct": pct_elapsed,
-        "closeTimeUtc": close_iso_utc,
+        "closeTimeUtc": close_utc,
         "closeTimeLocal": close_local,
     }
 
@@ -147,7 +177,7 @@ def compute_macd(closes: list[float], fast: int, slow: int, signal: int) -> dict
 
 
 def compute_atr(highs: list[float], lows: list[float], closes: list[float], period: int = 14) -> float:
-    if len(closes) < 2 or len(highs) != len(closes) or len(lows) != len(closes):
+    if len(closes) < 2 or not (len(highs) == len(lows) == len(closes)):
         return 0.0
     trs = []
     for i in range(1, len(closes)):
@@ -161,7 +191,89 @@ def compute_atr(highs: list[float], lows: list[float], closes: list[float], peri
     return round(sum(window) / len(window), 5) if window else 0.0
 
 
-def fetch_klines(symbol: str, interval: str, limit: int = 120) -> tuple[float, list[float], list[float], list[float]]:
+def detect_anti_fake_filters(
+    opens: list[float],
+    highs: list[float],
+    lows: list[float],
+    closes: list[float],
+    volumes: list[float],
+    atr: float,
+    cfg: dict,
+) -> dict:
+    if not cfg.get("anti_fake_enabled", True):
+        return {
+            "enabled": False,
+            "fakeBreakout": "NONE",
+            "isFalseSignal": False,
+            "penaltyScore": 0.0,
+            "reasons": [],
+        }
+
+    lookback = max(5, int(cfg.get("fakeout_lookback", 20)))
+    atr_mult = float(cfg.get("atr_spike_mult", 2.5))
+    wick_limit = float(cfg.get("wick_ratio_limit", 0.55))
+    vol_mult = float(cfg.get("min_breakout_vol_mult", 0.70))
+
+    n = len(closes)
+    if n < lookback + 2 or not (len(opens) == len(highs) == len(lows) == n):
+        return {
+            "enabled": True,
+            "fakeBreakout": "NONE",
+            "isFalseSignal": False,
+            "penaltyScore": 0.0,
+            "reasons": [],
+        }
+
+    reasons: list[str] = []
+    penalty = 0.0
+    fake_breakout = "NONE"
+
+    prev_high = max(highs[-(lookback + 1):-1])
+    prev_low = min(lows[-(lookback + 1):-1])
+
+    o_last, h_last, l_last, c_last = opens[-1], highs[-1], lows[-1], closes[-1]
+    candle_range = max(0.0, h_last - l_last)
+    upper_wick = max(0.0, h_last - max(o_last, c_last))
+    lower_wick = max(0.0, min(o_last, c_last) - l_last)
+
+    if h_last > prev_high and c_last < prev_high:
+        fake_breakout = "BULL_TRAP"
+        penalty += 35.0
+        reasons.append(f"Falsa rottura rialzista (max {prev_high}, chiusura {c_last})")
+    elif l_last < prev_low and c_last > prev_low:
+        fake_breakout = "BEAR_TRAP"
+        penalty += 35.0
+        reasons.append(f"Falsa rottura ribassista (min {prev_low}, chiusura {c_last})")
+
+    if candle_range > 0:
+        if upper_wick / candle_range > wick_limit and c_last < o_last:
+            penalty += 20.0
+            reasons.append("Shadow superiore dominante (possibile fakeout/rifiuto)")
+        if lower_wick / candle_range > wick_limit and c_last > o_last:
+            penalty += 20.0
+            reasons.append("Shadow inferiore dominante (possibile sweep)")
+
+    if atr > 0 and candle_range > atr * atr_mult:
+        penalty += 25.0
+        reasons.append(f"Spike/range anomalo ({round(candle_range, 5)} > {atr_mult}x ATR)")
+
+    if len(volumes) >= lookback + 1:
+        avg_vol = sum(volumes[-(lookback + 1):-1]) / lookback
+        if avg_vol > 0 and (h_last > prev_high or l_last < prev_low) and volumes[-1] < avg_vol * vol_mult:
+            penalty += 15.0
+            reasons.append(f"Rottura con volume debole (< {vol_mult}x media)")
+
+    is_false_signal = fake_breakout != "NONE" or penalty >= 35.0
+    return {
+        "enabled": True,
+        "fakeBreakout": fake_breakout,
+        "isFalseSignal": is_false_signal,
+        "penaltyScore": round(min(100.0, penalty), 1),
+        "reasons": reasons,
+    }
+
+
+def fetch_klines(symbol: str, interval: str, limit: int = 120):
     resp = requests.get(
         f"{BINGX_BASE_URL}/openApi/swap/v2/quote/klines",
         params={"symbol": symbol, "interval": interval, "limit": limit},
@@ -169,19 +281,22 @@ def fetch_klines(symbol: str, interval: str, limit: int = 120) -> tuple[float, l
     )
     resp.raise_for_status()
     rows = resp.json().get("data", [])
-    opens, highs, lows, closes = [], [], [], []
+    opens, highs, lows, closes, volumes = [], [], [], [], []
     for r in rows:
-        # Supporta sia dict che list a seconda della risposta
         if isinstance(r, dict):
-            highs.append(float(r.get("high", 0)))
-            lows.append(float(r.get("low", 0)))
-            closes.append(float(r.get("close", 0)))
-        elif isinstance(r, (list, tuple)) and len(r) >= 5:
+            opens.append(float(r.get("open", 0.0)))
+            highs.append(float(r.get("high", 0.0)))
+            lows.append(float(r.get("low", 0.0)))
+            closes.append(float(r.get("close", 0.0)))
+            volumes.append(float(r.get("volume", 0.0)))
+        elif isinstance(r, (list, tuple)) and len(r) >= 6:
+            opens.append(float(r[1]))
             highs.append(float(r[2]))
             lows.append(float(r[3]))
             closes.append(float(r[4]))
+            volumes.append(float(r[5]))
     last_price = closes[-1] if closes else 0.0
-    return last_price, highs, lows, closes
+    return last_price, opens, highs, lows, closes, volumes
 
 
 def sign_query(params: dict, secret: str) -> str:
@@ -224,26 +339,20 @@ def index():
 def manage_config():
     if request.method == "POST":
         data = request.get_json(force=True) or {}
-        if "min_signal_score" in data:
-            RUNTIME_CONFIG["min_signal_score"] = max(0, min(100, int(data["min_signal_score"])))
-        if "rsi_period" in data:
-            RUNTIME_CONFIG["rsi_period"] = max(2, min(100, int(data["rsi_period"])))
-        if "rsi_oversold" in data:
-            RUNTIME_CONFIG["rsi_oversold"] = float(data["rsi_oversold"])
-        if "rsi_overbought" in data:
-            RUNTIME_CONFIG["rsi_overbought"] = float(data["rsi_overbought"])
-        if "macd_fast" in data:
-            RUNTIME_CONFIG["macd_fast"] = max(2, int(data["macd_fast"]))
-        if "macd_slow" in data:
-            RUNTIME_CONFIG["macd_slow"] = max(3, int(data["macd_slow"]))
-        if "macd_signal" in data:
-            RUNTIME_CONFIG["macd_signal"] = max(2, int(data["macd_signal"]))
-        if "ema_fast" in data:
-            RUNTIME_CONFIG["ema_fast"] = max(2, int(data["ema_fast"]))
-        if "ema_slow" in data:
-            RUNTIME_CONFIG["ema_slow"] = max(3, int(data["ema_slow"]))
-        if "atr_period" in data:
-            RUNTIME_CONFIG["atr_period"] = max(2, int(data["atr_period"]))
+        numeric_int_keys = ("rsi_period", "macd_fast", "macd_slow", "macd_signal", "ema_fast", "ema_slow", "atr_period", "fakeout_lookback")
+        numeric_float_keys = ("min_signal_score", "rsi_oversold", "rsi_overbought", "atr_spike_mult", "wick_ratio_limit", "min_breakout_vol_mult")
+
+        for k in numeric_int_keys:
+            if k in data:
+                RUNTIME_CONFIG[k] = int(data[k])
+        for k in numeric_float_keys:
+            if k in data:
+                RUNTIME_CONFIG[k] = float(data[k])
+        if "anti_fake_enabled" in data:
+            RUNTIME_CONFIG["anti_fake_enabled"] = bool(data["anti_fake_enabled"])
+
+        RUNTIME_CONFIG["min_signal_score"] = max(0.0, min(100.0, RUNTIME_CONFIG["min_signal_score"]))
+        save_config(RUNTIME_CONFIG)
     return jsonify(RUNTIME_CONFIG)
 
 
@@ -262,9 +371,9 @@ def live_ticker():
     })
     close_meta = candle_close_info(timeframe)
 
-    last_price, highs, lows, closes = 0.0, [], [], []
+    last_price, opens, highs, lows, closes, volumes = 0.0, [], [], [], [], []
     try:
-        last_price, highs, lows, closes = fetch_klines(symbol, timeframe, limit=120)
+        last_price, opens, highs, lows, closes, volumes = fetch_klines(symbol, timeframe, limit=120)
     except Exception:
         pass
 
@@ -279,8 +388,6 @@ def live_ticker():
     ema_f_val = ema_series(closes, RUNTIME_CONFIG["ema_fast"])[-1] if closes else 0.0
     ema_s_val = ema_series(closes, RUNTIME_CONFIG["ema_slow"])[-1] if closes else 0.0
 
-    # Calcolo score direzionale (-100 bearish .. 0 neutrale .. +100 bullish) e forza (0..100)
-    rsi_score = 0.0
     if rsi_val <= RUNTIME_CONFIG["rsi_oversold"]:
         rsi_score = 75.0
     elif rsi_val >= RUNTIME_CONFIG["rsi_overbought"]:
@@ -296,10 +403,13 @@ def live_ticker():
         + macd_score * RUNTIME_CONFIG["w_macd"]
         + ema_score * RUNTIME_CONFIG["w_ema"]
     )
-    signal_score = round(min(100.0, abs(raw_signed_score)), 1)
+    raw_abs_score = min(100.0, abs(raw_signed_score))
+
+    anti_fake = detect_anti_fake_filters(opens, highs, lows, closes, volumes, atr_val, RUNTIME_CONFIG)
+    final_score = round(max(0.0, raw_abs_score - anti_fake["penaltyScore"]), 1)
     min_score = float(RUNTIME_CONFIG["min_signal_score"])
 
-    if signal_score < min_score:
+    if anti_fake["isFalseSignal"] or final_score < min_score:
         signal_side = "NEUTRAL"
     else:
         signal_side = "BUY" if raw_signed_score > 0 else "SELL"
@@ -308,12 +418,13 @@ def live_ticker():
     bear_pct = 100 - whale_pct
     trend_health = int(max(10, min(100, round(50 + abs(ema_f_val - ema_s_val) / max(last_price, 1e-9) * 10000))))
 
-    high_risk = signal_score < min_score or meta["category"] in ("Materie prime", "Azioni")
-    risk_reason = (
-        f"Score {signal_score} sotto soglia ({min_score})"
-        if signal_score < min_score
-        else f"Controlla sessione e ATR ({atr_val}) su {meta['category']}"
-    )
+    high_risk = anti_fake["isFalseSignal"] or final_score < min_score or meta["category"] in ("Materie prime", "Azioni")
+    if anti_fake["reasons"]:
+        risk_reason = " | ".join(anti_fake["reasons"])
+    elif final_score < min_score:
+        risk_reason = f"Score {final_score} sotto soglia ({min_score})"
+    else:
+        risk_reason = f"Confluenza attiva su {meta['category']} (ATR {atr_val})"
 
     return jsonify({
         "symbol": symbol,
@@ -322,7 +433,8 @@ def live_ticker():
         "priceDecimals": meta["price_decimals"],
         "lastPrice": last_price,
         "signalSide": signal_side,
-        "signalScore": signal_score,
+        "signalScore": final_score,
+        "rawScore": round(raw_abs_score, 1),
         "minSignalScore": min_score,
         "winRate": meta["win_rate"],
         "trendHealth": trend_health,
@@ -339,9 +451,32 @@ def live_ticker():
             "emaSlow": round(ema_s_val, meta["price_decimals"]),
             "atr": atr_val,
         },
+        "antiFake": anti_fake,
         "highRiskWarning": high_risk,
         "riskReason": risk_reason,
         **close_meta,
+    })
+
+
+@app.route("/api/income-history")
+def income_history():
+    symbol = normalize_symbol(request.args.get("symbol", "BTC-USDT"))
+    raw = bingx_signed_request("GET", "/openApi/swap/v2/user/income", {
+        "symbol": symbol,
+        "limit": 100,
+    })
+    records = raw.get("data", []) if isinstance(raw, dict) else []
+    realized_pnl = sum(float(item.get("income", 0.0)) for item in records if item.get("incomeType") == "REALIZED_PNL")
+    fees = sum(float(item.get("income", 0.0)) for item in records if item.get("incomeType") == "TRADING_FEE")
+    funding = sum(float(item.get("income", 0.0)) for item in records if item.get("incomeType") == "FUNDING_FEE")
+
+    return jsonify({
+        "symbol": symbol,
+        "count": len(records),
+        "realizedPnl": round(realized_pnl, 4),
+        "tradingFees": round(fees, 4),
+        "fundingFees": round(funding, 4),
+        "netPnl": round(realized_pnl + fees + funding, 4),
     })
 
 
@@ -351,6 +486,7 @@ def execute_signal():
     symbol = normalize_symbol(body.get("symbol", "BTC-USDT"))
     side = (body.get("side") or "NEUTRAL").upper()
     score = float(body.get("signalScore", 0.0))
+    is_false = bool(body.get("isFalseSignal", False))
     min_score = float(RUNTIME_CONFIG["min_signal_score"])
     equity = float(body.get("equity", 2.0))
     tp_price = body.get("tpPrice")
@@ -358,6 +494,8 @@ def execute_signal():
 
     if side not in ("BUY", "SELL"):
         return jsonify({"status": "skipped", "reason": "Direzione NEUTRAL: nessun ordine inviato."}), 200
+    if is_false:
+        return jsonify({"status": "blocked", "reason": "Bloccato dal filtro anti-falsi segnali / falsa rottura."}), 200
     if score < min_score:
         return jsonify({"status": "blocked", "reason": f"Score {score} inferiore alla soglia minima {min_score}."}), 200
     if tp_price is None or sl_price is None:
