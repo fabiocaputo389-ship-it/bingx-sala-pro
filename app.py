@@ -20,6 +20,14 @@ KEYS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".bingx_key
 BASE_URL = "https://open-api.bingx.com"
 ROME_TZ = ZoneInfo("Europe/Rome")
 
+INTERVAL_SECONDS = {
+    "1m": 60,
+    "5m": 300,
+    "15m": 900,
+    "1h": 3600,
+    "4h": 14400,
+}
+
 
 def load_saved_keys():
     api_key = os.getenv("BINGX_API_KEY", "")
@@ -1000,6 +1008,74 @@ def detect_early_entry_setup(opens, highs, lows, closes, volumes, ema20_arr, ema
     }
 
 
+def compute_entry_pre_alert(
+    price: float,
+    early_setup: dict,
+    interval: str,
+    certain_signal: str = None,
+    pre_pct: float = 0.50,
+    pre_sec: int = 25,
+    max_over_pct: float = 0.25
+):
+    tf_sec = INTERVAL_SECONDS.get(interval, 900)
+    now_epoch = time.time()
+    sec_to_next_candle = int(tf_sec - (now_epoch % tf_sec))
+    if sec_to_next_candle == tf_sec:
+        sec_to_next_candle = 0
+
+    limit_px = float(early_setup.get("limit_price") or 0.0)
+    direction = early_setup.get("direction")
+    if not direction and certain_signal:
+        direction = "LONG" if "LONG" in certain_signal.upper() else ("SHORT" if "SHORT" in certain_signal.upper() else None)
+
+    is_certain = bool(certain_signal)
+    is_early = bool(early_setup.get("trigger_sound") or direction)
+    not_chasing = bool(early_setup.get("not_chasing", True))
+    has_setup = bool((is_certain or is_early) and direction)
+
+    past_threshold = False
+    over_pct = None
+    if has_setup and limit_px > 0 and price > 0:
+        if direction == "LONG" and price > limit_px * (1.0 + max_over_pct / 100.0):
+            past_threshold = True
+            over_pct = round(((price - limit_px) / limit_px) * 100.0, 3)
+        elif direction == "SHORT" and price < limit_px * (1.0 - max_over_pct / 100.0):
+            past_threshold = True
+            over_pct = round(((limit_px - price) / limit_px) * 100.0, 3)
+
+    dist_pct = None
+    if has_setup and limit_px > 0 and price > 0:
+        dist_pct = round(abs(price - limit_px) / limit_px * 100.0, 3)
+
+    near_trigger = bool(has_setup and not past_threshold and dist_pct is not None and dist_pct <= pre_pct)
+    candle_imminent = bool(has_setup and not past_threshold and sec_to_next_candle <= pre_sec)
+    certain_ready = bool(is_certain and not_chasing and not past_threshold)
+
+    do_not_enter = bool(has_setup and (past_threshold or not not_chasing))
+    enter_now = bool(has_setup and not do_not_enter and (near_trigger or candle_imminent or certain_ready))
+    pre_alert = bool(has_setup and not do_not_enter and not enter_now)
+
+    kind_label = "💎 SEGNALE CERTO" if is_certain else "🎯 ANTICIPO"
+
+    return {
+        "do_not_enter": do_not_enter,
+        "past_threshold": past_threshold,
+        "over_pct": over_pct,
+        "enter_now": enter_now,
+        "pre_alert": pre_alert,
+        "near_trigger": near_trigger,
+        "candle_imminent": candle_imminent,
+        "certain_ready": certain_ready,
+        "is_certain": is_certain,
+        "kind_label": kind_label,
+        "dist_pct": dist_pct,
+        "sec_to_next_candle": sec_to_next_candle,
+        "countdown_str": f"{sec_to_next_candle // 60:02d}:{sec_to_next_candle % 60:02d}",
+        "limit_price": limit_px,
+        "direction": direction
+    }
+
+
 def compute_tp_timeframe_plan(interval: str, adx: float):
     tf_map = {
         "1m":  {"tp_tf": "5m",  "candles": 4 if adx >= 25 else 7, "minutes_per_candle": 5},
@@ -1094,8 +1170,8 @@ def evaluate_profit_math_and_entry(
     if not early_setup.get("not_chasing", True) or abs(z_score) > 2.45:
         entry_rule = {
             "action": "NO ENTRY",
-            "badge": "🚫 NON INSEGUIRE",
-            "reason": f"Candela già estesa (Z={z_score:+.2f}σ): attendi ritracciamento."
+            "badge": "🚫 NON ENTRARE",
+            "reason": f"Candela già estesa (Z={z_score:+.2f}σ): non inseguire il prezzo."
         }
     elif not session_ok:
         entry_rule = {
@@ -1152,6 +1228,9 @@ def is_certain_or_early_signal(analysis: dict) -> bool:
 def register_sound_alert_if_exact_moment(analysis: dict):
     early = analysis.get("early_setup", {})
     certain = analysis.get("certain_signal")
+    tw = analysis.get("trigger_window", {})
+    if tw.get("do_not_enter"):
+        return
     if not (early.get("trigger_sound") or certain):
         return
     if not analysis.get("session", {}).get("session_ok", True):
@@ -1363,6 +1442,14 @@ def analyze_symbol_math(symbol: str, interval: str = "15m", custom_sentiment: fl
         session_info=session_info, early_setup=early_setup
     )
 
+    trigger_window = compute_entry_pre_alert(
+        price, early_setup, interval,
+        certain_signal=certain_signal,
+        pre_pct=0.50,
+        pre_sec=25,
+        max_over_pct=0.25
+    )
+
     result_obj = {
         "symbol": real_symbol,
         "bingx_name": exact_name,
@@ -1370,6 +1457,7 @@ def analyze_symbol_math(symbol: str, interval: str = "15m", custom_sentiment: fl
         "category": category,
         "session": session_info,
         "early_setup": early_setup,
+        "trigger_window": trigger_window,
         "timeframe": interval,
         "applied_profile": applied_profile,
         "weights": dict(BRAIN_WEIGHTS),
@@ -1415,6 +1503,9 @@ def maybe_auto_execute_trade(analysis: dict):
     if not BRAIN_WEIGHTS.get("auto_trade_enabled", False):
         return
     if not BINGX_API_KEY or not BINGX_SECRET_KEY:
+        return
+
+    if analysis.get("trigger_window", {}).get("do_not_enter"):
         return
 
     bal = float(BALANCE_STATE.get("balance_usdt", 0.0) or 0.0)
