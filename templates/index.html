@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>BINGX ELITE SIGNAL ROOM — Quantitative Institutional Terminal</title>
+  <title>BINGX ELITE SIGNAL ROOM PRO — Auto Monitor & Quant Terminal</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
   <style>
@@ -33,26 +33,27 @@
 </head>
 <body class="antialiased">
 
-  <!-- TOP INSTITUTIONAL BAR -->
+  <!-- TOP BAR -->
   <header class="bg-white border-b border-slate-200 sticky top-0 z-40">
-    <div class="max-w-[1600px] mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-4">
+    <div class="max-w-[1680px] mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
       <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center font-extrabold text-lg tracking-tighter">
+        <div class="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center font-extrabold text-lg">
           BX
         </div>
         <div>
-          <div class="flex items-center gap-2">
-            <h1 class="font-extrabold text-slate-900 text-base md:text-lg tracking-tight">BINGX ELITE QUANT SIGNAL ROOM</h1>
-            <span class="px-2 py-0.5 text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full flex items-center gap-1">
-              <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> LIVE BINGX SWAP V2
+          <div class="flex flex-wrap items-center gap-2">
+            <h1 class="font-extrabold text-slate-900 text-base md:text-lg tracking-tight">BINGX ELITE SIGNAL ROOM PRO</h1>
+            <span id="autoMonitorBadge" class="px-2.5 py-0.5 text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              AUTO-MONITOR ATTIVO • <span id="lastScanTime">--:--:--</span>
             </span>
           </div>
-          <p class="text-xs text-slate-500">Motore Matematico Multi-Fattore • EMA 9/21/50/200 • ADX • Z-Score • R² • Orderbook Sentiment</p>
+          <p class="text-xs text-slate-500">Nomi Reali BingX Swap v2 • Timeframe Candela TP • Filtro Entrata/No-Entry • Tachimetri & Score Live</p>
         </div>
       </div>
 
       <div class="flex flex-wrap items-center gap-2">
-        <select id="timeframeSelect" onchange="refreshActiveSymbol()" class="bg-slate-50 border border-slate-300 text-slate-900 text-xs font-bold rounded-lg px-3 py-2 focus:outline-none">
+        <select id="timeframeSelect" onchange="onTimeframeChange()" class="bg-slate-50 border border-slate-300 text-slate-900 text-xs font-bold rounded-lg px-3 py-2">
           <option value="1m">1m (Scalping HFT)</option>
           <option value="5m">5m (Intraday Fast)</option>
           <option value="15m" selected>15m (Istituzionale)</option>
@@ -60,44 +61,62 @@
           <option value="4h">4H (Macro Trend)</option>
         </select>
 
-        <button onclick="scanVisibleCategory()" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-4 py-2 rounded-lg shadow-sm transition">
-          ⚡ SCANSIONA CATEGORIA LIVE
+        <button onclick="toggleAutoMonitor()" id="btnToggleAuto" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3.5 py-2 rounded-lg transition">
+          🤖 Auto-Scan: ON
         </button>
-        <button onclick="loadAllMarkets()" class="bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold px-3 py-2 rounded-lg border border-slate-300 transition">
-          ↻ Aggiorna Mercati BingX
+
+        <button onclick="scanVisibleCategory()" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3.5 py-2 rounded-lg transition">
+          ⚡ Scansiona Categoria
+        </button>
+
+        <button onclick="loadAllMarkets(true)" class="bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold px-3 py-2 rounded-lg border border-slate-300 transition">
+          ↻ Scarica Nomi BingX
         </button>
       </div>
     </div>
   </header>
 
-  <main class="max-w-[1600px] mx-auto px-4 py-6 space-y-6">
+  <main class="max-w-[1680px] mx-auto px-4 py-6 space-y-6">
 
-    <!-- SEZIONE 1: TACHIMETRI PROFESSIONALI & SCHEDA SEGNALE ESATTO -->
+    <!-- BANNER REGOLA INGRESSO ATTIVO -->
+    <div id="entryRuleBanner" class="card-white p-4 border-l-4 border-l-slate-400 flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <span id="entryActionPill" class="px-3 py-1.5 rounded-lg text-xs font-extrabold bg-slate-100 text-slate-700">⏳ IN ATTESA</span>
+        <div>
+          <div class="text-xs font-bold uppercase text-slate-400">Protocollo Professionale Entrata / TP</div>
+          <div id="entryReasonText" class="text-sm font-bold text-slate-800">Seleziona un contratto BingX per verificare condizioni di ingresso e timeframe candela TP.</div>
+        </div>
+      </div>
+      <div class="text-right">
+        <div class="text-[11px] font-bold text-slate-400 uppercase">Timeframe Candela TP Stimato</div>
+        <div id="tpTimeframeHighlight" class="mono text-sm font-extrabold text-blue-700">--</div>
+      </div>
+    </div>
+
+    <!-- SEZIONE 1: TACHIMETRI + SEGNALE ESATTO + RISK MANAGER -->
     <div class="grid grid-cols-1 xl:grid-cols-12 gap-6">
 
-      <!-- 6 TACHIMETRI DI PRECISIONE (8 COLONNE) -->
+      <!-- 6 TACHIMETRI (8 COLONNE) -->
       <div class="xl:col-span-8 card-white p-5">
         <div class="flex flex-wrap items-center justify-between gap-2 pb-4 mb-4 border-b border-slate-100">
           <div>
-            <span class="text-[11px] font-bold uppercase tracking-wider text-blue-600">Telemetria Quantitativa in Tempo Reale</span>
-            <h2 class="text-xl font-extrabold text-slate-900 flex items-center gap-2">
+            <span class="text-[11px] font-bold uppercase tracking-wider text-blue-600">Telemetria Quantitativa Live</span>
+            <h2 class="text-xl font-extrabold text-slate-900 flex flex-wrap items-center gap-2">
               <span id="activeSymbolTitle">BTC-USDT</span>
+              <span id="activeAliasTitle" class="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">BTCUSDT</span>
               <span id="activePriceBadge" class="mono text-base font-bold px-2.5 py-0.5 rounded-md bg-slate-100 text-slate-800">--</span>
             </h2>
           </div>
-          <div id="signalMasterBadge" class="px-4 py-1.5 rounded-lg font-extrabold text-sm tracking-wide bg-slate-100 text-slate-700 border border-slate-200">
-            IN ATTESA DI ANALISI
+          <div id="signalMasterBadge" class="px-4 py-1.5 rounded-lg font-extrabold text-sm bg-slate-100 text-slate-700 border border-slate-200">
+            IN ATTESA
           </div>
         </div>
 
-        <!-- GRIGLIA 6 TACHIMETRI SVG -->
         <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
-          <!-- Tachimetro 1: Certezza Matematica -->
           <div class="bg-slate-50/70 border border-slate-200/80 rounded-xl p-3 flex flex-col items-center">
             <span class="text-[11px] font-bold text-slate-500 uppercase">Certezza Matematica</span>
             <svg viewBox="0 0 200 120" class="w-40 h-24">
-              <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#E2E8F0" stroke-width="14" stroke-linecap="round"/>
-              <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="url(#gradConf)" stroke-width="14" stroke-linecap="round" stroke-dasharray="251" stroke-dashoffset="0"/>
+              <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="url(#gradConf)" stroke-width="14" stroke-linecap="round"/>
               <defs>
                 <linearGradient id="gradConf" x1="0%" y1="0%" x2="100%" y2="0%">
                   <stop offset="0%" stop-color="#EF4444"/><stop offset="50%" stop-color="#F59E0B"/><stop offset="100%" stop-color="#10B981"/>
@@ -110,7 +129,6 @@
             <span class="text-[10px] text-slate-400">R² + ADX + Coerenza</span>
           </div>
 
-          <!-- Tachimetro 2: Alpha Composite Score -->
           <div class="bg-slate-50/70 border border-slate-200/80 rounded-xl p-3 flex flex-col items-center">
             <span class="text-[11px] font-bold text-slate-500 uppercase">Alpha Score (-100/+100)</span>
             <svg viewBox="0 0 200 120" class="w-40 h-24">
@@ -127,7 +145,6 @@
             <span class="text-[10px] text-slate-400">Direzione Netta</span>
           </div>
 
-          <!-- Tachimetro 3: RSI (14) -->
           <div class="bg-slate-50/70 border border-slate-200/80 rounded-xl p-3 flex flex-col items-center">
             <span class="text-[11px] font-bold text-slate-500 uppercase">RSI (14) Wilder</span>
             <svg viewBox="0 0 200 120" class="w-40 h-24">
@@ -139,7 +156,6 @@
             <span class="text-[10px] text-slate-400">OS &lt;30 | OB &gt;70</span>
           </div>
 
-          <!-- Tachimetro 4: ADX Forza Trend -->
           <div class="bg-slate-50/70 border border-slate-200/80 rounded-xl p-3 flex flex-col items-center">
             <span class="text-[11px] font-bold text-slate-500 uppercase">ADX (14) Forza Trend</span>
             <svg viewBox="0 0 200 120" class="w-40 h-24">
@@ -148,10 +164,9 @@
               <circle cx="100" cy="100" r="6" fill="#7C3AED"/>
             </svg>
             <span id="valAdx" class="mono text-lg font-extrabold text-purple-700 -mt-2">0.0</span>
-            <span class="text-[10px] text-slate-400">&gt;25 Trend Istituzionale</span>
+            <span class="text-[10px] text-slate-400">&gt;22 Trend Attivo</span>
           </div>
 
-          <!-- Tachimetro 5: Sentiment Orderbook -->
           <div class="bg-slate-50/70 border border-slate-200/80 rounded-xl p-3 flex flex-col items-center">
             <span class="text-[11px] font-bold text-slate-500 uppercase">Sentiment Live</span>
             <svg viewBox="0 0 200 120" class="w-40 h-24">
@@ -160,10 +175,9 @@
               <circle cx="100" cy="100" r="6" fill="#0F172A"/>
             </svg>
             <span id="valSent" class="mono text-lg font-extrabold text-slate-900 -mt-2">0.0</span>
-            <span class="text-[10px] text-slate-400">Bid/Ask Imbalance</span>
+            <span class="text-[10px] text-slate-400">Orderbook + Funding</span>
           </div>
 
-          <!-- Tachimetro 6: Z-Score & Bollinger %B -->
           <div class="bg-slate-50/70 border border-slate-200/80 rounded-xl p-3 flex flex-col items-center">
             <span class="text-[11px] font-bold text-slate-500 uppercase">Z-Score Statistico</span>
             <svg viewBox="0 0 200 120" class="w-40 h-24">
@@ -176,7 +190,7 @@
           </div>
         </div>
 
-        <!-- BARRA PARAMETRI EMA & INDICATORI COMPLETI -->
+        <!-- INDICATORI EMA & TECNICI -->
         <div class="mt-4 pt-4 border-t border-slate-100 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2 text-center">
           <div class="bg-slate-50 p-2 rounded-lg border border-slate-200/60">
             <div class="text-[10px] font-bold text-slate-400">EMA 9</div>
@@ -213,18 +227,17 @@
         </div>
       </div>
 
-      <!-- SEGNALE OPERATIVO ESATTO + CALIBRAZIONE CERVELLO MATEMATICO (4 COLONNE) -->
+      <!-- LIVELLI ESATTI + RISK CALCULATOR + CERVELLO (4 COLONNE) -->
       <div class="xl:col-span-4 space-y-6">
-        <!-- Scheda Livelli Esatti & Esecuzione BingX -->
         <div class="card-white p-5">
           <div class="flex items-center justify-between mb-3">
-            <h3 class="font-extrabold text-slate-900 text-sm uppercase tracking-wider">🎯 Segnale Matematico Esatto</h3>
+            <h3 class="font-extrabold text-slate-900 text-sm uppercase tracking-wider">🎯 Segnale & Target Candela</h3>
             <span id="rrBadge" class="mono text-xs font-bold px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">R:R 1:2.3</span>
           </div>
 
           <div class="space-y-2 text-sm">
             <div class="flex justify-between items-center p-2.5 rounded-lg bg-slate-50 border border-slate-200">
-              <span class="font-semibold text-slate-600">ENTRY PRICE (MARKET/LIMIT)</span>
+              <span class="font-semibold text-slate-600">ENTRY PRICE</span>
               <span id="lvlEntry" class="mono font-extrabold text-slate-900">--</span>
             </div>
             <div class="flex justify-between items-center p-2.5 rounded-lg bg-red-50/70 border border-red-200">
@@ -232,11 +245,11 @@
               <span id="lvlSl" class="mono font-extrabold text-red-700">--</span>
             </div>
             <div class="flex justify-between items-center p-2 rounded-lg bg-emerald-50/60 border border-emerald-200">
-              <span class="font-semibold text-emerald-700">TAKE PROFIT 1 (Conservativo)</span>
+              <span class="font-semibold text-emerald-700">TAKE PROFIT 1</span>
               <span id="lvlTp1" class="mono font-bold text-emerald-700">--</span>
             </div>
             <div class="flex justify-between items-center p-2 rounded-lg bg-emerald-50/90 border border-emerald-300">
-              <span class="font-semibold text-emerald-800">TAKE PROFIT 2 (Target Core)</span>
+              <span class="font-semibold text-emerald-800">TAKE PROFIT 2 (Core)</span>
               <span id="lvlTp2" class="mono font-extrabold text-emerald-800">--</span>
             </div>
             <div class="flex justify-between items-center p-2 rounded-lg bg-emerald-100/70 border border-emerald-400">
@@ -245,36 +258,48 @@
             </div>
           </div>
 
-          <!-- Esecuzione Diretta Reale BingX -->
-          <div class="mt-4 pt-3 border-t border-slate-100 flex items-center gap-2">
-            <input id="orderQty" type="number" step="any" placeholder="Quantità (es. 0.01)" class="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs mono font-bold" />
+          <!-- Calcolatore Size da Capitale BingX -->
+          <div class="mt-3 p-3 rounded-lg bg-slate-50 border border-slate-200 text-xs space-y-2">
+            <div class="flex items-center justify-between font-bold text-slate-700">
+              <span>Saldo BingX (USDT): <span id="bingxBalanceVal" class="mono text-blue-700">1000.00</span></span>
+              <button onclick="fetchAccountBalance()" class="text-[11px] text-blue-600 hover:underline">Aggiorna Saldo</button>
+            </div>
+            <div class="flex items-center gap-2">
+              <label class="font-semibold text-slate-600">Rischio %:</label>
+              <input id="riskPctInput" type="number" step="0.5" value="1.5" oninput="calcSuggestedSize()" class="w-20 bg-white border border-slate-300 rounded px-2 py-1 mono font-bold" />
+              <span class="text-slate-500">Size sugg.: <strong id="suggestedSizeLbl" class="mono text-slate-900">--</strong></span>
+            </div>
+          </div>
+
+          <div class="mt-3 pt-3 border-t border-slate-100 flex items-center gap-2">
+            <input id="orderQty" type="number" step="any" placeholder="Quantità ordine" class="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs mono font-bold" />
             <button onclick="executeBingXOrder()" class="w-1/2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-extrabold py-2.5 px-3 rounded-lg transition">
               ESEGUI SU BINGX
             </button>
           </div>
         </div>
 
-        <!-- Calibrazione Pesi Cervello Matematico -->
+        <!-- Pesi Cervello Matematico -->
         <div class="card-white p-5">
           <div class="flex items-center justify-between mb-3">
-            <h3 class="font-extrabold text-slate-900 text-sm uppercase tracking-wider">🧠 Cervello Matematico (Pesi)</h3>
-            <button onclick="saveBrainWeights()" class="text-xs font-bold text-blue-600 hover:underline">Applica Pesi</button>
+            <h3 class="font-extrabold text-slate-900 text-sm uppercase tracking-wider">🧠 Cervello Matematico</h3>
+            <button onclick="saveBrainWeights()" class="text-xs font-bold text-blue-600 hover:underline">Salva Pesi</button>
           </div>
-          <div class="space-y-2.5 text-xs">
+          <div class="space-y-2 text-xs">
             <div>
-              <div class="flex justify-between font-semibold text-slate-600"><span>Sistema EMA (9/21/50/200)</span><span id="lblWema" class="mono">30%</span></div>
+              <div class="flex justify-between font-semibold text-slate-600"><span>EMA (9/21/50/200)</span><span id="lblWema" class="mono">30%</span></div>
               <input id="wEma" type="range" min="0" max="100" value="30" oninput="document.getElementById('lblWema').innerText=this.value+'%'" class="w-full accent-slate-900">
             </div>
             <div>
-              <div class="flex justify-between font-semibold text-slate-600"><span>Momentum (RSI + MACD + ADX)</span><span id="lblWmom" class="mono">25%</span></div>
+              <div class="flex justify-between font-semibold text-slate-600"><span>Momentum (RSI/MACD/ADX)</span><span id="lblWmom" class="mono">25%</span></div>
               <input id="wMom" type="range" min="0" max="100" value="25" oninput="document.getElementById('lblWmom').innerText=this.value+'%'" class="w-full accent-slate-900">
             </div>
             <div>
-              <div class="flex justify-between font-semibold text-slate-600"><span>Volatilità & Statistica (Z-Score + R²)</span><span id="lblWvol" class="mono">20%</span></div>
+              <div class="flex justify-between font-semibold text-slate-600"><span>Volatilità (Z-Score/R²)</span><span id="lblWvol" class="mono">20%</span></div>
               <input id="wVol" type="range" min="0" max="100" value="20" oninput="document.getElementById('lblWvol').innerText=this.value+'%'" class="w-full accent-slate-900">
             </div>
             <div>
-              <div class="flex justify-between font-semibold text-slate-600"><span>Sentiment (Orderbook + Funding)</span><span id="lblWsent" class="mono">25%</span></div>
+              <div class="flex justify-between font-semibold text-slate-600"><span>Sentiment (OB/Funding)</span><span id="lblWsent" class="mono">25%</span></div>
               <input id="wSent" type="range" min="0" max="100" value="25" oninput="document.getElementById('lblWsent').innerText=this.value+'%'" class="w-full accent-slate-900">
             </div>
             <div>
@@ -286,16 +311,16 @@
       </div>
     </div>
 
-    <!-- SEZIONE 2: TUTTI I MERCATI FUTURES BINGX DIVISI PER CATEGORIA -->
+    <!-- SEZIONE 2: TABELLA COMPLETA MERCATI BINGX PER CATEGORIA -->
     <div class="card-white p-5">
       <div class="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-200">
         <div>
-          <h2 class="text-lg font-extrabold text-slate-900">Tutti i Mercati Futures BingX (Perpetual Swap v2)</h2>
-          <p class="text-xs text-slate-500">Clicca su un asset per caricare i tachimetri. Modifica direttamente <strong>Score</strong> e <strong>Sentiment</strong> nella tabella per ricalcolare i segnali.</p>
+          <h2 class="text-lg font-extrabold text-slate-900">Mercati Futures BingX — Tabella Professionale</h2>
+          <p class="text-xs text-slate-500">Nomi reali BingX, timeframe esatto candela per TP, regola <strong>Entrare / Non Entrare</strong>, <strong>Score</strong> e <strong>Sentiment</strong> modificabili live.</p>
         </div>
 
-        <div class="flex items-center gap-2">
-          <input id="searchMarket" onkeyup="renderMarketsTable()" type="text" placeholder="Cerca simbolo (es. BTC, XAU, EUR, SOL)..." class="bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs font-medium w-64 focus:outline-none focus:border-slate-900" />
+        <div class="flex flex-wrap items-center gap-2">
+          <input id="searchMarket" onkeyup="renderMarketsTable()" type="text" placeholder="Cerca GOLD, XAU, XAUT, PAXG, GS, BTC..." class="bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs font-medium w-72 focus:outline-none focus:border-slate-900" />
         </div>
       </div>
 
@@ -304,30 +329,30 @@
         <button onclick="setCategory('ALL')" data-cat="ALL" class="cat-btn tab-active px-3.5 py-1.5 rounded-lg text-xs font-bold border border-slate-300 transition">TUTTI I MERCATI</button>
         <button onclick="setCategory('CRYPTO MAJOR')" data-cat="CRYPTO MAJOR" class="cat-btn bg-white text-slate-700 px-3.5 py-1.5 rounded-lg text-xs font-bold border border-slate-300 transition">CRYPTO MAJOR</button>
         <button onclick="setCategory('ALTCOIN & DEFI')" data-cat="ALTCOIN & DEFI" class="cat-btn bg-white text-slate-700 px-3.5 py-1.5 rounded-lg text-xs font-bold border border-slate-300 transition">ALTCOIN & DEFI</button>
-        <button onclick="setCategory('METALLI & COMMODITIES')" data-cat="METALLI & COMMODITIES" class="cat-btn bg-white text-slate-700 px-3.5 py-1.5 rounded-lg text-xs font-bold border border-slate-300 transition">METALLI & COMMODITIES (Oro/Argento/Petrolio)</button>
+        <button onclick="setCategory('METALLI & COMMODITIES')" data-cat="METALLI & COMMODITIES" class="cat-btn bg-white text-slate-700 px-3.5 py-1.5 rounded-lg text-xs font-bold border border-slate-300 transition">METALLI & COMMODITIES (XAUT/PAXG/GOLD)</button>
         <button onclick="setCategory('FOREX & VALUTE')" data-cat="FOREX & VALUTE" class="cat-btn bg-white text-slate-700 px-3.5 py-1.5 rounded-lg text-xs font-bold border border-slate-300 transition">FOREX & VALUTE</button>
         <button onclick="setCategory('INDICI & AZIONI')" data-cat="INDICI & AZIONI" class="cat-btn bg-white text-slate-700 px-3.5 py-1.5 rounded-lg text-xs font-bold border border-slate-300 transition">INDICI & AZIONI</button>
       </div>
 
-      <!-- TABELLA ISTITUZIONALE -->
+      <!-- TABELLA -->
       <div class="overflow-x-auto">
         <table class="w-full text-left border-collapse">
           <thead>
             <tr class="border-b-2 border-slate-200 text-[11px] font-extrabold text-slate-500 uppercase bg-slate-50">
-              <th class="py-3 px-3">Simbolo / Categoria</th>
+              <th class="py-3 px-3">Nome BingX (API & App)</th>
               <th class="py-3 px-3 text-right">Prezzo Live</th>
               <th class="py-3 px-3 text-right">24h %</th>
-              <th class="py-3 px-3 text-right">Volume 24h (USDT)</th>
-              <th class="py-3 px-3 text-center">Leva Max</th>
-              <th class="py-3 px-3 text-center">Score Modificabile (-100/+100)</th>
+              <th class="py-3 px-3 text-center">Timeframe Candela TP</th>
+              <th class="py-3 px-3 text-center">Quando Entrare / Non Entrare</th>
+              <th class="py-3 px-3 text-center">Score Modificabile</th>
               <th class="py-3 px-3 text-center">Sentiment Modificabile</th>
               <th class="py-3 px-3 text-center">Certezza %</th>
-              <th class="py-3 px-3 text-center">Segnale Esatto</th>
-              <th class="py-3 px-3 text-right">Azione</th>
+              <th class="py-3 px-3 text-center">Segnale</th>
+              <th class="py-3 px-3 text-right">Dettagli</th>
             </tr>
           </thead>
           <tbody id="marketsTableBody" class="divide-y divide-slate-100 text-xs">
-            <tr><td colspan="10" class="py-8 text-center text-slate-400 font-semibold">Connessione alle API reali di BingX in corso...</td></tr>
+            <tr><td colspan="10" class="py-8 text-center text-slate-400 font-semibold">Scaricamento contratti reali BingX in corso...</td></tr>
           </tbody>
         </table>
       </div>
@@ -340,7 +365,8 @@
     let currentCategory = 'ALL';
     let activeSymbol = 'BTC-USDT';
     let currentAnalysis = null;
-    // Mappa modifiche manuali utente per simbolo: { "BTC-USDT": { score: 85, sentiment: 90, confidence: 92, signal: "STRONG LONG" } }
+    let accountBalance = 1000.0;
+    let autoMonitorEnabled = true;
     let userOverrides = {};
 
     function setNeedle(id, angleDeg) {
@@ -348,9 +374,9 @@
       document.getElementById(id).style.transform = `rotate(${clamped}deg)`;
     }
 
-    async function loadAllMarkets() {
+    async function loadAllMarkets(force = false) {
       try {
-        const res = await fetch('/api/markets');
+        const res = await fetch(`/api/markets?force=${force ? '1' : '0'}`);
         const json = await res.json();
         if (json.status === 'ok') {
           allMarkets = json.markets;
@@ -380,7 +406,11 @@
       const q = document.getElementById('searchMarket').value.trim().toUpperCase();
       return allMarkets.filter(m => {
         const matchCat = currentCategory === 'ALL' || m.category === currentCategory;
-        const matchQ = !q || m.symbol.includes(q) || m.category.includes(q);
+        const matchQ = !q ||
+          m.symbol.includes(q) ||
+          m.displayName.includes(q) ||
+          m.category.includes(q) ||
+          (q.includes('GOLD') && (m.symbol.includes('XAUT') || m.symbol.includes('PAXG')));
         return matchCat && matchQ;
       });
     }
@@ -389,7 +419,7 @@
       const filtered = getFilteredMarkets();
       const tbody = document.getElementById('marketsTableBody');
       if (!filtered.length) {
-        tbody.innerHTML = `<tr><td colspan="10" class="py-6 text-center text-slate-400">Nessun contratto trovato per questa categoria.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="10" class="py-6 text-center text-slate-400">Nessun contratto trovato per il filtro selezionato.</td></tr>`;
         return;
       }
 
@@ -398,7 +428,10 @@
         const scoreVal = ov.score !== undefined ? ov.score : '';
         const sentVal = ov.sentiment !== undefined ? ov.sentiment : 0;
         const confVal = ov.confidence !== undefined ? `${ov.confidence}%` : '--';
-        const sigVal = ov.signal || 'ANALIZZA';
+        const sigVal = ov.signal || 'SCAN...';
+        const tpLabel = ov.tpLabel || '--';
+        const entryBadge = ov.entryBadge || '⏳ IN ANALISI';
+        const entryReason = ov.entryReason || '';
         const chgColor = m.priceChangePercent >= 0 ? 'text-emerald-600' : 'text-red-600';
 
         let sigBadgeClass = 'bg-slate-100 text-slate-600';
@@ -407,25 +440,30 @@
         else if (sigVal.includes('STRONG SHORT')) sigBadgeClass = 'bg-red-600 text-white';
         else if (sigVal.includes('SHORT')) sigBadgeClass = 'bg-red-100 text-red-800';
 
+        let entryClass = 'bg-slate-100 text-slate-700';
+        if (entryBadge.includes('ENTRA ORA')) entryClass = 'bg-emerald-100 text-emerald-800 border border-emerald-300';
+        else if (entryBadge.includes('NON ENTRARE')) entryClass = 'bg-red-100 text-red-800 border border-red-300';
+        else if (entryBadge.includes('ATTENDI') || entryBadge.includes('CONFERMA')) entryClass = 'bg-amber-100 text-amber-800 border border-amber-300';
+
         return `
           <tr class="hover:bg-blue-50/40 transition cursor-pointer" onclick="analyzeSymbol('${m.symbol}')">
             <td class="py-2.5 px-3">
               <div class="font-extrabold text-slate-900">${m.symbol}</div>
-              <div class="text-[10px] font-semibold text-slate-400">${m.category}</div>
+              <div class="text-[10px] font-semibold text-blue-600">${m.displayName}</div>
+              <div class="text-[10px] text-slate-400">${m.category}</div>
             </td>
             <td class="py-2.5 px-3 text-right mono font-bold text-slate-800">${m.lastPrice}</td>
             <td class="py-2.5 px-3 text-right mono font-bold ${chgColor}">${m.priceChangePercent > 0 ? '+' : ''}${m.priceChangePercent.toFixed(2)}%</td>
-            <td class="py-2.5 px-3 text-right mono text-slate-600">$${Math.round(m.volume24h).toLocaleString()}</td>
-            <td class="py-2.5 px-3 text-center mono font-bold text-slate-700">${m.maxLeverage}x</td>
-
-            <!-- SCORE MODIFICABILE LIVE -->
+            <td class="py-2.5 px-3 text-center mono font-bold text-indigo-700">${tpLabel}</td>
+            <td class="py-2.5 px-3 text-center">
+              <span class="px-2 py-1 rounded text-[10px] font-extrabold ${entryClass}">${entryBadge}</span>
+              ${entryReason ? `<div class="text-[10px] text-slate-500 mt-0.5 max-w-[200px] mx-auto">${entryReason}</div>` : ''}
+            </td>
             <td class="py-2.5 px-3 text-center" onclick="event.stopPropagation()">
               <input type="number" min="-100" max="100" step="1" value="${scoreVal}" placeholder="Auto"
                 onchange="updateManualScore('${m.symbol}', this.value)"
                 class="w-20 text-center mono font-bold text-xs bg-white border border-slate-300 rounded-md py-1 focus:border-blue-600 focus:outline-none" />
             </td>
-
-            <!-- SENTIMENT MODIFICABILE LIVE -->
             <td class="py-2.5 px-3 text-center" onclick="event.stopPropagation()">
               <select onchange="updateManualSentiment('${m.symbol}', this.value)"
                 class="bg-white border border-slate-300 rounded-md px-2 py-1 text-[11px] font-bold text-slate-800 focus:border-blue-600 focus:outline-none">
@@ -436,14 +474,13 @@
                 <option value="-90" ${sentVal == -90 ? 'selected' : ''}>❄️ EXTREME BEAR (-90)</option>
               </select>
             </td>
-
             <td class="py-2.5 px-3 text-center mono font-extrabold text-slate-900">${confVal}</td>
             <td class="py-2.5 px-3 text-center">
               <span class="px-2.5 py-1 rounded-md text-[11px] font-extrabold ${sigBadgeClass}">${sigVal}</span>
             </td>
             <td class="py-2.5 px-3 text-right" onclick="event.stopPropagation()">
               <button onclick="analyzeSymbol('${m.symbol}')" class="bg-slate-900 hover:bg-blue-600 text-white text-[11px] font-bold px-2.5 py-1 rounded-md transition">
-                Tachimetri
+                Apri
               </button>
             </td>
           </tr>
@@ -478,9 +515,86 @@
       await analyzeSymbol(symbol);
     }
 
+    function applyAnalysisToUI(d) {
+      currentAnalysis = d;
+      const ov = userOverrides[d.symbol] || {};
+
+      if (ov.score !== undefined) {
+        d.composite_score = ov.score;
+        d.confidence = ov.confidence;
+        d.signal = ov.signal;
+      }
+
+      userOverrides[d.symbol] = {
+        ...ov,
+        score: d.composite_score,
+        confidence: d.confidence,
+        signal: d.signal,
+        tpLabel: d.tp_plan?.label || '--',
+        entryBadge: d.entry_rule?.badge || '--',
+        entryReason: d.entry_rule?.reason || ''
+      };
+
+      if (activeSymbol === d.symbol) {
+        document.getElementById('activeSymbolTitle').innerText = d.symbol;
+        document.getElementById('activeAliasTitle').innerText = d.display_name || d.symbol;
+        document.getElementById('activePriceBadge').innerText = d.price;
+
+        const sigBadge = document.getElementById('signalMasterBadge');
+        sigBadge.innerText = `${d.signal} (${d.confidence}%)`;
+        sigBadge.className = 'px-4 py-1.5 rounded-lg font-extrabold text-sm ' + (
+          d.signal.includes('LONG') ? 'bg-emerald-600 text-white' :
+          d.signal.includes('SHORT') ? 'bg-red-600 text-white' : 'bg-slate-200 text-slate-800'
+        );
+
+        // Banner Entrata / TP
+        const er = d.entry_rule || {};
+        const pill = document.getElementById('entryActionPill');
+        pill.innerText = er.badge || '⏳ IN ATTESA';
+        pill.className = 'px-3 py-1.5 rounded-lg text-xs font-extrabold ' + (
+          (er.badge || '').includes('ENTRA ORA') ? 'bg-emerald-600 text-white' :
+          (er.badge || '').includes('NON ENTRARE') ? 'bg-red-600 text-white' : 'bg-amber-500 text-white'
+        );
+        document.getElementById('entryReasonText').innerText = er.reason || '';
+        document.getElementById('tpTimeframeHighlight').innerText = d.tp_plan?.label || '--';
+
+        // Tachimetri
+        document.getElementById('valConf').innerText = d.confidence.toFixed(1) + '%';
+        setNeedle('needleConf', ((d.confidence / 100) * 180) - 90);
+        document.getElementById('valScore').innerText = d.composite_score.toFixed(1);
+        setNeedle('needleScore', (d.composite_score / 100) * 90);
+        document.getElementById('valRsi').innerText = d.indicators.rsi.toFixed(1);
+        setNeedle('needleRsi', ((d.indicators.rsi / 100) * 180) - 90);
+        document.getElementById('valAdx').innerText = d.indicators.adx.toFixed(1);
+        setNeedle('needleAdx', ((Math.min(d.indicators.adx, 60) / 60) * 180) - 90);
+        document.getElementById('valSent').innerText = d.sentiment.toFixed(1);
+        setNeedle('needleSent', (d.sentiment / 100) * 90);
+        document.getElementById('valZ').innerText = d.indicators.z_score.toFixed(2) + 'σ';
+        setNeedle('needleZ', (Math.max(-3, Math.min(3, d.indicators.z_score)) / 3) * 90);
+        document.getElementById('valR2Sub').innerText = `R²: ${d.indicators.r_squared} | BB: ${d.indicators.bb_percent}%`;
+
+        document.getElementById('indEma9').innerText = d.indicators.ema9;
+        document.getElementById('indEma21').innerText = d.indicators.ema21;
+        document.getElementById('indEma50').innerText = d.indicators.ema50;
+        document.getElementById('indEma200').innerText = d.indicators.ema200;
+        document.getElementById('indMacd').innerText = d.indicators.macd_hist;
+        document.getElementById('indAtr').innerText = d.indicators.atr;
+        document.getElementById('indFunding').innerText = d.indicators.funding_rate + '%';
+        document.getElementById('indR2').innerText = d.indicators.r_squared;
+
+        document.getElementById('lvlEntry').innerText = d.levels.entry;
+        document.getElementById('lvlSl').innerText = d.levels.sl;
+        document.getElementById('lvlTp1').innerText = d.levels.tp1;
+        document.getElementById('lvlTp2').innerText = d.levels.tp2;
+        document.getElementById('lvlTp3').innerText = d.levels.tp3;
+        document.getElementById('rrBadge').innerText = `R:R 1:${d.levels.rr}`;
+
+        calcSuggestedSize();
+      }
+    }
+
     async function analyzeSymbol(symbol) {
       activeSymbol = symbol;
-      document.getElementById('activeSymbolTitle').innerText = symbol;
       const interval = document.getElementById('timeframeSelect').value;
       const ov = userOverrides[symbol] || {};
 
@@ -494,81 +608,73 @@
         })
       });
       const json = await res.json();
-      if (json.status !== 'ok') return;
-
-      const d = json.data;
-      currentAnalysis = d;
-
-      // Se l'utente ha impostato uno score manuale, mantienilo
-      if (ov.score !== undefined) {
-        d.composite_score = ov.score;
-        d.confidence = ov.confidence;
-        d.signal = ov.signal;
-      } else {
-        userOverrides[symbol] = {
-          ...ov,
-          score: d.composite_score,
-          confidence: d.confidence,
-          signal: d.signal
-        };
+      if (json.status === 'ok') {
+        applyAnalysisToUI(json.data);
+        renderMarketsTable();
       }
-
-      // Aggiorna Prezzo e Badge Segnale
-      document.getElementById('activePriceBadge').innerText = d.price;
-      const sigBadge = document.getElementById('signalMasterBadge');
-      sigBadge.innerText = `${d.signal} (${d.confidence}%)`;
-      sigBadge.className = 'px-4 py-1.5 rounded-lg font-extrabold text-sm tracking-wide ' + (
-        d.signal.includes('LONG') ? 'bg-emerald-600 text-white' :
-        d.signal.includes('SHORT') ? 'bg-red-600 text-white' : 'bg-slate-200 text-slate-800'
-      );
-
-      // Aggiorna 6 Tachimetri
-      document.getElementById('valConf').innerText = d.confidence.toFixed(1) + '%';
-      setNeedle('needleConf', ((d.confidence / 100) * 180) - 90);
-
-      document.getElementById('valScore').innerText = d.composite_score.toFixed(1);
-      setNeedle('needleScore', (d.composite_score / 100) * 90);
-
-      document.getElementById('valRsi').innerText = d.indicators.rsi.toFixed(1);
-      setNeedle('needleRsi', ((d.indicators.rsi / 100) * 180) - 90);
-
-      document.getElementById('valAdx').innerText = d.indicators.adx.toFixed(1);
-      setNeedle('needleAdx', ((Math.min(d.indicators.adx, 60) / 60) * 180) - 90);
-
-      document.getElementById('valSent').innerText = d.sentiment.toFixed(1);
-      setNeedle('needleSent', (d.sentiment / 100) * 90);
-
-      document.getElementById('valZ').innerText = d.indicators.z_score.toFixed(2) + 'σ';
-      setNeedle('needleZ', (Math.max(-3, Math.min(3, d.indicators.z_score)) / 3) * 90);
-      document.getElementById('valR2Sub').innerText = `R²: ${d.indicators.r_squared} | BB: ${d.indicators.bb_percent}%`;
-
-      // Indicatori EMA e tecnici
-      document.getElementById('indEma9').innerText = d.indicators.ema9;
-      document.getElementById('indEma21').innerText = d.indicators.ema21;
-      document.getElementById('indEma50').innerText = d.indicators.ema50;
-      document.getElementById('indEma200').innerText = d.indicators.ema200;
-      document.getElementById('indMacd').innerText = d.indicators.macd_hist;
-      document.getElementById('indAtr').innerText = d.indicators.atr;
-      document.getElementById('indFunding').innerText = d.indicators.funding_rate + '%';
-      document.getElementById('indR2').innerText = d.indicators.r_squared;
-
-      // Livelli Esatti Entry / SL / TP
-      document.getElementById('lvlEntry').innerText = d.levels.entry;
-      document.getElementById('lvlSl').innerText = d.levels.sl;
-      document.getElementById('lvlTp1').innerText = d.levels.tp1;
-      document.getElementById('lvlTp2').innerText = d.levels.tp2;
-      document.getElementById('lvlTp3').innerText = d.levels.tp3;
-      document.getElementById('rrBadge').innerText = `R:R 1:${d.levels.rr}`;
-
-      renderMarketsTable();
     }
 
-    function refreshActiveSymbol() {
+    function calcSuggestedSize() {
+      if (!currentAnalysis) return;
+      const riskPct = parseFloat(document.getElementById('riskPctInput').value) || 1.0;
+      const riskUsd = accountBalance * (riskPct / 100.0);
+      const stopDist = Math.abs(currentAnalysis.levels.entry - currentAnalysis.levels.sl);
+      if (stopDist > 0) {
+        const qty = (riskUsd / stopDist);
+        const formatted = qty >= 1 ? qty.toFixed(2) : qty.toFixed(4);
+        document.getElementById('suggestedSizeLbl').innerText = formatted;
+      }
+    }
+
+    async function fetchAccountBalance() {
+      const res = await fetch('/api/account_balance');
+      const json = await res.json();
+      accountBalance = json.balance || 1000.0;
+      document.getElementById('bingxBalanceVal').innerText = accountBalance.toFixed(2);
+      calcSuggestedSize();
+    }
+
+    async function onTimeframeChange() {
+      const tf = document.getElementById('timeframeSelect').value;
+      await fetch('/api/auto_monitor_status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ interval: tf })
+      });
       analyzeSymbol(activeSymbol);
     }
 
+    async function toggleAutoMonitor() {
+      autoMonitorEnabled = !autoMonitorEnabled;
+      const btn = document.getElementById('btnToggleAuto');
+      btn.innerText = autoMonitorEnabled ? '🤖 Auto-Scan: ON' : '⏸ Auto-Scan: OFF';
+      btn.className = (autoMonitorEnabled ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-slate-500 hover:bg-slate-600') + ' text-white text-xs font-bold px-3.5 py-2 rounded-lg transition';
+      await fetch('/api/auto_monitor_status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: autoMonitorEnabled })
+      });
+    }
+
+    async function pollAutoMonitor() {
+      try {
+        const res = await fetch('/api/auto_monitor_status');
+        const json = await res.json();
+        if (json.status === 'ok') {
+          if (json.last_run) document.getElementById('lastScanTime').innerText = json.last_run;
+          const sigMap = json.signals || {};
+          Object.keys(sigMap).forEach(sym => {
+            applyAnalysisToUI(sigMap[sym]);
+          });
+          renderMarketsTable();
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
     async function scanVisibleCategory() {
-      const filtered = getFilteredMarkets().slice(0, 15).map(m => m.symbol);
+      const filtered = getFilteredMarkets().slice(0, 20).map(m => m.symbol);
       const interval = document.getElementById('timeframeSelect').value;
       const res = await fetch('/api/scan_top', {
         method: 'POST',
@@ -577,14 +683,7 @@
       });
       const json = await res.json();
       if (json.status === 'ok') {
-        json.signals.forEach(s => {
-          userOverrides[s.symbol] = {
-            ...(userOverrides[s.symbol] || {}),
-            score: s.composite_score,
-            confidence: s.confidence,
-            signal: s.signal
-          };
-        });
+        json.signals.forEach(s => applyAnalysisToUI(s));
         renderMarketsTable();
       }
     }
@@ -628,9 +727,9 @@
       alert("Risposta BingX: " + JSON.stringify(json));
     }
 
-    // Avvio automatico
-    loadAllMarkets();
-    setInterval(() => analyzeSymbol(activeSymbol), 15000);
+    loadAllMarkets(false);
+    fetchAccountBalance();
+    setInterval(pollAutoMonitor, 12000);
   </script>
 </body>
 </html>
