@@ -39,7 +39,7 @@
       border-radius: 10px;
       margin-bottom: 10px;
     }
-    .brand-row { display: flex; align-items: center; gap: 10px; }
+    .brand-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
     .brand { font-size: 15px; font-weight: 800; letter-spacing: 0.6px; color: var(--gold); }
     .pill {
       padding: 3px 8px;
@@ -50,6 +50,7 @@
     }
     .pill-live { background: var(--green-soft); color: var(--green); border-color: rgba(0,230,118,0.3); }
     .pill-warn { background: rgba(245,176,65,0.14); color: var(--gold); border-color: rgba(245,176,65,0.35); }
+    .pill-timer { background: rgba(56,189,248,0.14); color: var(--blue); border-color: rgba(56,189,248,0.35); }
     .toolbar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
     select, input, button {
       background: var(--panel-2);
@@ -101,18 +102,23 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
+      flex-wrap: wrap;
+      gap: 6px;
       margin-bottom: 10px;
       padding-bottom: 8px;
       border-bottom: 1px solid var(--border);
     }
     .card-title { font-weight: 700; font-size: 13px; color: var(--text); }
-    canvas { width: 100%; height: 190px; background: #090d14; border-radius: 8px; border: 1px solid #182234; }
+    canvas { width: 100%; height: 185px; background: #090d14; border-radius: 8px; border: 1px solid #182234; }
 
     .metrics-grid {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
       gap: 6px;
       margin-top: 8px;
+    }
+    @media (max-width: 600px) {
+      .metrics-grid { grid-template-columns: repeat(2, 1fr); }
     }
     .mini-box {
       background: var(--panel-2);
@@ -122,6 +128,34 @@
     }
     .mini-lbl { color: var(--muted); font-size: 10px; }
     .mini-val { font-weight: 700; margin-top: 2px; }
+
+    .alert-banner {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    @media (max-width: 600px) {
+      .alert-banner { grid-template-columns: 1fr; }
+    }
+    .alert-entry {
+      background: var(--green-soft);
+      border: 1px solid rgba(0,230,118,0.35);
+      color: var(--green);
+      padding: 7px 9px;
+      border-radius: 6px;
+      font-weight: 700;
+      font-size: 11px;
+    }
+    .alert-exit {
+      background: var(--red-soft);
+      border: 1px solid rgba(255,59,92,0.35);
+      color: var(--red);
+      padding: 7px 9px;
+      border-radius: 6px;
+      font-weight: 700;
+      font-size: 11px;
+    }
 
     .ticket-row {
       display: grid;
@@ -135,7 +169,7 @@
 
     .room-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(275px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
       gap: 8px;
     }
     .room-card {
@@ -157,6 +191,15 @@
       font-size: 11px;
       margin-bottom: 6px;
     }
+    .room-adv {
+      font-size: 10px;
+      line-height: 1.45;
+      background: #0d121c;
+      border: 1px solid #1b2538;
+      border-radius: 6px;
+      padding: 6px;
+      margin-bottom: 6px;
+    }
     .room-foot {
       display: flex;
       justify-content: space-between;
@@ -174,7 +217,7 @@
       overflow-x: auto;
       margin-bottom: 10px;
     }
-    table { width: 100%; border-collapse: collapse; min-width: 920px; }
+    table { width: 100%; border-collapse: collapse; min-width: 1120px; }
     th, td { padding: 9px 10px; text-align: left; border-bottom: 1px solid #172030; white-space: nowrap; }
     th {
       background: #0b0f17;
@@ -195,7 +238,7 @@
     .sig-buy { background: var(--green-soft); color: var(--green); }
     .sig-sell { background: var(--red-soft); color: var(--red); }
     .sig-neu { background: rgba(127,145,173,0.14); color: var(--muted); }
-    .bar-bg { width: 64px; height: 6px; background: #1c2638; border-radius: 3px; overflow: hidden; display: inline-block; vertical-align: middle; margin-right: 4px; }
+    .bar-bg { width: 58px; height: 6px; background: #1c2638; border-radius: 3px; overflow: hidden; display: inline-block; vertical-align: middle; margin-right: 4px; }
     .bar-fill { height: 100%; }
     .toast {
       position: fixed;
@@ -218,10 +261,11 @@
     <div class="brand-row">
       <span class="brand">BINGX VIP PRO TERMINAL</span>
       <span id="api-badge" class="pill pill-warn">SYNCING...</span>
+      <span id="candle-timer-pill" class="pill pill-timer">CANDLE 5m · 00:00</span>
       <span id="last-sync" style="color:var(--muted);font-size:11px;">--:--:--</span>
     </div>
     <div class="toolbar">
-      <input id="search-input" type="text" placeholder="Filtra coppia (es. BTC)..." style="width:150px;" />
+      <input id="search-input" type="text" placeholder="Filtra coppia (es. BTC)..." style="width:140px;" />
       <select id="filter-sig">
         <option value="ALL">Tutti i segnali</option>
         <option value="STRONG">Solo STRONG</option>
@@ -229,11 +273,11 @@
         <option value="SELL">Solo SELL</option>
       </select>
       <select id="vip-tf">
-        <option value="1m">1m</option>
-        <option value="5m" selected>5m</option>
-        <option value="15m">15m</option>
-        <option value="1h">1h</option>
-        <option value="4h">4h</option>
+        <option value="1m">1m Candle</option>
+        <option value="5m" selected>5m Candle</option>
+        <option value="15m">15m Candle</option>
+        <option value="1h">1h Candle</option>
+        <option value="4h">4h Candle</option>
       </select>
       <button id="btn-sound" class="btn-gold" onclick="toggleSound()">ALERT: ON</button>
       <button onclick="refreshVipScanner()">REFRESH</button>
@@ -255,15 +299,15 @@
     </div>
     <div class="kpi">
       <div class="kpi-title">Dynamic Leverage</div>
-      <div class="kpi-value pos-up" style="color:var(--gold);" id="kpi-lev">20x</div>
+      <div class="kpi-value" style="color:var(--gold);" id="kpi-lev">20x</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-title">Candle Close Timer</div>
+      <div class="kpi-value" style="color:var(--blue);" id="kpi-timer">00:00</div>
     </div>
     <div class="kpi">
       <div class="kpi-title">Active Setups</div>
-      <div class="kpi-value" style="color:var(--blue);" id="kpi-setups">0</div>
-    </div>
-    <div class="kpi">
-      <div class="kpi-title">Open Positions</div>
-      <div class="kpi-value" id="kpi-pos">0</div>
+      <div class="kpi-value" style="color:var(--green);" id="kpi-setups">0</div>
     </div>
   </div>
 
@@ -271,13 +315,20 @@
     <div class="card" style="margin-bottom:0;">
       <div class="card-header">
         <span class="card-title" id="chart-title">LIVE PRICE & LEVELS — BTC-USDT</span>
-        <span id="chart-signal" class="sig-badge sig-neu">NEUTRAL</span>
+        <div>
+          <span id="chart-cert" class="pill pill-live" style="margin-right:6px;">CERTAINTY 0%</span>
+          <span id="chart-signal" class="sig-badge sig-neu">NEUTRAL</span>
+        </div>
       </div>
-      <canvas id="price-canvas" width="700" height="190"></canvas>
+      <canvas id="price-canvas" width="700" height="185"></canvas>
+      <div class="alert-banner">
+        <div class="alert-entry" id="adv-entry">ENTRATA: IN ATTESA</div>
+        <div class="alert-exit" id="adv-exit">USCITA: IN ATTESA</div>
+      </div>
       <div class="metrics-grid">
-        <div class="mini-box"><div class="mini-lbl">Trend EMA</div><div class="mini-val" id="m-trend">-</div></div>
-        <div class="mini-box"><div class="mini-lbl">ATR (Volatility)</div><div class="mini-val" id="m-atr">-</div></div>
-        <div class="mini-box"><div class="mini-lbl">Vol Ratio</div><div class="mini-val" id="m-vol">-</div></div>
+        <div class="mini-box"><div class="mini-lbl">EMA 9 / 21 / 55</div><div class="mini-val" id="m-emas" style="font-size:10px;">-</div></div>
+        <div class="mini-box"><div class="mini-lbl">Trend & Score</div><div class="mini-val" id="m-trend">-</div></div>
+        <div class="mini-box"><div class="mini-lbl">ATR / Vol Ratio</div><div class="mini-val" id="m-atr">-</div></div>
         <div class="mini-box"><div class="mini-lbl">Risk / Reward</div><div class="mini-val" id="m-rr">-</div></div>
       </div>
     </div>
@@ -321,7 +372,7 @@
       <span id="room-count" class="pill pill-live">0 SIGNALS</span>
     </div>
     <div id="signal-room-grid" class="room-grid">
-      <div style="color:var(--muted);">In attesa di setup ad alta confidenza su BingX...</div>
+      <div style="color:var(--muted);">In attesa di setup ad alta certezza su BingX...</div>
     </div>
   </div>
 
@@ -330,17 +381,18 @@
       <thead>
         <tr>
           <th onclick="sortBy('symbol')">Pair</th>
+          <th onclick="sortBy('timeframe')">TF</th>
           <th onclick="sortBy('price')">Price</th>
-          <th onclick="sortBy('change_pct')">24h %</th>
           <th onclick="sortBy('signal')">Signal</th>
           <th onclick="sortBy('score')">Score</th>
-          <th onclick="sortBy('rsi')">RSI (14)</th>
+          <th onclick="sortBy('certainty_pct')">Certezza</th>
+          <th onclick="sortBy('ema9')">EMA 9/21/55</th>
+          <th onclick="sortBy('rsi')">RSI</th>
           <th onclick="sortBy('z_score')">Z-Score</th>
-          <th onclick="sortBy('obi')">Orderbook OBI</th>
-          <th onclick="sortBy('rr')">R:R</th>
-          <th>Entry</th>
-          <th>Take Profit</th>
-          <th>Stop Loss</th>
+          <th onclick="sortBy('obi')">OBI %</th>
+          <th>Avviso Entrata</th>
+          <th>Avviso Uscita</th>
+          <th>TP / SL</th>
         </tr>
       </thead>
       <tbody id="vip-tbody"></tbody>
@@ -350,12 +402,34 @@
   <div id="toast" class="toast"></div>
 
   <script>
+    const TF_SEC = { "1m": 60, "5m": 300, "15m": 900, "1h": 3600, "4h": 14400 };
     let allSignals = [];
     let selectedSymbol = "BTC-USDT";
-    let sortKey = "confidence";
+    let sortKey = "certainty_pct";
     let sortAsc = false;
     let soundOn = true;
     let seenStrong = new Set();
+
+    function formatClock(sec) {
+      const s = Math.max(0, Math.floor(sec));
+      const h = Math.floor(s / 3600);
+      const m = Math.floor((s % 3600) / 60);
+      const r = s % 60;
+      if (h > 0) {
+        return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(r).padStart(2,"0")}`;
+      }
+      return `${String(m).padStart(2,"0")}:${String(r).padStart(2,"0")}`;
+    }
+
+    function tickCandleTimer() {
+      const tf = document.getElementById("vip-tf").value;
+      const period = TF_SEC[tf] || 300;
+      const nowSec = Math.floor(Date.now() / 1000);
+      const rem = period - (nowSec % period);
+      const clock = formatClock(rem);
+      document.getElementById("kpi-timer").textContent = clock;
+      document.getElementById("candle-timer-pill").textContent = `CANDLE ${tf} · ${clock}`;
+    }
 
     function showToast(msg) {
       const el = document.getElementById("toast");
@@ -398,14 +472,19 @@
       const row = allSignals.find(r => r.symbol === sym);
       if (!row) return;
 
-      document.getElementById("chart-title").textContent = `LIVE PRICE & LEVELS — ${row.symbol} ($${row.price})`;
+      document.getElementById("chart-title").textContent = `LIVE PRICE & LEVELS — ${row.symbol} (${row.timeframe}) $${row.price}`;
+      document.getElementById("chart-cert").textContent = `CERTAINTY ${row.certainty_pct}%`;
+
       const badge = document.getElementById("chart-signal");
       badge.textContent = row.signal;
       badge.className = "sig-badge " + (row.signal.includes("BUY") ? "sig-buy" : (row.signal.includes("SELL") ? "sig-sell" : "sig-neu"));
 
-      document.getElementById("m-trend").textContent = row.trend;
-      document.getElementById("m-atr").textContent = row.atr;
-      document.getElementById("m-vol").textContent = `${row.vol_ratio}x`;
+      document.getElementById("adv-entry").textContent = `ENTRATA: ${row.entry_alert}`;
+      document.getElementById("adv-exit").textContent = `USCITA: ${row.exit_alert}`;
+
+      document.getElementById("m-emas").textContent = `${row.ema9} / ${row.ema21} / ${row.ema55}`;
+      document.getElementById("m-trend").textContent = `${row.trend} (${row.score})`;
+      document.getElementById("m-atr").textContent = `${row.atr} (${row.vol_ratio}x)`;
       document.getElementById("m-rr").textContent = row.rr > 0 ? `1 : ${row.rr}` : "-";
 
       if (autofillLevels && row.tp > 0 && row.sl > 0) {
@@ -485,18 +564,24 @@
         return;
       }
 
+      const nowSec = Math.floor(Date.now() / 1000);
       grid.innerHTML = roomList.slice(0, 8).map(item => {
         const isLong = item.side === "LONG";
         const dirCol = isLong ? "pos-up" : "pos-dn";
         const stCol = item.status.includes("TP") ? "pos-up" : (item.status.includes("SL") ? "pos-dn" : "pill-warn");
+        const remCandle = item.candle_close_ts ? formatClock(item.candle_close_ts - nowSec) : "--:--";
         return `
           <div class="room-card">
             <div class="room-top">
               <div>
                 <strong style="font-size:13px;">${item.symbol}</strong>
                 <span class="${dirCol}" style="font-weight:800;margin-left:6px;">${item.signal} (${item.leverage}x)</span>
+                <span class="pill pill-timer" style="margin-left:4px;">${item.tf} · ${remCandle}</span>
               </div>
               <span class="pill ${stCol}">${item.status}</span>
+            </div>
+            <div style="font-size:10px;color:var(--muted);margin-bottom:6px;">
+              Score: <strong>${item.score}</strong> · Certezza: <strong style="color:var(--gold);">${item.certainty_pct}%</strong> · EMA9/21: ${item.ema9}/${item.ema21}
             </div>
             <div class="room-levels">
               <div><span style="color:var(--muted);">Entry:</span> <strong>${item.entry}</strong></div>
@@ -506,8 +591,12 @@
               <div><span style="color:var(--muted);">TP2:</span> <strong class="pos-up">${item.tp2}</strong></div>
               <div><span style="color:var(--muted);">TP3:</span> <strong class="pos-up">${item.tp3}</strong></div>
             </div>
+            <div class="room-adv">
+              <div class="pos-up"><strong>ENTRATA:</strong> ${item.entry_advice}</div>
+              <div class="pos-dn"><strong>USCITA:</strong> ${item.exit_advice}</div>
+            </div>
             <div class="room-foot">
-              <span>${item.time} · ${item.tf} · Conf ${item.confidence}% · Risk ${item.risk_pct}%</span>
+              <span>${item.time} · Risk ${item.risk_pct}%</span>
               <button class="${isLong ? "btn-buy" : "btn-sell"}" style="padding:4px 8px;font-size:10px;"
                 onclick="loadSignalToTicket('${item.symbol}','${item.bx_side}',${item.leverage},${item.tp3},${item.sl})">
                 LOAD ${item.side}
@@ -539,7 +628,6 @@
       const tbody = document.getElementById("vip-tbody");
       tbody.innerHTML = list.map(s => {
         const badgeCls = s.signal.includes("BUY") ? "sig-buy" : (s.signal.includes("SELL") ? "sig-sell" : "sig-neu");
-        const chgCls = s.change_pct >= 0 ? "pos-up" : "pos-dn";
         const obiCls = s.obi >= 0 ? "pos-up" : "pos-dn";
         const barW = Math.min(100, Math.abs(s.obi));
         const barCol = s.obi >= 0 ? "#00e676" : "#ff3b5c";
@@ -547,20 +635,21 @@
         return `
           <tr class="${selCls}" onclick="selectPair('${s.symbol}')">
             <td><strong>${s.symbol}</strong></td>
+            <td><span class="pill pill-timer">${s.timeframe}</span></td>
             <td>$${s.price}</td>
-            <td class="${chgCls}">${s.change_pct >= 0 ? "+" : ""}${s.change_pct}%</td>
             <td><span class="sig-badge ${badgeCls}">${s.signal}</span></td>
-            <td><strong>${s.score}</strong> <span style="color:var(--muted);">(${s.confidence}%)</span></td>
+            <td><strong>${s.score}</strong></td>
+            <td><strong style="color:var(--gold);">${s.certainty_pct}%</strong></td>
+            <td style="font-size:10px;">${s.ema9} / ${s.ema21} / ${s.ema55}</td>
             <td>${s.rsi}</td>
             <td>${s.z_score}σ</td>
             <td class="${obiCls}">
               <span class="bar-bg"><span class="bar-fill" style="width:${barW}%;background:${barCol};"></span></span>
               ${s.obi >= 0 ? "+" : ""}${s.obi}%
             </td>
-            <td>${s.rr > 0 ? "1:" + s.rr : "-"}</td>
-            <td>${s.entry > 0 ? "$" + s.entry : "-"}</td>
-            <td class="pos-up">${s.tp > 0 ? "$" + s.tp : "-"}</td>
-            <td class="pos-dn">${s.sl > 0 ? "$" + s.sl : "-"}</td>
+            <td class="pos-up" style="font-size:11px;">${s.entry_alert}</td>
+            <td class="pos-dn" style="font-size:11px;">${s.exit_alert}</td>
+            <td>${s.tp > 0 ? `<span class="pos-up">TP ${s.tp}</span> / <span class="pos-dn">SL ${s.sl}</span>` : "-"}</td>
           </tr>
         `;
       }).join("");
@@ -630,7 +719,6 @@
         }
 
         const posList = data.positions || [];
-        document.getElementById("kpi-pos").textContent = posList.length;
         document.getElementById("pos-list").innerHTML = posList.length
           ? posList.map(p => {
               const cls = p.pnl >= 0 ? "pos-up" : "pos-dn";
@@ -650,7 +738,7 @@
             const key = `${s.symbol}-${s.signal}-${tf}`;
             if (!seenStrong.has(key)) {
               seenStrong.add(key);
-              showToast(`Segnale ${s.signal} su ${s.symbol} (Score ${s.score})`);
+              showToast(`${s.entry_alert} (${s.certainty_pct}%)`);
               beep(920);
             }
           }
@@ -659,16 +747,22 @@
         renderSignalRoom(data.signal_room || []);
         renderTable();
         selectPair(selectedSymbol, false);
+        tickCandleTimer();
       } catch (err) {
         console.error(err);
       }
     }
 
-    document.getElementById("vip-tf").addEventListener("change", refreshVipScanner);
+    document.getElementById("vip-tf").addEventListener("change", () => {
+      tickCandleTimer();
+      refreshVipScanner();
+    });
     document.getElementById("filter-sig").addEventListener("change", renderTable);
     document.getElementById("search-input").addEventListener("input", renderTable);
 
+    setInterval(tickCandleTimer, 1000);
     setInterval(refreshVipScanner, 3000);
+    tickCandleTimer();
     refreshVipScanner();
   </script>
 </body>
