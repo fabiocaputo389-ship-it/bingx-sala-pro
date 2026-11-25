@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>BINGX ELITE SIGNAL ROOM PRO — Expectancy & Quant Terminal</title>
+  <title>BINGX ELITE SIGNAL ROOM PRO — Auto-Trade & Foreign Markets</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
   <style>
@@ -35,7 +35,7 @@
 
   <!-- TOP BAR -->
   <header class="bg-white border-b border-slate-200 sticky top-0 z-40">
-    <div class="max-w-[1720px] mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+    <div class="max-w-[1740px] mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
       <div class="flex items-center gap-3">
         <div class="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center font-extrabold text-lg">
           BX
@@ -45,10 +45,10 @@
             <h1 class="font-extrabold text-slate-900 text-base md:text-lg tracking-tight">BINGX ELITE SIGNAL ROOM PRO</h1>
             <span id="autoMonitorBadge" class="px-2.5 py-0.5 text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full flex items-center gap-1.5">
               <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              AUTO-MONITOR ATTIVO • <span id="lastScanTime">--:--:--</span>
+              AUTO-SCAN • <span id="lastScanTime">--:--:--</span>
             </span>
           </div>
-          <p class="text-xs text-slate-500">Expectancy (+R) • Half-Kelly • Parametri Consigliati • Timeframe Candela TP • Nomi Reali BingX</p>
+          <p class="text-xs text-slate-500">Auto-Trade Reale TP/SL • Chiavi API Salvabili • Nomi Esteri & Materie Prime BingX • Tachimetri</p>
         </div>
       </div>
 
@@ -65,26 +65,47 @@
           🤖 Auto-Scan: ON
         </button>
 
+        <button onclick="toggleAutoTrade()" id="btnToggleAutoTrade" class="bg-amber-600 hover:bg-amber-700 text-white text-xs font-extrabold px-3.5 py-2 rounded-lg transition">
+          ⚡ Auto-Trade Reale: OFF
+        </button>
+
         <button onclick="scanVisibleCategory()" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3.5 py-2 rounded-lg transition">
-          ⚡ Scansiona Categoria
+          Scansiona Categoria
         </button>
 
         <button onclick="loadAllMarkets(true)" class="bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold px-3 py-2 rounded-lg border border-slate-300 transition">
-          ↻ Scarica Nomi BingX
+          ↻ Aggiorna BingX
         </button>
+      </div>
+    </div>
+
+    <!-- BARRA SALVATAGGIO CHIAVI API BINGX -->
+    <div class="bg-slate-50 border-t border-slate-200 px-4 py-2">
+      <div class="max-w-[1740px] mx-auto flex flex-wrap items-center justify-between gap-2 text-xs">
+        <div class="flex items-center gap-2">
+          <span class="font-extrabold text-slate-700">🔑 Chiavi API BingX:</span>
+          <span id="keysStatusBadge" class="px-2 py-0.5 rounded font-bold bg-slate-200 text-slate-700">Verifica...</span>
+        </div>
+        <div class="flex flex-wrap items-center gap-2 flex-1 justify-end">
+          <input id="bingxApiKeyInput" type="password" placeholder="Inserisci BingX API Key" class="bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs mono w-56 focus:border-slate-900 focus:outline-none" />
+          <input id="bingxSecretKeyInput" type="password" placeholder="Inserisci BingX Secret Key" class="bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs mono w-64 focus:border-slate-900 focus:outline-none" />
+          <button onclick="saveApiKeys()" class="bg-slate-900 hover:bg-blue-700 text-white font-bold px-3.5 py-1.5 rounded-lg transition">
+            💾 Salva e Leggi Chiavi
+          </button>
+        </div>
       </div>
     </div>
   </header>
 
-  <main class="max-w-[1720px] mx-auto px-4 py-6 space-y-6">
+  <main class="max-w-[1740px] mx-auto px-4 py-6 space-y-6">
 
     <!-- BANNER REGOLA INGRESSO & EXPECTANCY -->
     <div id="entryRuleBanner" class="card-white p-4 border-l-4 border-l-slate-400 flex flex-wrap items-center justify-between gap-4">
       <div class="flex items-center gap-3">
         <span id="entryActionPill" class="px-3 py-1.5 rounded-lg text-xs font-extrabold bg-slate-100 text-slate-700">⏳ IN ATTESA</span>
         <div>
-          <div class="text-xs font-bold uppercase text-slate-400">Motore Matematico Expectancy & Kelly</div>
-          <div id="entryReasonText" class="text-sm font-bold text-slate-800">Seleziona un contratto BingX per verificare Expectancy, parametri consigliati e timeframe candela TP.</div>
+          <div class="text-xs font-bold uppercase text-slate-400">Motore Matematico Expectancy & Esecuzione TP/SL</div>
+          <div id="entryReasonText" class="text-sm font-bold text-slate-800">Seleziona un contratto BingX per verificare Expectancy, TP/SL esatti e timeframe candela TP.</div>
         </div>
       </div>
       <div class="flex flex-wrap items-center gap-6 text-right">
@@ -230,13 +251,21 @@
             <div id="indR2" class="mono text-xs font-bold text-slate-800">--</div>
           </div>
         </div>
+
+        <!-- LOG ORDINI AUTOMATICI / REALI -->
+        <div class="mt-4 pt-4 border-t border-slate-100">
+          <div class="text-xs font-extrabold text-slate-700 uppercase mb-2">📜 Log Esecuzioni Reali / Auto-Trade BingX</div>
+          <div id="tradeLogsBox" class="bg-slate-50 border border-slate-200 rounded-lg p-2.5 max-h-28 overflow-y-auto mono text-[11px] text-slate-600">
+            Nessun ordine eseguito in questa sessione.
+          </div>
+        </div>
       </div>
 
       <!-- LIVELLI ESATTI + RISK CALCULATOR + CERVELLO (4 COLONNE) -->
       <div class="xl:col-span-4 space-y-6">
         <div class="card-white p-5">
           <div class="flex items-center justify-between mb-3">
-            <h3 class="font-extrabold text-slate-900 text-sm uppercase tracking-wider">🎯 Segnale & Target Candela</h3>
+            <h3 class="font-extrabold text-slate-900 text-sm uppercase tracking-wider">🎯 Segnale & TP/SL Esatti</h3>
             <span id="rrBadge" class="mono text-xs font-bold px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">R:R 1:2.3</span>
           </div>
 
@@ -254,7 +283,7 @@
               <span id="lvlTp1" class="mono font-bold text-emerald-700">--</span>
             </div>
             <div class="flex justify-between items-center p-2 rounded-lg bg-emerald-50/90 border border-emerald-300">
-              <span class="font-semibold text-emerald-800">TAKE PROFIT 2 (Core)</span>
+              <span class="font-semibold text-emerald-800">TAKE PROFIT 2 (Auto-Trade TP)</span>
               <span id="lvlTp2" class="mono font-extrabold text-emerald-800">--</span>
             </div>
             <div class="flex justify-between items-center p-2 rounded-lg bg-emerald-100/70 border border-emerald-400">
@@ -318,12 +347,12 @@
     <div class="card-white p-5">
       <div class="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-200">
         <div>
-          <h2 class="text-lg font-extrabold text-slate-900">Mercati Futures BingX — Tabella Professionale</h2>
-          <p class="text-xs text-slate-500">Nomi reali BingX, <strong>Parametri Consigliati</strong> (Leva, Size, Expectancy +R, Half-Kelly), timeframe candela TP, regola <strong>Entrare / Non Entrare</strong>, <strong>Score</strong> e <strong>Sentiment</strong> modificabili live.</p>
+          <h2 class="text-lg font-extrabold text-slate-900">Mercati Futures BingX — Nomi Esteri, Parametri Consigliati & Segnali</h2>
+          <p class="text-xs text-slate-500">Nomi reali BingX + nomi esteri/materie prime (GOLD/XAUUSD, WTI, BRENT, NATGAS, EURUSD, SP500, NASDAQ100, TSLA), TP/SL, Score e Sentiment modificabili.</p>
         </div>
 
         <div class="flex flex-wrap items-center gap-2">
-          <input id="searchMarket" onkeyup="renderMarketsTable()" type="text" placeholder="Cerca GOLD, XAU, XAUT, PAXG, GS, BTC..." class="bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs font-medium w-72 focus:outline-none focus:border-slate-900" />
+          <input id="searchMarket" onkeyup="renderMarketsTable()" type="text" placeholder="Cerca GOLD, XAUUSD, WTI, BRENT, EURUSD, SP500, BTC..." class="bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs font-medium w-80 focus:outline-none focus:border-slate-900" />
         </div>
       </div>
 
@@ -340,20 +369,21 @@
         <table class="w-full text-left border-collapse">
           <thead>
             <tr class="border-b-2 border-slate-200 text-[11px] font-extrabold text-slate-500 uppercase bg-slate-50">
-              <th class="py-3 px-3">Nome BingX</th>
+              <th class="py-3 px-3">Nome BingX & Estero</th>
               <th class="py-3 px-3 text-right">Prezzo / 24h</th>
               <th class="py-3 px-3 text-center">Parametri Consigliati</th>
-              <th class="py-3 px-3 text-center">Timeframe Candela TP</th>
+              <th class="py-3 px-3 text-center">TP / SL Esatti</th>
+              <th class="py-3 px-3 text-center">Candela TP</th>
               <th class="py-3 px-3 text-center">Entrare / Non Entrare</th>
-              <th class="py-3 px-3 text-center">Score Modificabile</th>
-              <th class="py-3 px-3 text-center">Sentiment Modificabile</th>
+              <th class="py-3 px-3 text-center">Score</th>
+              <th class="py-3 px-3 text-center">Sentiment</th>
               <th class="py-3 px-3 text-center">Certezza %</th>
               <th class="py-3 px-3 text-center">Segnale</th>
               <th class="py-3 px-3 text-right">Apri</th>
             </tr>
           </thead>
           <tbody id="marketsTableBody" class="divide-y divide-slate-100 text-xs">
-            <tr><td colspan="10" class="py-8 text-center text-slate-400 font-semibold">Scaricamento contratti reali BingX in corso...</td></tr>
+            <tr><td colspan="11" class="py-8 text-center text-slate-400 font-semibold">Scaricamento contratti reali BingX in corso...</td></tr>
           </tbody>
         </table>
       </div>
@@ -368,11 +398,43 @@
     let currentAnalysis = null;
     let accountBalance = 1000.0;
     let autoMonitorEnabled = true;
+    let autoTradeEnabled = false;
     let userOverrides = {};
 
     function setNeedle(id, angleDeg) {
       const clamped = Math.max(-90, Math.min(90, angleDeg));
       document.getElementById(id).style.transform = `rotate(${clamped}deg)`;
+    }
+
+    async function loadKeysStatus() {
+      const res = await fetch('/api/keys');
+      const json = await res.json();
+      const badge = document.getElementById('keysStatusBadge');
+      if (json.has_keys) {
+        badge.innerText = `ATTIVE (${json.masked_api_key})`;
+        badge.className = 'px-2 py-0.5 rounded font-bold bg-emerald-100 text-emerald-800';
+      } else {
+        badge.innerText = 'NON IMPOSTATE';
+        badge.className = 'px-2 py-0.5 rounded font-bold bg-red-100 text-red-800';
+      }
+    }
+
+    async function saveApiKeys() {
+      const api_key = document.getElementById('bingxApiKeyInput').value.trim();
+      const secret_key = document.getElementById('bingxSecretKeyInput').value.trim();
+      const res = await fetch('/api/keys', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ api_key, secret_key })
+      });
+      const json = await res.json();
+      alert(json.msg || 'Salvato');
+      if (json.status === 'ok') {
+        document.getElementById('bingxApiKeyInput').value = '';
+        document.getElementById('bingxSecretKeyInput').value = '';
+        await loadKeysStatus();
+        await fetchAccountBalance();
+      }
     }
 
     async function loadAllMarkets(force = false) {
@@ -409,9 +471,10 @@
         const matchCat = currentCategory === 'ALL' || m.category === currentCategory;
         const matchQ = !q ||
           m.symbol.includes(q) ||
-          m.displayName.includes(q) ||
+          m.displayName.toUpperCase().includes(q) ||
           m.category.includes(q) ||
-          (q.includes('GOLD') && (m.symbol.includes('XAUT') || m.symbol.includes('PAXG')));
+          (q.includes('GOLD') && (m.symbol.includes('XAUT') || m.symbol.includes('PAXG'))) ||
+          (q.includes('OIL') && (m.symbol.includes('WTI') || m.symbol.includes('BRENT')));
         return matchCat && matchQ;
       });
     }
@@ -420,7 +483,7 @@
       const filtered = getFilteredMarkets();
       const tbody = document.getElementById('marketsTableBody');
       if (!filtered.length) {
-        tbody.innerHTML = `<tr><td colspan="10" class="py-6 text-center text-slate-400">Nessun contratto trovato per il filtro selezionato.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="11" class="py-6 text-center text-slate-400">Nessun contratto trovato per il filtro selezionato.</td></tr>`;
         return;
       }
 
@@ -431,6 +494,7 @@
         const confVal = ov.confidence !== undefined ? `${ov.confidence}%` : '--';
         const sigVal = ov.signal || 'SCAN...';
         const tpLabel = ov.tpLabel || '--';
+        const tpSlText = ov.tpSlText || '--';
         const recSummary = ov.recSummary || `Lev ${Math.min(10, m.maxLeverage)}x • In attesa`;
         const recSub = ov.recSub || '';
         const entryBadge = ov.entryBadge || '⏳ IN ANALISI';
@@ -463,29 +527,33 @@
               <div class="mono text-[11px] font-extrabold text-slate-900">${recSummary}</div>
               ${recSub ? `<div class="text-[10px] text-slate-500 mono">${recSub}</div>` : ''}
             </td>
+            <td class="py-2.5 px-3 text-center mono text-[11px] font-bold">
+              <div class="text-emerald-700">TP2: ${tpSlText.tp2 || '--'}</div>
+              <div class="text-red-600">SL: ${tpSlText.sl || '--'}</div>
+            </td>
             <td class="py-2.5 px-3 text-center mono font-bold text-indigo-700">${tpLabel}</td>
             <td class="py-2.5 px-3 text-center">
               <span class="px-2 py-1 rounded text-[10px] font-extrabold ${entryClass}">${entryBadge}</span>
-              ${entryReason ? `<div class="text-[10px] text-slate-500 mt-0.5 max-w-[210px] mx-auto">${entryReason}</div>` : ''}
+              ${entryReason ? `<div class="text-[10px] text-slate-500 mt-0.5 max-w-[190px] mx-auto">${entryReason}</div>` : ''}
             </td>
             <td class="py-2.5 px-3 text-center" onclick="event.stopPropagation()">
               <input type="number" min="-100" max="100" step="1" value="${scoreVal}" placeholder="Auto"
                 onchange="updateManualScore('${m.symbol}', this.value)"
-                class="w-20 text-center mono font-bold text-xs bg-white border border-slate-300 rounded-md py-1 focus:border-blue-600 focus:outline-none" />
+                class="w-16 text-center mono font-bold text-xs bg-white border border-slate-300 rounded-md py-1 focus:border-blue-600 focus:outline-none" />
             </td>
             <td class="py-2.5 px-3 text-center" onclick="event.stopPropagation()">
               <select onchange="updateManualSentiment('${m.symbol}', this.value)"
-                class="bg-white border border-slate-300 rounded-md px-2 py-1 text-[11px] font-bold text-slate-800 focus:border-blue-600 focus:outline-none">
-                <option value="0" ${sentVal == 0 ? 'selected' : ''}>AUTO / NEUTRAL (0)</option>
-                <option value="90" ${sentVal == 90 ? 'selected' : ''}>🔥 EXTREME BULL (+90)</option>
-                <option value="50" ${sentVal == 50 ? 'selected' : ''}>🟢 BULLISH (+50)</option>
-                <option value="-50" ${sentVal == -50 ? 'selected' : ''}>🔴 BEARISH (-50)</option>
-                <option value="-90" ${sentVal == -90 ? 'selected' : ''}>❄️ EXTREME BEAR (-90)</option>
+                class="bg-white border border-slate-300 rounded-md px-1.5 py-1 text-[10px] font-bold text-slate-800 focus:border-blue-600 focus:outline-none">
+                <option value="0" ${sentVal == 0 ? 'selected' : ''}>AUTO (0)</option>
+                <option value="90" ${sentVal == 90 ? 'selected' : ''}>BULL +90</option>
+                <option value="50" ${sentVal == 50 ? 'selected' : ''}>BULL +50</option>
+                <option value="-50" ${sentVal == -50 ? 'selected' : ''}>BEAR -50</option>
+                <option value="-90" ${sentVal == -90 ? 'selected' : ''}>BEAR -90</option>
               </select>
             </td>
             <td class="py-2.5 px-3 text-center mono font-extrabold text-slate-900">${confVal}</td>
             <td class="py-2.5 px-3 text-center">
-              <span class="px-2.5 py-1 rounded-md text-[11px] font-extrabold ${sigBadgeClass}">${sigVal}</span>
+              <span class="px-2 py-1 rounded-md text-[10px] font-extrabold ${sigBadgeClass}">${sigVal}</span>
             </td>
             <td class="py-2.5 px-3 text-right" onclick="event.stopPropagation()">
               <button onclick="analyzeSymbol('${m.symbol}')" class="bg-slate-900 hover:bg-blue-600 text-white text-[11px] font-bold px-2.5 py-1 rounded-md transition">
@@ -541,6 +609,7 @@
         confidence: d.confidence,
         signal: d.signal,
         tpLabel: d.tp_plan?.label || '--',
+        tpSlText: { tp2: d.levels?.tp2, sl: d.levels?.sl },
         recSummary: rp.summary || '--',
         recSub: rp.margin_usdt !== undefined ? `Margine ~$${rp.margin_usdt} • Win ${rp.p_win_pct}%` : '',
         entryBadge: d.entry_rule?.badge || '--',
@@ -670,12 +739,39 @@
       });
     }
 
+    async function toggleAutoTrade() {
+      if (!autoTradeEnabled && !confirm("⚠️ ATTENZIONE: Attivando l'Auto-Trade Reale, il sistema aprirà posizioni reali su BingX con TP2 e SL della Dashboard quando scatta ENTRA ORA. Procedere?")) {
+        return;
+      }
+      autoTradeEnabled = !autoTradeEnabled;
+      const btn = document.getElementById('btnToggleAutoTrade');
+      btn.innerText = autoTradeEnabled ? '⚡ Auto-Trade Reale: ON' : '⚡ Auto-Trade Reale: OFF';
+      btn.className = (autoTradeEnabled ? 'bg-red-600 hover:bg-red-700' : 'bg-amber-600 hover:bg-amber-700') + ' text-white text-xs font-extrabold px-3.5 py-2 rounded-lg transition';
+      await fetch('/api/auto_monitor_status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ auto_trade_enabled: autoTradeEnabled })
+      });
+    }
+
+    function renderTradeLogs(logs) {
+      const box = document.getElementById('tradeLogsBox');
+      if (!logs || !logs.length) {
+        box.innerText = "Nessun ordine eseguito in questa sessione.";
+        return;
+      }
+      box.innerHTML = logs.map(l =>
+        `<div class="py-0.5 border-b border-slate-100">[${l.time}] <strong>${l.symbol}</strong> ${l.side} qty=${l.qty} | TP=${l.tp} | SL=${l.sl} -> ${JSON.stringify(l.response)}</div>`
+      ).join('');
+    }
+
     async function pollAutoMonitor() {
       try {
         const res = await fetch('/api/auto_monitor_status');
         const json = await res.json();
         if (json.status === 'ok') {
           if (json.last_run) document.getElementById('lastScanTime').innerText = json.last_run;
+          renderTradeLogs(json.trade_logs);
           const sigMap = json.signals || {};
           Object.keys(sigMap).forEach(sym => {
             applyAnalysisToUI(sigMap[sym]);
@@ -725,8 +821,9 @@
       const qty = parseFloat(document.getElementById('orderQty').value);
       if (!qty || qty <= 0) return alert("Inserisci una quantità valida.");
       const side = currentAnalysis.composite_score >= 0 ? "BUY" : "SELL";
+      const lev = currentAnalysis.recommended_params?.leverage || 10;
 
-      if (!confirm(`Confermi ordine REALE su BingX?\nSimbolo: ${currentAnalysis.symbol}\nDirezione: ${side}\nQuantità: ${qty}\nSL: ${currentAnalysis.levels.sl}\nTP2: ${currentAnalysis.levels.tp2}`)) return;
+      if (!confirm(`Confermi ordine REALE su BingX?\nSimbolo: ${currentAnalysis.symbol}\nDirezione: ${side}\nLeva: ${lev}x\nQuantità: ${qty}\nSL: ${currentAnalysis.levels.sl}\nTP2: ${currentAnalysis.levels.tp2}`)) return;
 
       const res = await fetch('/api/execute_order', {
         method: 'POST',
@@ -736,13 +833,16 @@
           side,
           quantity: qty,
           sl: currentAnalysis.levels.sl,
-          tp: currentAnalysis.levels.tp2
+          tp: currentAnalysis.levels.tp2,
+          leverage: lev
         })
       });
       const json = await res.json();
       alert("Risposta BingX: " + JSON.stringify(json));
+      pollAutoMonitor();
     }
 
+    loadKeysStatus();
     loadAllMarkets(false);
     fetchAccountBalance();
     setInterval(pollAutoMonitor, 12000);
