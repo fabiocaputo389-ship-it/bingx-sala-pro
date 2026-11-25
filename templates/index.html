@@ -1,58 +1,442 @@
-<!-- Controlli Timeframe + Chiusura Candela -->
-<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
-  <select id="tfSelect" style="background:#141e33;color:#f8fafc;border:1px solid #334155;border-radius:10px;padding:6px 10px;font-weight:700;">
-    <option value="1m">1m</option>
-    <option value="5m">5m</option>
-    <option value="15m" selected>15m</option>
-    <option value="1h">1h</option>
-    <option value="4h">4h</option>
-    <option value="1d">1d</option>
-  </select>
-  <div style="font-size:11px;color:#cbd5e1;text-align:right;">
-    Chiusura candela: <strong id="candleCloseLocal">--:--:--</strong> (<span id="candleCloseUtc">--:--:-- UTC</span>)
-  </div>
-</div>
-
-<!-- Score Segnale Modificabile + Parametri Indicatori -->
-<div style="background:#141e33;border:1px solid #233252;border-radius:14px;padding:12px;margin-bottom:12px;font-size:12px;">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-    <span><strong>SCORE SEGNALE:</strong> <span id="scoreReadout">0 / 65</span></span>
-    <span id="scoreStatusBadge" style="font-weight:800;color:#fbbf24;">SOGLIA MODIFICABILE</span>
-  </div>
-
-  <label style="display:block;color:#94a3b8;font-size:11px;margin-bottom:4px;">
-    Score Minimo Richiesto (0 - 100): <strong id="minScoreLabel">65</strong>
-  </label>
-  <input id="minScoreInput" type="range" min="0" max="100" value="65" style="width:100%;margin-bottom:10px;" />
-
-  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:8px;">
-    <div>
-      <span style="color:#94a3b8;font-size:10px;">RSI Periodo</span>
-      <input id="rsiPeriodInput" type="number" min="2" max="100" value="14" style="width:100%;background:#090d16;color:#fff;border:1px solid #334155;border-radius:8px;padding:5px;" />
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BingX Pro Signal Terminal</title>
+  <style>
+    * { box-sizing: border-box; touch-action: manipulation; }
+    body {
+      margin: 0;
+      background: #090d16;
+      color: #f3f6fc;
+      font-family: system-ui, -apple-system, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 12px;
+      gap: 10px;
+    }
+    .panel { width: 100%; max-width: 430px; }
+    .tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+    .tab-btn {
+      padding: 6px 10px;
+      border-radius: 10px;
+      border: 1px solid #334155;
+      background: #141e33;
+      color: #f8fafc;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .tab-btn.active { background: #2563eb; border-color: #60a5fa; }
+    .card {
+      width: 100%;
+      max-width: 430px;
+      background: #101726;
+      border: 1px solid #1e2a42;
+      border-radius: 20px;
+      padding: 16px;
+    }
+    .top-bar { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .badge-top {
+      background: #282112;
+      color: #f5b942;
+      border: 1px solid #6b4f18;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 4px 8px;
+      border-radius: 8px;
+    }
+    .price { font-size: 36px; font-weight: 800; margin: 10px 0 6px; letter-spacing: -0.5px; }
+    .gauge-wrap { display: flex; flex-direction: column; align-items: center; margin: 6px 0 12px; }
+    .gauge-label { margin-top: -16px; font-size: 20px; font-weight: 800; color: #22c55e; }
+    .meter { margin-bottom: 10px; }
+    .meter-head { display: flex; justify-content: space-between; font-size: 12px; font-weight: 700; margin-bottom: 5px; }
+    .bar-bg { height: 8px; background: #1e293b; border-radius: 999px; overflow: hidden; }
+    .bar-fill { height: 100%; border-radius: 999px; transition: width 0.25s ease; }
+    .risk-box {
+      background: #2a1219;
+      border: 1px solid #991b1b;
+      border-radius: 14px;
+      padding: 12px;
+      margin: 10px 0;
+    }
+    .risk-box.safe { background: #0d2419; border-color: #15803d; }
+    .risk-title { color: #f87171; font-weight: 800; font-size: 12px; }
+    .risk-box.safe .risk-title { color: #4ade80; }
+    .risk-sub { color: #fca5a5; font-size: 11px; margin-top: 4px; }
+    .risk-box.safe .risk-sub { color: #bbf7d0; }
+    .timer-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      font-weight: 700;
+      margin-top: 8px;
+      color: #86efac;
+    }
+    .rec-box {
+      background: #0d1b2a;
+      border: 1px solid #1d4ed8;
+      border-radius: 14px;
+      padding: 12px;
+      margin-bottom: 10px;
+    }
+    .rec-title { color: #22c55e; font-weight: 800; font-size: 13px; }
+    .rec-sub { color: #cbd5e1; font-size: 12px; margin-top: 4px; }
+    .grid-4 {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+    .stat-box {
+      background: #141e33;
+      border: 1px solid #233252;
+      border-radius: 12px;
+      padding: 9px 4px;
+      text-align: center;
+    }
+    .stat-val { font-weight: 800; font-size: 13px; }
+    .stat-lbl { font-size: 10px; color: #94a3b8; margin-top: 2px; }
+    .cfg-box {
+      background: #141e33;
+      border: 1px solid #233252;
+      border-radius: 14px;
+      padding: 12px;
+      margin-bottom: 12px;
+      font-size: 12px;
+    }
+    .cfg-input {
+      width: 100%;
+      background: #090d16;
+      color: #fff;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 5px;
+      font-size: 12px;
+    }
+    .btn-save {
+      width: 100%;
+      background: #2563eb;
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      padding: 9px;
+      font-weight: 800;
+      cursor: pointer;
+      margin-top: 6px;
+    }
+    .btn-copy {
+      width: 100%;
+      background: #16a34a;
+      color: #ffffff;
+      border: none;
+      border-radius: 14px;
+      padding: 13px;
+      font-size: 14px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="panel">
+    <div class="tabs" id="assetTabs">
+      <button type="button" data-sym="BTC-USDT" class="tab-btn active">BTC</button>
+      <button type="button" data-sym="EUR-USDT" class="tab-btn">EURUSDT</button>
+      <button type="button" data-sym="XAU-USDT" class="tab-btn">ORO</button>
+      <button type="button" data-sym="OIL-USDT" class="tab-btn">PETROLIO</button>
+      <button type="button" data-sym="TSLA-USDT" class="tab-btn">TSLA</button>
+      <button type="button" data-sym="NVDA-USDT" class="tab-btn">NVDA</button>
     </div>
-    <div>
-      <span style="color:#94a3b8;font-size:10px;">MACD (F/S/Sig)</span>
-      <div style="display:flex;gap:3px;">
-        <input id="macdFastInput" type="number" value="12" style="width:33%;background:#090d16;color:#fff;border:1px solid #334155;border-radius:6px;padding:4px;" />
-        <input id="macdSlowInput" type="number" value="26" style="width:33%;background:#090d16;color:#fff;border:1px solid #334155;border-radius:6px;padding:4px;" />
-        <input id="macdSigInput" type="number" value="9" style="width:33%;background:#090d16;color:#fff;border:1px solid #334155;border-radius:6px;padding:4px;" />
+  </div>
+
+  <div class="card">
+    <div class="top-bar">
+      <div>
+        <strong id="symbolTitle">BTC</strong> · <span id="wrText">WR 77%</span>
+        <div id="dirBadge" style="color:#22c55e;font-size:12px;font-weight:700;margin-top:2px;">▲ LONG · SCORE --</div>
+      </div>
+      <span class="badge-top" id="catBadge">💎 CRYPTO</span>
+    </div>
+
+    <div class="price" id="priceVal">$0.00</div>
+
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+      <select id="tfSelect" class="tab-btn">
+        <option value="1m">1m</option>
+        <option value="5m">5m</option>
+        <option value="15m" selected>15m</option>
+        <option value="1h">1h</option>
+        <option value="4h">4h</option>
+        <option value="1d">1d</option>
+      </select>
+      <div style="font-size:11px;color:#cbd5e1;text-align:right;">
+        Chiusura: <strong id="candleCloseLocal">--:--:--</strong> (<span id="candleCloseUtc">--:--:-- UTC</span>)
       </div>
     </div>
-    <div>
-      <span style="color:#94a3b8;font-size:10px;">EMA (Fast/Slow)</span>
-      <div style="display:flex;gap:3px;">
-        <input id="emaFastInput" type="number" value="20" style="width:50%;background:#090d16;color:#fff;border:1px solid #334155;border-radius:6px;padding:4px;" />
-        <input id="emaSlowInput" type="number" value="50" style="width:50%;background:#090d16;color:#fff;border:1px solid #334155;border-radius:6px;padding:4px;" />
+
+    <div class="gauge-wrap">
+      <svg width="240" height="125" viewBox="0 0 240 125">
+        <defs>
+          <linearGradient id="gGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#ef4444" />
+            <stop offset="50%" stop-color="#f59e0b" />
+            <stop offset="100%" stop-color="#22c55e" />
+          </linearGradient>
+        </defs>
+        <path d="M 20 110 A 100 100 0 0 1 220 110" fill="none" stroke="url(#gGrad)" stroke-width="16" stroke-linecap="round" />
+        <line id="needle" x1="120" y1="110" x2="120" y2="28" stroke="#f8fafc" stroke-width="4" stroke-linecap="round" />
+        <circle cx="120" cy="110" r="6" fill="#f8fafc" />
+      </svg>
+      <div class="gauge-label" id="gaugeText">Neutral</div>
+    </div>
+
+    <div class="meter">
+      <div class="meter-head"><span>TREND HEALTH</span><span id="trendVal">50%</span></div>
+      <div class="bar-bg"><div id="trendBar" class="bar-fill" style="width:50%;background:linear-gradient(90deg,#ef4444,#f59e0b);"></div></div>
+    </div>
+
+    <div class="meter">
+      <div class="meter-head"><span>VALUE SCORE</span><span id="whaleBearText">50% Balene / 50% Orsi</span></div>
+      <div class="bar-bg"><div id="whaleBar" class="bar-fill" style="width:50%;background:#10b981;"></div></div>
+    </div>
+
+    <div class="risk-box" id="riskBox">
+      <div class="risk-title" id="riskTitle">⛔ CONTROLLO RISCHIO & ANTI-FAKE</div>
+      <div class="risk-sub" id="riskReason">Motivo: --</div>
+      <div style="font-size:11px;color:#fcd34d;margin-top:4px;" id="antiFakeStatus">Anti-Fake: --</div>
+      <div class="timer-row">
+        <span id="timerLabel">⏱ TEMPO RESIDUO</span>
+        <span id="validityInfo">● VALIDO --% · --:--</span>
+      </div>
+      <div class="bar-bg" style="margin-top:6px;">
+        <div id="validityBar" class="bar-fill" style="width:0%;background:#22c55e;"></div>
       </div>
     </div>
+
+    <div class="rec-box">
+      <div class="rec-title" id="recTitle">RECOMMENDATION: NEUTRAL</div>
+      <div class="rec-sub" id="recSub">MACD: -- | EMA: -- | ATR: --</div>
+    </div>
+
+    <div class="grid-4">
+      <div class="stat-box">
+        <div class="stat-val" style="color:#38bdf8;" id="rsiVal">--</div>
+        <div class="stat-lbl">RSI</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-val" style="color:#22c55e;" id="whaleVal">--%</div>
+        <div class="stat-lbl">BALENE</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-val" style="color:#f87171;" id="bearVal">--%</div>
+        <div class="stat-lbl">ORSI</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-val" style="color:#fbbf24;" id="scoreVal">--</div>
+        <div class="stat-lbl">SCORE</div>
+      </div>
+    </div>
+
+    <div class="cfg-box">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <strong>SCORE MINIMO: <span id="minScoreLabel">65</span></strong>
+        <label style="font-size:11px;">
+          <input id="antiFakeChk" type="checkbox" checked /> Anti-Fake Attivo
+        </label>
+      </div>
+      <input id="minScoreInput" type="range" min="0" max="100" value="65" style="width:100%;margin-bottom:8px;" />
+
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;">
+        <div>
+          <span style="color:#94a3b8;font-size:10px;">RSI Periodo</span>
+          <input id="rsiPeriodInput" class="cfg-input" type="number" min="2" max="100" value="14" />
+        </div>
+        <div>
+          <span style="color:#94a3b8;font-size:10px;">MACD (F/S/Sig)</span>
+          <div style="display:flex;gap:2px;">
+            <input id="macdFastInput" class="cfg-input" type="number" value="12" />
+            <input id="macdSlowInput" class="cfg-input" type="number" value="26" />
+            <input id="macdSigInput" class="cfg-input" type="number" value="9" />
+          </div>
+        </div>
+        <div>
+          <span style="color:#94a3b8;font-size:10px;">EMA (Fast/Slow)</span>
+          <div style="display:flex;gap:2px;">
+            <input id="emaFastInput" class="cfg-input" type="number" value="20" />
+            <input id="emaSlowInput" class="cfg-input" type="number" value="50" />
+          </div>
+        </div>
+      </div>
+
+      <button id="saveParamsBtn" class="btn-save" type="button">💾 SALVA SCORE E PARAMETRI</button>
+    </div>
+
+    <button class="btn-copy" id="copyBingxBtn" type="button">📋 COPIA SEGNALE PER APP BINGX</button>
   </div>
 
-  <div style="display:flex;justify-content:space-between;color:#94a3b8;font-size:11px;margin-bottom:8px;">
-    <span id="macdDetail">MACD: --</span>
-    <span id="emaAtrDetail">EMA: -- | ATR: --</span>
-  </div>
+  <script>
+    let currentSymbol = "BTC-USDT";
+    let currentTimeframe = "15m";
+    let latestData = null;
 
-  <button id="saveParamsBtn" type="button" style="width:100%;background:#2563eb;color:#fff;border:none;border-radius:10px;padding:9px;font-weight:800;cursor:pointer;">
-    💾 SALVA SCORE E PARAMETRI
-  </button>
-</div>
+    function setNeedleAngle(deg) {
+      const rad = (deg - 90) * (Math.PI / 180);
+      const len = 82;
+      const x2 = 120 + len * Math.cos(rad);
+      const y2 = 110 + len * Math.sin(rad);
+      const needle = document.getElementById("needle");
+      needle.setAttribute("x2", x2.toFixed(1));
+      needle.setAttribute("y2", y2.toFixed(1));
+    }
+
+    async function loadInitialConfig() {
+      try {
+        const r = await fetch("/api/config");
+        const cfg = await r.json();
+        document.getElementById("minScoreInput").value = cfg.min_signal_score ?? 65;
+        document.getElementById("minScoreLabel").textContent = cfg.min_signal_score ?? 65;
+        document.getElementById("rsiPeriodInput").value = cfg.rsi_period ?? 14;
+        document.getElementById("macdFastInput").value = cfg.macd_fast ?? 12;
+        document.getElementById("macdSlowInput").value = cfg.macd_slow ?? 26;
+        document.getElementById("macdSigInput").value = cfg.macd_signal ?? 9;
+        document.getElementById("emaFastInput").value = cfg.ema_fast ?? 20;
+        document.getElementById("emaSlowInput").value = cfg.ema_slow ?? 50;
+        document.getElementById("antiFakeChk").checked = cfg.anti_fake_enabled ?? true;
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    async function pollTicker() {
+      try {
+        const url = `/api/live-ticker?symbol=${encodeURIComponent(currentSymbol)}&timeframe=${encodeURIComponent(currentTimeframe)}`;
+        const res = await fetch(url);
+        const d = await res.json();
+        latestData = d;
+
+        const decimals = Number.isInteger(d.priceDecimals) ? d.priceDecimals : 2;
+        document.getElementById("symbolTitle").textContent = d.label || d.symbol;
+        document.getElementById("catBadge").textContent = `💎 ${(d.category || "CRYPTO").toUpperCase()}`;
+        document.getElementById("wrText").textContent = `WR ${d.winRate}%`;
+        document.getElementById("priceVal").textContent = `$${Number(d.lastPrice).toFixed(decimals)}`;
+        document.getElementById("candleCloseLocal").textContent = d.closeTimeLocal || "--:--:--";
+        document.getElementById("candleCloseUtc").textContent = d.closeTimeUtc || "--:--:-- UTC";
+
+        document.getElementById("trendVal").textContent = `${d.trendHealth}%`;
+        document.getElementById("trendBar").style.width = `${d.trendHealth}%`;
+        document.getElementById("whaleBearText").textContent = `${d.whalePct}% Balene / ${d.bearPct}% Orsi`;
+        document.getElementById("whaleBar").style.width = `${d.whalePct}%`;
+
+        const riskBox = document.getElementById("riskBox");
+        if (d.highRiskWarning) {
+          riskBox.classList.remove("safe");
+          document.getElementById("riskTitle").textContent = "⛔ ATTENZIONE — FILTRO RISCHIO / ANTI-FAKE";
+        } else {
+          riskBox.classList.add("safe");
+          document.getElementById("riskTitle").textContent = "✅ SETUP VALIDATO — RISCHIO CONTROLLATO";
+        }
+        document.getElementById("riskReason").textContent = `Motivo: ${d.riskReason}`;
+
+        const af = d.antiFake || {};
+        const afText = af.isFalseSignal
+          ? `Anti-Fake: BLOCCATO (${af.fakeBreakout}, penalità -${af.penaltyScore})`
+          : `Anti-Fake: OK (penalità -${af.penaltyScore ?? 0})`;
+        document.getElementById("antiFakeStatus").textContent = afText;
+
+        document.getElementById("timerLabel").textContent = `⏱ CHIUSURA CANDELA (${d.timeframe})`;
+        document.getElementById("validityInfo").textContent = `● VALIDO ${d.validityPct}% · ${d.remainingText}`;
+        document.getElementById("validityBar").style.width = `${d.validityPct}%`;
+
+        const ind = d.indicators || {};
+        document.getElementById("recTitle").textContent = `RECOMMENDATION: ${d.signalSide} (${d.timeframe})`;
+        document.getElementById("recSub").textContent =
+          `MACD: ${ind.macdStatus} (${ind.macd ?? 0}) | EMA: ${ind.emaFast ?? 0}/${ind.emaSlow ?? 0} | ATR: ${ind.atr ?? 0}`;
+
+        document.getElementById("rsiVal").textContent = `${ind.rsi ?? "--"}`;
+        document.getElementById("whaleVal").textContent = `${d.whalePct}%`;
+        document.getElementById("bearVal").textContent = `${d.bearPct}%`;
+        document.getElementById("scoreVal").textContent = `${d.signalScore}/${d.minSignalScore}`;
+        document.getElementById("dirBadge").textContent = `▲ ${d.signalSide} · SCORE ${d.signalScore}`;
+        document.getElementById("copyBingxBtn").textContent = `📋 COPIA ${d.label || d.symbol} PER APP BINGX`;
+
+        if (d.signalSide === "BUY") {
+          setNeedleAngle(35);
+          document.getElementById("gaugeText").textContent = "Buy";
+          document.getElementById("gaugeText").style.color = "#22c55e";
+        } else if (d.signalSide === "SELL") {
+          setNeedleAngle(-35);
+          document.getElementById("gaugeText").textContent = "Sell";
+          document.getElementById("gaugeText").style.color = "#ef4444";
+        } else {
+          setNeedleAngle(0);
+          document.getElementById("gaugeText").textContent = "Neutral";
+          document.getElementById("gaugeText").style.color = "#fbbf24";
+        }
+      } catch (err) {
+        console.error("Errore polling ticker:", err);
+      }
+    }
+
+    document.querySelectorAll(".tab-btn[data-sym]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".tab-btn[data-sym]").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        currentSymbol = btn.getAttribute("data-sym");
+        pollTicker();
+      });
+    });
+
+    document.getElementById("tfSelect").addEventListener("change", (e) => {
+      currentTimeframe = e.target.value;
+      pollTicker();
+    });
+
+    document.getElementById("minScoreInput").addEventListener("input", (e) => {
+      document.getElementById("minScoreLabel").textContent = e.target.value;
+    });
+
+    document.getElementById("saveParamsBtn").addEventListener("click", async () => {
+      const payload = {
+        min_signal_score: Number(document.getElementById("minScoreInput").value),
+        rsi_period: Number(document.getElementById("rsiPeriodInput").value),
+        macd_fast: Number(document.getElementById("macdFastInput").value),
+        macd_slow: Number(document.getElementById("macdSlowInput").value),
+        macd_signal: Number(document.getElementById("macdSigInput").value),
+        ema_fast: Number(document.getElementById("emaFastInput").value),
+        ema_slow: Number(document.getElementById("emaSlowInput").value),
+        anti_fake_enabled: document.getElementById("antiFakeChk").checked,
+      };
+      await fetch("/api/config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      pollTicker();
+    });
+
+    document.getElementById("copyBingxBtn").addEventListener("click", async () => {
+      if (!latestData) return;
+      const ind = latestData.indicators || {};
+      const txt = [
+        `${latestData.symbol} (${latestData.timeframe}) | ${latestData.signalSide}`,
+        `Prezzo: ${latestData.lastPrice} | Score: ${latestData.signalScore}/${latestData.minSignalScore}`,
+        `RSI(${ind.rsiPeriod}): ${ind.rsi} | MACD: ${ind.macdStatus} | ATR: ${ind.atr}`,
+        `Chiusura candela: ${latestData.closeTimeLocal}`,
+      ].join("\n");
+      await navigator.clipboard.writeText(txt);
+      const btn = document.getElementById("copyBingxBtn");
+      const prev = btn.textContent;
+      btn.textContent = "✅ COPIATO PER BINGX";
+      setTimeout(() => { btn.textContent = prev; }, 1500);
+    });
+
+    loadInitialConfig().then(() => {
+      pollTicker();
+      setInterval(pollTicker, 3000);
+    });
+  </script>
+</body>
+</html>
