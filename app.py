@@ -12,79 +12,60 @@ import requests
 app = Flask(__name__)
 
 BINGX_BASE_URL = "https://open-api.bingx.com"
-API_KEY = os.getenv("BINGX_API_KEY", "")
-SECRET_KEY = os.getenv("BINGX_SECRET_KEY", "")
-
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_PATH = os.path.join(BASE_DIR, "config", "runtime_config.json")
 LOCKS_PATH = os.path.join(BASE_DIR, "data", "locked_signals.json")
+LOGS_PATH = os.path.join(BASE_DIR, "data", "signal_room_log.json")
 
 TIMEFRAME_SECONDS = {
     "1m": 60,
     "5m": 300,
     "15m": 900,
+    "30m": 1800,
     "1h": 3600,
     "4h": 14400,
     "1d": 86400,
 }
 
-# Catalogo organizzato per categoria
 ASSET_CATALOG = {
-    # CRYPTO PIÙ FORTI
-    "BTC-USDT": {"label": "BTC", "category": "Crypto", "price_decimals": 2, "win_rate": 77},
-    "ETH-USDT": {"label": "ETH", "category": "Crypto", "price_decimals": 2, "win_rate": 75},
-    "SOL-USDT": {"label": "SOL", "category": "Crypto", "price_decimals": 2, "win_rate": 74},
-    "BNB-USDT": {"label": "BNB", "category": "Crypto", "price_decimals": 2, "win_rate": 76},
-    "XRP-USDT": {"label": "XRP", "category": "Crypto", "price_decimals": 4, "win_rate": 72},
-    "DOGE-USDT": {"label": "DOGE", "category": "Crypto", "price_decimals": 5, "win_rate": 70},
-    "ADA-USDT": {"label": "ADA", "category": "Crypto", "price_decimals": 4, "win_rate": 71},
-    "AVAX-USDT": {"label": "AVAX", "category": "Crypto", "price_decimals": 2, "win_rate": 72},
-    "LINK-USDT": {"label": "LINK", "category": "Crypto", "price_decimals": 3, "win_rate": 73},
-    "SUI-USDT": {"label": "SUI", "category": "Crypto", "price_decimals": 4, "win_rate": 73},
-
-    # FOREX (incluso EURUSDT)
-    "EUR-USDT": {"label": "EURUSDT", "category": "Forex", "price_decimals": 5, "win_rate": 74},
-    "GBP-USDT": {"label": "GBPUSDT", "category": "Forex", "price_decimals": 5, "win_rate": 72},
-    "USDJPY-USDT": {"label": "USDJPY", "category": "Forex", "price_decimals": 3, "win_rate": 71},
-    "AUD-USDT": {"label": "AUDUSDT", "category": "Forex", "price_decimals": 5, "win_rate": 70},
-
-    # MATERIE PRIME
-    "XAU-USDT": {"label": "ORO (XAU)", "category": "Materie prime", "price_decimals": 2, "win_rate": 75},
-    "XAG-USDT": {"label": "ARGENTO", "category": "Materie prime", "price_decimals": 3, "win_rate": 72},
-    "OIL-USDT": {"label": "PETROLIO", "category": "Materie prime", "price_decimals": 3, "win_rate": 71},
-    "NATGAS-USDT": {"label": "GAS NAT.", "category": "Materie prime", "price_decimals": 3, "win_rate": 69},
-
-    # AZIONI
-    "TSLA-USDT": {"label": "TSLA", "category": "Azioni", "price_decimals": 2, "win_rate": 72},
-    "NVDA-USDT": {"label": "NVDA", "category": "Azioni", "price_decimals": 2, "win_rate": 76},
-    "AAPL-USDT": {"label": "AAPL", "category": "Azioni", "price_decimals": 2, "win_rate": 73},
-    "MSFT-USDT": {"label": "MSFT", "category": "Azioni", "price_decimals": 2, "win_rate": 74},
-    "AMZN-USDT": {"label": "AMZN", "category": "Azioni", "price_decimals": 2, "win_rate": 72},
-    "META-USDT": {"label": "META", "category": "Azioni", "price_decimals": 2, "win_rate": 73},
+    "BTC-USDT": {"label": "BTC-USDT", "category": "Crypto", "decimals": 1, "wr": 77},
+    "ETH-USDT": {"label": "ETH-USDT", "category": "Crypto", "decimals": 2, "wr": 75},
+    "SOL-USDT": {"label": "SOL-USDT", "category": "Crypto", "decimals": 2, "wr": 74},
+    "BNB-USDT": {"label": "BNB-USDT", "category": "Crypto", "decimals": 2, "wr": 76},
+    "XRP-USDT": {"label": "XRP-USDT", "category": "Crypto", "decimals": 4, "wr": 72},
+    "DOGE-USDT": {"label": "DOGE-USDT", "category": "Meme/Alt", "decimals": 5, "wr": 70},
+    "SFP-USDT": {"label": "SFP-USDT", "category": "Meme/Alt", "decimals": 5, "wr": 71},
+    "EUR-USDT": {"label": "EUR-USDT", "category": "Forex", "decimals": 5, "wr": 74},
+    "GBP-USDT": {"label": "GBP-USDT", "category": "Forex", "decimals": 5, "wr": 72},
+    "XAUT-USDT": {"label": "XAUT-USDT", "category": "Materie Prime", "decimals": 2, "wr": 75},
+    "PAXG-USDT": {"label": "PAXG-USDT", "category": "Materie Prime", "decimals": 2, "wr": 75},
+    "XAU-USDT": {"label": "XAU-USDT", "category": "Materie Prime", "decimals": 2, "wr": 75},
+    "OIL-USDT": {"label": "OIL-USDT", "category": "Materie Prime", "decimals": 3, "wr": 71},
+    "TSLA-USDT": {"label": "TSLA-USDT", "category": "Azioni", "decimals": 2, "wr": 72},
+    "NVDA-USDT": {"label": "NVDA-USDT", "category": "Azioni", "decimals": 2, "wr": 76},
+    "AAPL-USDT": {"label": "AAPL-USDT", "category": "Azioni", "decimals": 2, "wr": 73},
 }
 
 DEFAULT_CONFIG = {
-    "min_signal_score": 65.0,
-    "certain_lock_min_score": 75.0,
-    "rsi_period": 14,
-    "rsi_oversold": 30.0,
-    "rsi_overbought": 70.0,
-    "macd_fast": 12,
-    "macd_slow": 26,
-    "macd_signal": 9,
-    "ema_fast": 20,
-    "ema_slow": 50,
-    "atr_period": 14,
-    "sl_atr_mult": 1.5,
-    "tp_rr_mult": 2.0,
-    "w_rsi": 0.30,
-    "w_macd": 0.40,
-    "w_ema": 0.30,
-    "anti_fake_enabled": True,
+    "api_key": os.getenv("BINGX_API_KEY", ""),
+    "secret_key": os.getenv("BINGX_SECRET_KEY", ""),
+    "mode": "AUTOMATICO",               # AUTOMATICO / MANUALE
+    "auto_trade": True,
+    "scan_mode": "Auto Scan + Blocco Certo",
+    "score_threshold": 60.0,
+    "certain_min_pct": 70.0,
+    "close_at_candle_end": False,
+    "block_false_signals": True,
+    "anti_breakout_enabled": True,
+    "allow_manual_under_threshold": False,
+    "sound_enabled": True,
+    "voice_it_enabled": True,
+    "default_qty": 0.0005,
+    "default_leverage": 20,
+    "equity_usdt": 1.44,
     "fakeout_lookback": 20,
     "atr_spike_mult": 2.5,
     "wick_ratio_limit": 0.55,
-    "min_breakout_vol_mult": 0.70,
 }
 
 
@@ -110,48 +91,62 @@ def save_json(path: str, payload) -> None:
         json.dump(payload, f, indent=2)
 
 
-RUNTIME_CONFIG = load_json(CONFIG_PATH, DEFAULT_CONFIG)
-LOCKED_SIGNALS = load_json(LOCKS_PATH, [])
+CFG = load_json(CONFIG_PATH, DEFAULT_CONFIG)
+LOCKS = load_json(LOCKS_PATH, [])
+ROOM_LOGS = load_json(LOGS_PATH, [])
 
 
-def normalize_symbol(raw_symbol: str) -> str:
-    cleaned = (raw_symbol or "BTC-USDT").strip().upper().replace("/", "-")
-    if cleaned == "EURUSDT":
+def append_room_log(entry: dict) -> None:
+    global ROOM_LOGS
+    ROOM_LOGS.insert(0, entry)
+    ROOM_LOGS = ROOM_LOGS[:60]
+    save_json(LOGS_PATH, ROOM_LOGS)
+
+
+def mask_api_key(key: str) -> str:
+    if not key or len(key) < 8:
+        return "NON IMPOSTATA"
+    return f"{key[:4]}...{key[-4:]}"
+
+
+def normalize_symbol(raw: str) -> str:
+    s = (raw or "BTC-USDT").strip().upper().replace("/", "-")
+    if s == "EURUSDT":
         return "EUR-USDT"
-    if "-" not in cleaned and cleaned.endswith("USDT"):
-        return f"{cleaned[:-4]}-USDT"
-    return cleaned
+    if "-" not in s and s.endswith("USDT"):
+        return f"{s[:-4]}-USDT"
+    return s
 
 
-def candle_close_info(interval: str, now_ts: float | None = None) -> dict:
-    tf = interval if interval in TIMEFRAME_SECONDS else "15m"
-    step = TIMEFRAME_SECONDS[tf]
-    now = now_ts if now_ts is not None else time.time()
-    current_open_ts = math.floor(now / step) * step
-    next_close_ts = current_open_ts + step
-    remaining_sec = max(0, int(next_close_ts - now))
-    pct_elapsed = min(100, max(0, int(((step - remaining_sec) / step) * 100)))
-    pct_remaining = 100 - pct_elapsed
+def dynamic_leverage(equity_usdt: float, category: str) -> int:
+    if equity_usdt <= 2.00:
+        return 20 if category in ("Crypto", "Meme/Alt") else 10
+    if category == "Forex":
+        return 10
+    if category == "Materie Prime":
+        return 8
+    if category == "Azioni":
+        return 5
+    return 10 if equity_usdt <= 25.00 else 5
 
-    hrs = remaining_sec // 3600
-    mins = (remaining_sec % 3600) // 60
-    secs = remaining_sec % 60
-    countdown = f"{hrs:02d}:{mins:02d}:{secs:02d}" if hrs > 0 else f"{mins:02d}:{secs:02d}"
 
-    close_utc = datetime.fromtimestamp(next_close_ts, tz=timezone.utc).strftime("%H:%M:%S UTC")
-    close_local = datetime.fromtimestamp(next_close_ts).astimezone().strftime("%H:%M:%S")
-
+def candle_timer_info(tf: str) -> dict:
+    interval = tf if tf in TIMEFRAME_SECONDS else "15m"
+    step = TIMEFRAME_SECONDS[interval]
+    now = time.time()
+    rem = max(0, int(step - (now % step)))
+    mins = (rem % 3600) // 60
+    secs = rem % 60
+    pct_valid = max(0, min(100, int((rem / step) * 100)))
+    close_local = datetime.fromtimestamp(math.floor(now / step) * step + step).astimezone().strftime("%H:%M:%S")
+    close_utc = datetime.fromtimestamp(math.floor(now / step) * step + step, tz=timezone.utc).strftime("%H:%M:%S UTC")
     return {
-        "timeframe": tf,
-        "intervalSeconds": step,
-        "candleOpenTs": int(current_open_ts * 1000),
-        "candleCloseTs": int(next_close_ts * 1000),
-        "remainingSeconds": remaining_sec,
-        "remainingText": countdown,
-        "validityPct": pct_remaining,
-        "elapsedPct": pct_elapsed,
-        "closeTimeUtc": close_utc,
-        "closeTimeLocal": close_local,
+        "timeframe": interval,
+        "remainingSec": rem,
+        "remainingText": f"{mins:02d}:{secs:02d}",
+        "validityPct": pct_valid,
+        "closeLocal": close_local,
+        "closeUtc": close_utc,
     }
 
 
@@ -170,290 +165,290 @@ def compute_rsi(closes: list[float], period: int = 14) -> float:
         return 50.0
     gains, losses = [], []
     for i in range(1, len(closes)):
-        diff = closes[i] - closes[i - 1]
-        gains.append(max(0.0, diff))
-        losses.append(max(0.0, -diff))
-
-    avg_gain = sum(gains[:period]) / period
-    avg_loss = sum(losses[:period]) / period
+        d = closes[i] - closes[i - 1]
+        gains.append(max(0.0, d))
+        losses.append(max(0.0, -d))
+    ag = sum(gains[:period]) / period
+    al = sum(losses[:period]) / period
     for i in range(period, len(gains)):
-        avg_gain = (avg_gain * (period - 1) + gains[i]) / period
-        avg_loss = (avg_loss * (period - 1) + losses[i]) / period
-
-    if avg_loss == 0:
-        return 100.0 if avg_gain > 0 else 50.0
-    rs = avg_gain / avg_loss
-    return round(100.0 - (100.0 / (1.0 + rs)), 2)
+        ag = (ag * (period - 1) + gains[i]) / period
+        al = (al * (period - 1) + losses[i]) / period
+    if al == 0:
+        return 100.0 if ag > 0 else 50.0
+    return round(100.0 - (100.0 / (1.0 + ag / al)), 2)
 
 
-def compute_macd(closes: list[float], fast: int, slow: int, signal: int) -> dict:
-    if len(closes) < slow + signal:
+def compute_macd(closes: list[float], fast=12, slow=26, sig=9) -> dict:
+    if len(closes) < slow + sig:
         return {"macd": 0.0, "signal": 0.0, "hist": 0.0, "status": "NEUTRAL"}
-    ema_f = ema_series(closes, fast)
-    ema_s = ema_series(closes, slow)
-    macd_line = [f - s for f, s in zip(ema_f, ema_s)]
-    signal_line = ema_series(macd_line, signal)
-    hist = macd_line[-1] - signal_line[-1]
-
-    if hist > 0 and macd_line[-1] > signal_line[-1]:
-        status = "BULLISH"
-    elif hist < 0 and macd_line[-1] < signal_line[-1]:
-        status = "BEARISH"
-    else:
-        status = "NEUTRAL"
-
-    return {
-        "macd": round(macd_line[-1], 5),
-        "signal": round(signal_line[-1], 5),
-        "hist": round(hist, 5),
-        "status": status,
-    }
+    m_line = [a - b for a, b in zip(ema_series(closes, fast), ema_series(closes, slow))]
+    s_line = ema_series(m_line, sig)
+    hist = m_line[-1] - s_line[-1]
+    status = "BULLISH" if hist > 0 and m_line[-1] > s_line[-1] else ("BEARISH" if hist < 0 and m_line[-1] < s_line[-1] else "NEUTRAL")
+    return {"macd": round(m_line[-1], 5), "signal": round(s_line[-1], 5), "hist": round(hist, 5), "status": status}
 
 
-def compute_atr(highs: list[float], lows: list[float], closes: list[float], period: int = 14) -> float:
+def compute_atr(highs: list[float], lows: list[float], closes: list[float], period=14) -> float:
     if len(closes) < 2 or not (len(highs) == len(lows) == len(closes)):
         return 0.0
-    trs = []
+    trs = [max(highs[i] - lows[i], abs(highs[i] - closes[i - 1]), abs(lows[i] - closes[i - 1])) for i in range(1, len(closes))]
+    w = trs[-period:] if len(trs) >= period else trs
+    return round(sum(w) / len(w), 5) if w else 0.0
+
+
+def compute_adx_approx(highs: list[float], lows: list[float], closes: list[float], period=14) -> float:
+    if len(closes) < period + 2:
+        return 18.0
+    plus_dm, minus_dm, tr_list = [], [], []
     for i in range(1, len(closes)):
-        tr = max(
-            highs[i] - lows[i],
-            abs(highs[i] - closes[i - 1]),
-            abs(lows[i] - closes[i - 1]),
-        )
-        trs.append(tr)
-    window = trs[-period:] if len(trs) >= period else trs
-    return round(sum(window) / len(window), 5) if window else 0.0
+        up = highs[i] - highs[i - 1]
+        dn = lows[i - 1] - lows[i]
+        plus_dm.append(up if (up > dn and up > 0) else 0.0)
+        minus_dm.append(dn if (dn > up and dn > 0) else 0.0)
+        tr_list.append(max(highs[i] - lows[i], abs(highs[i] - closes[i - 1]), abs(lows[i] - closes[i - 1])))
+    atr_v = sum(tr_list[-period:]) / period or 1e-9
+    p_di = 100.0 * (sum(plus_dm[-period:]) / period) / atr_v
+    m_di = 100.0 * (sum(minus_dm[-period:]) / period) / atr_v
+    dx = 100.0 * abs(p_di - m_di) / max(p_di + m_di, 1e-9)
+    return round(dx, 2)
 
 
-def detect_anti_fake_filters(
-    opens: list[float],
-    highs: list[float],
-    lows: list[float],
-    closes: list[float],
-    volumes: list[float],
-    atr: float,
-    cfg: dict,
-) -> dict:
-    if not cfg.get("anti_fake_enabled", True):
-        return {
-            "enabled": False,
-            "fakeBreakout": "NONE",
-            "isFalseSignal": False,
-            "penaltyScore": 0.0,
-            "reasons": [],
-        }
-
-    lookback = max(5, int(cfg.get("fakeout_lookback", 20)))
-    atr_mult = float(cfg.get("atr_spike_mult", 2.5))
-    wick_limit = float(cfg.get("wick_ratio_limit", 0.55))
-    vol_mult = float(cfg.get("min_breakout_vol_mult", 0.70))
-
-    n = len(closes)
-    if n < lookback + 2 or not (len(opens) == len(highs) == len(lows) == n):
-        return {
-            "enabled": True,
-            "fakeBreakout": "NONE",
-            "isFalseSignal": False,
-            "penaltyScore": 0.0,
-            "reasons": [],
-        }
-
-    reasons: list[str] = []
-    penalty = 0.0
-    fake_breakout = "NONE"
-
-    prev_high = max(highs[-(lookback + 1):-1])
-    prev_low = min(lows[-(lookback + 1):-1])
-
-    o_last, h_last, l_last, c_last = opens[-1], highs[-1], lows[-1], closes[-1]
-    candle_range = max(0.0, h_last - l_last)
-    upper_wick = max(0.0, h_last - max(o_last, c_last))
-    lower_wick = max(0.0, min(o_last, c_last) - l_last)
-
-    if h_last > prev_high and c_last < prev_high:
-        fake_breakout = "BULL_TRAP"
-        penalty += 35.0
-        reasons.append(f"Falsa rottura rialzista (max {prev_high}, chiusura {c_last})")
-    elif l_last < prev_low and c_last > prev_low:
-        fake_breakout = "BEAR_TRAP"
-        penalty += 35.0
-        reasons.append(f"Falsa rottura ribassista (min {prev_low}, chiusura {c_last})")
-
-    if candle_range > 0:
-        if upper_wick / candle_range > wick_limit and c_last < o_last:
-            penalty += 20.0
-            reasons.append("Shadow superiore dominante (possibile fakeout/rifiuto)")
-        if lower_wick / candle_range > wick_limit and c_last > o_last:
-            penalty += 20.0
-            reasons.append("Shadow inferiore dominante (possibile sweep)")
-
-    if atr > 0 and candle_range > atr * atr_mult:
-        penalty += 25.0
-        reasons.append(f"Spike/range anomalo ({round(candle_range, 5)} > {atr_mult}x ATR)")
-
-    if len(volumes) >= lookback + 1:
-        avg_vol = sum(volumes[-(lookback + 1):-1]) / lookback
-        if avg_vol > 0 and (h_last > prev_high or l_last < prev_low) and volumes[-1] < avg_vol * vol_mult:
-            penalty += 15.0
-            reasons.append(f"Rottura con volume debole (< {vol_mult}x media)")
-
-    is_false_signal = fake_breakout != "NONE" or penalty >= 35.0
-    return {
-        "enabled": True,
-        "fakeBreakout": fake_breakout,
-        "isFalseSignal": is_false_signal,
-        "penaltyScore": round(min(100.0, penalty), 1),
-        "reasons": reasons,
-    }
+def compute_zscore(closes: list[float], period=20) -> float:
+    if len(closes) < period:
+        return 0.0
+    w = closes[-period:]
+    mean = sum(w) / period
+    var = sum((x - mean) ** 2 for x in w) / period
+    std = math.sqrt(var)
+    if std == 0:
+        return 0.0
+    return round((closes[-1] - mean) / std, 2)
 
 
-def fetch_klines(symbol: str, interval: str, limit: int = 120):
-    resp = requests.get(
+def fetch_klines(symbol: str, interval: str, limit=120):
+    r = requests.get(
         f"{BINGX_BASE_URL}/openApi/swap/v2/quote/klines",
         params={"symbol": symbol, "interval": interval, "limit": limit},
         timeout=8,
     )
-    resp.raise_for_status()
-    rows = resp.json().get("data", [])
-    opens, highs, lows, closes, volumes = [], [], [], [], []
-    for r in rows:
-        if isinstance(r, dict):
-            opens.append(float(r.get("open", 0.0)))
-            highs.append(float(r.get("high", 0.0)))
-            lows.append(float(r.get("low", 0.0)))
-            closes.append(float(r.get("close", 0.0)))
-            volumes.append(float(r.get("volume", 0.0)))
-        elif isinstance(r, (list, tuple)) and len(r) >= 6:
-            opens.append(float(r[1]))
-            highs.append(float(r[2]))
-            lows.append(float(r[3]))
-            closes.append(float(r[4]))
-            volumes.append(float(r[5]))
+    r.raise_for_status()
+    rows = r.json().get("data", [])
+    opens, highs, lows, closes, vols = [], [], [], [], []
+    for row in rows:
+        if isinstance(row, dict):
+            opens.append(float(row.get("open", 0.0)))
+            highs.append(float(row.get("high", 0.0)))
+            lows.append(float(row.get("low", 0.0)))
+            closes.append(float(row.get("close", 0.0)))
+            vols.append(float(row.get("volume", 0.0)))
+        elif isinstance(row, (list, tuple)) and len(row) >= 6:
+            opens.append(float(row[1]))
+            highs.append(float(row[2]))
+            lows.append(float(row[3]))
+            closes.append(float(row[4]))
+            vols.append(float(row[5]))
     last_price = closes[-1] if closes else 0.0
-    return last_price, opens, highs, lows, closes, volumes
+    return last_price, opens, highs, lows, closes, vols
 
 
-def analyze_symbol(symbol: str, timeframe: str) -> dict:
-    meta = ASSET_CATALOG.get(symbol, {
-        "label": symbol.replace("-", ""),
-        "category": "Crypto",
-        "price_decimals": 4,
-        "win_rate": 72,
-    })
-    close_meta = candle_close_info(timeframe)
+def evaluate_filters(opens, highs, lows, closes, vols, atr, spread_ratio=0.0):
+    reasons = []
+    penalty = 0.0
+    fakeout_type = "NONE"
+    lookback = max(5, int(CFG.get("fakeout_lookback", 20)))
+    n = len(closes)
 
-    last_price, opens, highs, lows, closes, volumes = 0.0, [], [], [], [], []
+    if n >= lookback + 2:
+        prev_hi = max(highs[-(lookback + 1):-1])
+        prev_lo = min(lows[-(lookback + 1):-1])
+        o_l, h_l, l_l, c_l = opens[-1], highs[-1], lows[-1], closes[-1]
+        rng = max(0.0, h_l - l_l)
+        up_wick = max(0.0, h_l - max(o_l, c_l))
+        dn_wick = max(0.0, min(o_l, c_l) - l_l)
+
+        if CFG.get("block_false_signals", True):
+            if h_l > prev_hi and c_l < prev_hi:
+                fakeout_type = "BULL_TRAP"
+                penalty += 35.0
+                reasons.append("Falsa rottura rialzista (bull trap)")
+            elif l_l < prev_lo and c_l > prev_lo:
+                fakeout_type = "BEAR_TRAP"
+                penalty += 35.0
+                reasons.append("Falsa rottura ribassista (bear trap)")
+
+            if rng > 0:
+                w_lim = float(CFG.get("wick_ratio_limit", 0.55))
+                if up_wick / rng > w_lim and c_l < o_l:
+                    penalty += 20.0
+                    reasons.append("Shadow superiore dominante (possibile rifiuto)")
+                if dn_wick / rng > w_lim and c_l > o_l:
+                    penalty += 20.0
+                    reasons.append("Shadow inferiore dominante (possibile sweep)")
+
+        if CFG.get("anti_breakout_enabled", True):
+            atr_mult = float(CFG.get("atr_spike_mult", 2.5))
+            if atr > 0 and rng > atr * atr_mult:
+                penalty += 25.0
+                reasons.append(f"Spike anomalo > {atr_mult}x ATR")
+            if spread_ratio > 0.0015:
+                penalty += 15.0
+                reasons.append("Spread elevato / tenuta debole")
+            if len(vols) >= lookback + 1:
+                avg_v = sum(vols[-(lookback + 1):-1]) / lookback
+                if avg_v > 0 and (h_l > prev_hi or l_l < prev_lo) and vols[-1] < avg_v * 0.70:
+                    penalty += 15.0
+                    reasons.append("Rottura con volume debole")
+
+    is_false = (fakeout_type != "NONE") or (penalty >= 35.0)
+    return {
+        "fakeBreakout": fakeout_type,
+        "isFalseSignal": is_false,
+        "penalty": round(min(100.0, penalty), 1),
+        "reasons": reasons,
+    }
+
+
+def analyze_market(symbol: str, tf: str) -> dict:
+    sym = normalize_symbol(symbol)
+    meta = ASSET_CATALOG.get(sym, {"label": sym, "category": "Crypto", "decimals": 2, "wr": 72})
+    dec = meta["decimals"]
+    timer = candle_timer_info(tf)
+
+    price, opens, highs, lows, closes, vols = 0.0, [], [], [], [], []
+    change_24h_pct = 0.0
     try:
-        last_price, opens, highs, lows, closes, volumes = fetch_klines(symbol, timeframe, limit=120)
+        price, opens, highs, lows, closes, vols = fetch_klines(sym, tf, 210)
+        t_resp = requests.get(f"{BINGX_BASE_URL}/openApi/swap/v2/quote/ticker", params={"symbol": sym}, timeout=6)
+        if t_resp.ok:
+            tdata = t_resp.json().get("data", {})
+            price = float(tdata.get("lastPrice", price) or price)
+            change_24h_pct = float(tdata.get("priceChangePercent", "0").replace("%", "") or 0.0)
     except Exception:
         pass
 
-    rsi_val = compute_rsi(closes, RUNTIME_CONFIG["rsi_period"])
-    macd_info = compute_macd(
-        closes,
-        RUNTIME_CONFIG["macd_fast"],
-        RUNTIME_CONFIG["macd_slow"],
-        RUNTIME_CONFIG["macd_signal"],
-    )
-    atr_val = compute_atr(highs, lows, closes, RUNTIME_CONFIG["atr_period"])
-    ema_f_val = ema_series(closes, RUNTIME_CONFIG["ema_fast"])[-1] if closes else 0.0
-    ema_s_val = ema_series(closes, RUNTIME_CONFIG["ema_slow"])[-1] if closes else 0.0
+    rsi_v = compute_rsi(closes, 14)
+    macd_d = compute_macd(closes, 12, 26, 9)
+    atr_v = compute_atr(highs, lows, closes, 14)
+    adx_v = compute_adx_approx(highs, lows, closes, 14)
+    z_v = compute_zscore(closes, 20)
 
-    if rsi_val <= RUNTIME_CONFIG["rsi_oversold"]:
-        rsi_score = 75.0
-    elif rsi_val >= RUNTIME_CONFIG["rsi_overbought"]:
-        rsi_score = -75.0
+    ema9 = ema_series(closes, 9)[-1] if closes else 0.0
+    ema21 = ema_series(closes, 21)[-1] if closes else 0.0
+    ema50 = ema_series(closes, 50)[-1] if closes else 0.0
+    ema200 = ema_series(closes, 200)[-1] if closes else 0.0
+
+    filt = evaluate_filters(opens, highs, lows, closes, vols, atr_v)
+
+    dir_pts = 0.0
+    if macd_d["status"] == "BULLISH":
+        dir_pts += 35.0
+    elif macd_d["status"] == "BEARISH":
+        dir_pts -= 35.0
+
+    if ema9 > ema21:
+        dir_pts += 30.0
+    elif ema9 < ema21:
+        dir_pts -= 30.0
+
+    if rsi_v > 52:
+        dir_pts += min(25.0, (rsi_v - 50.0) * 1.1)
+    elif rsi_v < 48:
+        dir_pts -= min(25.0, (50.0 - rsi_v) * 1.1)
+
+    if adx_v >= 20:
+        dir_pts += 10.0 if dir_pts >= 0 else -10.0
+
+    signed_score = round(max(-100.0, min(100.0, dir_pts - (filt["penalty"] if dir_pts > 0 else -filt["penalty"]))), 1)
+    abs_score = round(max(0.0, min(100.0, abs(dir_pts) - filt["penalty"])), 1)
+    threshold = float(CFG.get("score_threshold", 60.0))
+    certain_min = float(CFG.get("certain_min_pct", 70.0))
+
+    if abs_score < threshold:
+        side = "NEUTRAL"
     else:
-        rsi_score = (rsi_val - 50.0) * 1.5
+        side = "BUY" if dir_pts > 0 else "SELL"
 
-    macd_score = 70.0 if macd_info["status"] == "BULLISH" else (-70.0 if macd_info["status"] == "BEARISH" else 0.0)
-    ema_score = 65.0 if ema_f_val > ema_s_val else (-65.0 if ema_f_val < ema_s_val else 0.0)
+    reliability_pct = int(max(35, min(98, round(45 + abs_score * 0.5))))
+    is_certain_signal = (side in ("BUY", "SELL")) and (not filt["isFalseSignal"]) and (reliability_pct >= certain_min) and (price > 0)
 
-    raw_signed_score = (
-        rsi_score * RUNTIME_CONFIG["w_rsi"]
-        + macd_score * RUNTIME_CONFIG["w_macd"]
-        + ema_score * RUNTIME_CONFIG["w_ema"]
-    )
-    raw_abs_score = min(100.0, abs(raw_signed_score))
-
-    anti_fake = detect_anti_fake_filters(opens, highs, lows, closes, volumes, atr_val, RUNTIME_CONFIG)
-    final_score = round(max(0.0, raw_abs_score - anti_fake["penaltyScore"]), 1)
-    min_score = float(RUNTIME_CONFIG["min_signal_score"])
-    certain_min = float(RUNTIME_CONFIG["certain_lock_min_score"])
-
-    if anti_fake["isFalseSignal"] or final_score < min_score:
-        signal_side = "NEUTRAL"
+    # Decisione esplicita ENTRARE o NON ENTRARE + MOTIVO
+    if filt["isFalseSignal"]:
+        entry_decision = "NON ENTRARE"
+        entry_reason = " / ".join(filt["reasons"]) or "Filtro anti-falsi segnali / falsa rottura attivo"
+    elif side == "NEUTRAL" or abs_score < threshold:
+        entry_decision = "NON ENTRARE"
+        entry_reason = f"Score {abs_score} sotto soglia {threshold} o mercato in attesa/laterale"
+    elif reliability_pct < certain_min:
+        entry_decision = "NON ENTRARE"
+        entry_reason = f"Affidabilità {reliability_pct}% inferiore alla soglia segnale certo ({certain_min}%)"
     else:
-        signal_side = "BUY" if raw_signed_score > 0 else "SELL"
+        entry_decision = "ENTRA"
+        entry_reason = f"Confluenza {side} validata (Score {abs_score}, Affidabilità {reliability_pct}%, ADX {adx_v})"
 
-    # Calcolo livelli SL e TP basati su ATR
-    decimals = meta["price_decimals"]
-    sl_dist = atr_val * float(RUNTIME_CONFIG["sl_atr_mult"]) if atr_val > 0 else last_price * 0.005
-    tp_dist = sl_dist * float(RUNTIME_CONFIG["tp_rr_mult"])
-
-    if signal_side == "BUY" and last_price > 0:
-        sl_price = round(max(0.0, last_price - sl_dist), decimals)
-        tp_price = round(last_price + tp_dist, decimals)
-    elif signal_side == "SELL" and last_price > 0:
-        sl_price = round(last_price + sl_dist, decimals)
-        tp_price = round(max(0.0, last_price - tp_dist), decimals)
+    sl_dist = atr_v * 1.5 if atr_v > 0 else price * 0.005
+    if side == "BUY" and price > 0:
+        sl_p = round(max(0.0, price - sl_dist), dec)
+        tp1 = round(price + sl_dist * 1.0, dec)
+        tp2 = round(price + sl_dist * 1.8, dec)
+        tp3 = round(price + sl_dist * 2.5, dec)
+        tp4 = round(price + sl_dist * 3.5, dec)
+    elif side == "SELL" and price > 0:
+        sl_p = round(price + sl_dist, dec)
+        tp1 = round(max(0.0, price - sl_dist * 1.0), dec)
+        tp2 = round(max(0.0, price - sl_dist * 1.8), dec)
+        tp3 = round(max(0.0, price - sl_dist * 2.5), dec)
+        tp4 = round(max(0.0, price - sl_dist * 3.5), dec)
     else:
-        sl_price = None
-        tp_price = None
+        sl_p = tp1 = tp2 = tp3 = tp4 = None
 
-    is_certain = (
-        signal_side in ("BUY", "SELL")
-        and not anti_fake["isFalseSignal"]
-        and final_score >= certain_min
-        and last_price > 0
-    )
-
-    whale_pct = int(max(10, min(90, round(50 + raw_signed_score * 0.4))))
-    bear_pct = 100 - whale_pct
-    trend_health = int(max(10, min(100, round(50 + abs(ema_f_val - ema_s_val) / max(last_price, 1e-9) * 10000))))
-
-    high_risk = anti_fake["isFalseSignal"] or final_score < min_score or meta["category"] in ("Materie prime", "Azioni")
-    if anti_fake["reasons"]:
-        risk_reason = " | ".join(anti_fake["reasons"])
-    elif final_score < min_score:
-        risk_reason = f"Score {final_score} sotto soglia ({min_score})"
-    else:
-        risk_reason = f"Confluenza attiva su {meta['category']} (ATR {atr_val})"
+    vol_last = vols[-1] if vols else 0.0
+    vol_avg = (sum(vols[-20:]) / len(vols[-20:])) if vols else 1.0
+    vol_ratio = round(vol_last / max(vol_avg, 1e-9), 2)
 
     return {
-        "symbol": symbol,
+        "symbol": sym,
         "label": meta["label"],
         "category": meta["category"],
-        "priceDecimals": decimals,
-        "lastPrice": last_price,
-        "signalSide": signal_side,
-        "signalScore": final_score,
-        "rawScore": round(raw_abs_score, 1),
-        "minSignalScore": min_score,
-        "certainMinScore": certain_min,
-        "isCertainSignal": is_certain,
-        "suggestedEntry": round(last_price, decimals) if last_price > 0 else None,
-        "suggestedSL": sl_price,
-        "suggestedTP": tp_price,
-        "winRate": meta["win_rate"],
-        "trendHealth": trend_health,
-        "whalePct": whale_pct,
-        "bearPct": bear_pct,
-        "indicators": {
-            "rsi": rsi_val,
-            "rsiPeriod": RUNTIME_CONFIG["rsi_period"],
-            "macd": macd_info["macd"],
-            "macdSignal": macd_info["signal"],
-            "macdHist": macd_info["hist"],
-            "macdStatus": macd_info["status"],
-            "emaFast": round(ema_f_val, decimals),
-            "emaSlow": round(ema_s_val, decimals),
-            "atr": atr_val,
+        "decimals": dec,
+        "winRate": meta["wr"],
+        "price": round(price, dec),
+        "change24hPct": round(change_24h_pct, 2),
+        "side": side,
+        "signedScore": signed_score,
+        "absScore": abs_score,
+        "scoreThreshold": threshold,
+        "reliabilityPct": reliability_pct,
+        "certainMinPct": certain_min,
+        "isCertainSignal": is_certain_signal,
+        "entryDecision": entry_decision,
+        "entryReason": entry_reason,
+        "setupStatus": "MERCATO LATERALE / FILTRI ATTIVI" if side == "NEUTRAL" else f"SETUP {side} ATTIVO",
+        "tp1": tp1,
+        "tp2": tp2,
+        "tp3": tp3,
+        "tp4": tp4,
+        "suggestedSL": sl_p,
+        "suggestedTP": tp2,
+        "fundingRate": "0.0047%",
+        "equityUsdt": float(CFG.get("equity_usdt", 1.44)),
+        "leverage": dynamic_leverage(float(CFG.get("equity_usdt", 1.44)), meta["category"]),
+        "brain": {
+            "trendIndex": f"{'+' if signed_score >= 0 else ''}{round(signed_score / 100 * 1.2, 2)}R",
+            "rrWin": f"1.85R / {reliability_pct}%",
+            "adx": adx_v,
+            "zScore": z_v,
+            "ema9": round(ema9, dec),
+            "ema21": round(ema21, dec),
+            "ema50": round(ema50, dec),
+            "ema200": round(ema200, dec),
+            "rsi": rsi_v,
+            "macdStatus": macd_d["status"],
+            "macd": macd_d["macd"],
+            "atr": atr_v,
+            "volRatio": vol_ratio,
         },
-        "antiFake": anti_fake,
-        "highRiskWarning": high_risk,
-        "riskReason": risk_reason,
-        **close_meta,
+        "filters": filt,
+        **timer,
     }
 
 
@@ -464,28 +459,20 @@ def sign_query(params: dict, secret: str) -> str:
     return f"{qs}&signature={sig}"
 
 
-def bingx_signed_request(method: str, path: str, params: dict | None = None) -> dict:
+def bingx_signed_req(method: str, path: str, params: dict | None = None) -> dict:
+    api_k = CFG.get("api_key", "").strip()
+    sec_k = CFG.get("secret_key", "").strip()
+    if not api_k or not sec_k:
+        raise ValueError("API Key o Secret Key BingX non configurate.")
     payload = dict(params or {})
     payload["timestamp"] = int(time.time() * 1000)
     payload["recvWindow"] = 5000
-    signed_qs = sign_query(payload, SECRET_KEY)
-    headers = {"X-BX-APIKEY": API_KEY}
+    signed_qs = sign_query(payload, sec_k)
+    headers = {"X-BX-APIKEY": api_k}
     url = f"{BINGX_BASE_URL}{path}?{signed_qs}"
     r = requests.get(url, headers=headers, timeout=10) if method.upper() == "GET" else requests.post(url, headers=headers, timeout=10)
     r.raise_for_status()
     return r.json()
-
-
-def dynamic_leverage(equity_usdt: float, category: str) -> int:
-    if equity_usdt <= 2.00:
-        return 20 if category == "Crypto" else 10
-    if category == "Forex":
-        return 10
-    if category == "Materie prime":
-        return 8
-    if category == "Azioni":
-        return 5
-    return 10 if equity_usdt <= 25.00 else 5
 
 
 @app.route("/")
@@ -493,187 +480,251 @@ def index():
     return render_template("index.html")
 
 
-@app.route("/api/catalog")
-def get_catalog():
-    grouped = {}
-    for sym, meta in ASSET_CATALOG.items():
-        cat = meta["category"]
-        grouped.setdefault(cat, []).append({
-            "symbol": sym,
-            "label": meta["label"],
-            "category": cat,
-            "priceDecimals": meta["price_decimals"],
-        })
-    return jsonify({"categories": list(grouped.keys()), "grouped": grouped})
+@app.route("/api/desk-state")
+def desk_state():
+    sym = normalize_symbol(request.args.get("symbol", "BTC-USDT"))
+    tf = request.args.get("timeframe", "15m")
+    cat = request.args.get("category", "Materie Prime")
 
-
-@app.route("/api/monitor-category")
-def monitor_category():
-    category = request.args.get("category", "Crypto")
-    timeframe = request.args.get("timeframe", "15m")
-    if timeframe not in TIMEFRAME_SECONDS:
-        timeframe = "15m"
-
-    symbols = [s for s, m in ASSET_CATALOG.items() if m["category"].lower() == category.lower()]
-    if not symbols:
-        symbols = ["BTC-USDT"]
-
-    items = []
-    for sym in symbols:
-        a = analyze_symbol(sym, timeframe)
-        items.append({
+    market = analyze_market(sym, tf)
+    cat_symbols = [s for s, m in ASSET_CATALOG.items() if cat == "Tutti" or m["category"].lower() == cat.lower()]
+    scanner = []
+    for s in cat_symbols[:8]:
+        a = analyze_market(s, tf)
+        scanner.append({
             "symbol": a["symbol"],
-            "label": a["label"],
             "category": a["category"],
-            "lastPrice": a["lastPrice"],
-            "priceDecimals": a["priceDecimals"],
-            "signalSide": a["signalSide"],
-            "signalScore": a["signalScore"],
+            "price": a["price"],
+            "decimals": a["decimals"],
+            "change24hPct": a["change24hPct"],
+            "side": a["side"],
             "isCertainSignal": a["isCertainSignal"],
-            "isFalseSignal": a["antiFake"]["isFalseSignal"],
-            "remainingText": a["remainingText"],
         })
-    return jsonify({"category": category, "timeframe": timeframe, "items": items})
 
+    # Order book live
+    bids, asks, mid_p = [], [], market["price"]
+    try:
+        ob = requests.get(f"{BINGX_BASE_URL}/openApi/swap/v2/quote/depth", params={"symbol": sym, "limit": 10}, timeout=6)
+        if ob.ok:
+            d = ob.json().get("data", {})
+            bids = [[float(x[0]), float(x[1])] for x in (d.get("bids") or [])[:8]]
+            asks = [[float(x[0]), float(x[1])] for x in (d.get("asks") or [])[:8]]
+            if bids and asks:
+                mid_p = round((bids[0][0] + asks[0][0]) / 2.0, market["decimals"])
+    except Exception:
+        pass
 
-@app.route("/api/locked-signals", methods=["GET", "POST", "DELETE"])
-def locked_signals():
-    global LOCKED_SIGNALS
-    if request.method == "POST":
-        body = request.get_json(force=True) or {}
-        symbol = normalize_symbol(body.get("symbol", "BTC-USDT"))
-        timeframe = body.get("timeframe", "15m")
-        analysis = analyze_symbol(symbol, timeframe)
+    # Posizioni aperte & income reali (se API impostate)
+    positions = []
+    income_rows = []
+    api_connected = bool(CFG.get("api_key") and CFG.get("secret_key"))
+    if api_connected:
+        try:
+            pr = bingx_signed_req("GET", "/openApi/swap/v2/user/positions", {"symbol": sym})
+            for p in (pr.get("data") or []):
+                amt = float(p.get("positionAmt", 0.0))
+                if abs(amt) > 0:
+                    entry = float(p.get("avgPrice", 0.0))
+                    upnl = float(p.get("unrealizedProfit", 0.0))
+                    pnl_pct = ((market["price"] - entry) / entry * 100.0) if entry > 0 else 0.0
+                    if amt < 0:
+                        pnl_pct = -pnl_pct
+                    positions.append({
+                        "symbol": p.get("symbol", sym),
+                        "side": "LONG" if amt > 0 else "SHORT",
+                        "size": abs(amt),
+                        "entry": round(entry, market["decimals"]),
+                        "pnl": round(upnl, 4),
+                        "pnlPct": round(pnl_pct, 2),
+                    })
+        except Exception:
+            pass
+        try:
+            ir = bingx_signed_req("GET", "/openApi/swap/v2/user/income", {"symbol": sym, "limit": 20})
+            for item in (ir.get("data") or [])[:12]:
+                income_rows.append({
+                    "type": item.get("incomeType", "REALIZED_PNL"),
+                    "symbol": item.get("symbol", sym),
+                    "income": float(item.get("income", 0.0)),
+                })
+        except Exception:
+            pass
 
-        if not analysis["isCertainSignal"] and not bool(body.get("forceLock", False)):
-            return jsonify({
-                "status": "rejected",
-                "reason": (
-                    f"Segnale non certo: lato={analysis['signalSide']}, "
-                    f"score={analysis['signalScore']}/{analysis['certainMinScore']}, "
-                    f"falseSignal={analysis['antiFake']['isFalseSignal']}"
-                ),
-            }), 200
-
-        record = {
-            "id": f"{symbol}_{timeframe}_{int(time.time())}",
-            "symbol": symbol,
-            "label": analysis["label"],
-            "category": analysis["category"],
-            "timeframe": timeframe,
-            "side": analysis["signalSide"] if analysis["signalSide"] in ("BUY", "SELL") else "BUY",
-            "score": analysis["signalScore"],
-            "entry": analysis["suggestedEntry"],
-            "sl": analysis["suggestedSL"],
-            "tp": analysis["suggestedTP"],
-            "lockedAt": datetime.now().astimezone().strftime("%H:%M:%S"),
-            "candleClose": analysis["closeTimeLocal"],
-            "status": "LOCKED",
-        }
-        LOCKED_SIGNALS.insert(0, record)
-        LOCKED_SIGNALS = LOCKED_SIGNALS[:30]
-        save_json(LOCKS_PATH, LOCKED_SIGNALS)
-        return jsonify({"status": "locked", "signal": record, "all": LOCKED_SIGNALS})
-
-    if request.method == "DELETE":
-        sig_id = request.args.get("id")
-        if sig_id:
-            LOCKED_SIGNALS = [x for x in LOCKED_SIGNALS if x.get("id") != sig_id]
-        else:
-            LOCKED_SIGNALS = []
-        save_json(LOCKS_PATH, LOCKED_SIGNALS)
-        return jsonify({"status": "updated", "all": LOCKED_SIGNALS})
-
-    return jsonify({"all": LOCKED_SIGNALS})
-
-
-@app.route("/api/config", methods=["GET", "POST"])
-def manage_config():
-    if request.method == "POST":
-        data = request.get_json(force=True) or {}
-        int_keys = ("rsi_period", "macd_fast", "macd_slow", "macd_signal", "ema_fast", "ema_slow", "atr_period", "fakeout_lookback")
-        float_keys = ("min_signal_score", "certain_lock_min_score", "rsi_oversold", "rsi_overbought", "sl_atr_mult", "tp_rr_mult", "atr_spike_mult", "wick_ratio_limit", "min_breakout_vol_mult")
-
-        for k in int_keys:
-            if k in data:
-                RUNTIME_CONFIG[k] = int(data[k])
-        for k in float_keys:
-            if k in data:
-                RUNTIME_CONFIG[k] = float(data[k])
-        if "anti_fake_enabled" in data:
-            RUNTIME_CONFIG["anti_fake_enabled"] = bool(data["anti_fake_enabled"])
-
-        RUNTIME_CONFIG["min_signal_score"] = max(0.0, min(100.0, RUNTIME_CONFIG["min_signal_score"]))
-        RUNTIME_CONFIG["certain_lock_min_score"] = max(0.0, min(100.0, RUNTIME_CONFIG["certain_lock_min_score"]))
-        save_json(CONFIG_PATH, RUNTIME_CONFIG)
-    return jsonify(RUNTIME_CONFIG)
-
-
-@app.route("/api/live-ticker")
-def live_ticker():
-    symbol = normalize_symbol(request.args.get("symbol", "BTC-USDT"))
-    timeframe = request.args.get("timeframe", "15m")
-    if timeframe not in TIMEFRAME_SECONDS:
-        timeframe = "15m"
-    return jsonify(analyze_symbol(symbol, timeframe))
-
-
-@app.route("/api/income-history")
-def income_history():
-    symbol = normalize_symbol(request.args.get("symbol", "BTC-USDT"))
-    raw = bingx_signed_request("GET", "/openApi/swap/v2/user/income", {
-        "symbol": symbol,
-        "limit": 100,
-    })
-    records = raw.get("data", []) if isinstance(raw, dict) else []
-    realized_pnl = sum(float(item.get("income", 0.0)) for item in records if item.get("incomeType") == "REALIZED_PNL")
-    fees = sum(float(item.get("income", 0.0)) for item in records if item.get("incomeType") == "TRADING_FEE")
-    funding = sum(float(item.get("income", 0.0)) for item in records if item.get("incomeType") == "FUNDING_FEE")
+    active_lock = LOCKS[0] if LOCKS else None
 
     return jsonify({
-        "symbol": symbol,
-        "count": len(records),
-        "realizedPnl": round(realized_pnl, 4),
-        "tradingFees": round(fees, 4),
-        "fundingFees": round(funding, 4),
-        "netPnl": round(realized_pnl + fees + funding, 4),
+        "apiMasked": mask_api_key(CFG.get("api_key", "")),
+        "apiConnected": api_connected,
+        "lockStatus": "BLOCCATO" if active_lock else "LIBERO",
+        "activeLock": active_lock,
+        "lockedSignals": LOCKS,
+        "mode": CFG.get("mode", "AUTOMATICO"),
+        "autoTrade": bool(CFG.get("auto_trade", True)),
+        "scanMode": CFG.get("scan_mode", "Auto Scan + Blocco Certo"),
+        "soundEnabled": bool(CFG.get("sound_enabled", True)),
+        "voiceItEnabled": bool(CFG.get("voice_it_enabled", True)),
+        "config": {k: v for k, v in CFG.items() if k not in ("api_key", "secret_key")},
+        "market": market,
+        "scanner": scanner,
+        "positions": positions,
+        "logs": ROOM_LOGS,
+        "income": income_rows,
+        "orderBook": {"bids": bids, "asks": asks, "midPrice": mid_p},
     })
 
 
-@app.route("/api/execute-signal", methods=["POST"])
-def execute_signal():
-    body = request.get_json(force=True)
-    symbol = normalize_symbol(body.get("symbol", "BTC-USDT"))
-    timeframe = body.get("timeframe", "15m")
-    equity = float(body.get("equity", 2.0))
-    analysis = analyze_symbol(symbol, timeframe)
+@app.route("/api/settings", methods=["POST"])
+def update_settings():
+    body = request.get_json(force=True) or {}
+    if "api_key" in body and body["api_key"].strip():
+        CFG["api_key"] = body["api_key"].strip()
+    if "secret_key" in body and body["secret_key"].strip():
+        CFG["secret_key"] = body["secret_key"].strip()
 
-    side = analysis["signalSide"]
-    if side not in ("BUY", "SELL"):
-        return jsonify({"status": "skipped", "reason": "Direzione NEUTRAL: nessun ordine inviato."}), 200
-    if analysis["antiFake"]["isFalseSignal"]:
-        return jsonify({"status": "blocked", "reason": "Bloccato dal filtro anti-falsi segnali / falsa rottura."}), 200
-    if analysis["signalScore"] < float(RUNTIME_CONFIG["min_signal_score"]):
-        return jsonify({"status": "blocked", "reason": "Score sotto soglia minima."}), 200
+    for k in ("mode", "scan_mode"):
+        if k in body:
+            CFG[k] = body[k]
+    for k in ("auto_trade", "close_at_candle_end", "block_false_signals", "anti_breakout_enabled", "allow_manual_under_threshold", "sound_enabled", "voice_it_enabled"):
+        if k in body:
+            CFG[k] = bool(body[k])
+    for k in ("score_threshold", "certain_min_pct", "default_qty", "default_leverage", "equity_usdt"):
+        if k in body:
+            CFG[k] = float(body[k])
 
-    meta = ASSET_CATALOG.get(symbol, {"category": "Crypto"})
-    lev = dynamic_leverage(equity, meta["category"])
-    bingx_signed_request("POST", "/openApi/swap/v2/trade/leverage", {
-        "symbol": symbol,
-        "side": "LONG" if side == "BUY" else "SHORT",
-        "leverage": lev,
-    })
+    save_json(CONFIG_PATH, CFG)
 
-    return jsonify({
-        "status": "prepared",
-        "symbol": symbol,
+    api_ok = False
+    msg = "Impostazioni salvate."
+    if body.get("test_api") and CFG.get("api_key") and CFG.get("secret_key"):
+        try:
+            bingx_signed_req("GET", "/openApi/swap/v2/user/balance")
+            api_ok = True
+            msg = "API attive e valide"
+        except Exception as exc:
+            msg = f"Verifica API: {exc}"
+
+    return jsonify({"status": "ok", "apiValid": api_ok, "message": msg, "apiMasked": mask_api_key(CFG.get("api_key", ""))})
+
+
+@app.route("/api/lock-signal", methods=["POST"])
+def lock_signal():
+    global LOCKS
+    body = request.get_json(force=True) or {}
+    action = body.get("action", "lock")
+    if action == "unlock":
+        LOCKS = []
+        save_json(LOCKS_PATH, LOCKS)
+        append_room_log({
+            "time": datetime.now().astimezone().strftime("%H:%M:%S"),
+            "pair": normalize_symbol(body.get("symbol", "BTC-USDT")),
+            "tf": body.get("timeframe", "15m"),
+            "tag": "UNLOCK · LIBERATO",
+            "tpSl": "-/-/-",
+            "outcome": "SEGNALE SBLOCCATO",
+        })
+        return jsonify({"status": "unlocked", "locks": LOCKS})
+
+    sym = normalize_symbol(body.get("symbol", "BTC-USDT"))
+    tf = body.get("timeframe", "15m")
+    a = analyze_market(sym, tf)
+
+    if not a["isCertainSignal"] and not bool(body.get("force", False)):
+        return jsonify({"status": "rejected", "reason": a["entryReason"]}), 200
+
+    side = a["side"] if a["side"] in ("BUY", "SELL") else "SELL"
+    rec = {
+        "id": f"{sym}_{tf}_{int(time.time())}",
+        "symbol": sym,
+        "timeframe": tf,
         "side": side,
-        "signalScore": analysis["signalScore"],
-        "leverage": lev,
-        "entry": analysis["suggestedEntry"],
-        "slPrice": analysis["suggestedSL"],
-        "tpPrice": analysis["suggestedTP"],
+        "reliabilityPct": a["reliabilityPct"],
+        "entry": a["price"],
+        "tp1": a["tp1"],
+        "tp2": a["tp2"],
+        "tp3": a["tp3"],
+        "sl": a["suggestedSL"],
+        "lockedAt": datetime.now().astimezone().strftime("%H:%M:%S"),
+    }
+    LOCKS.insert(0, rec)
+    LOCKS = LOCKS[:25]
+    save_json(LOCKS_PATH, LOCKS)
+
+    append_room_log({
+        "time": rec["lockedAt"],
+        "pair": sym,
+        "tf": tf,
+        "tag": f"{side} · BLOCCATO · {a['reliabilityPct']}% SEGNALE CERTO {'LONG' if side == 'BUY' else 'SHORT'}",
+        "tpSl": f"{a['tp1']} / {a['tp2']} / {a['suggestedSL']}",
+        "outcome": "SEGNALE BLOCCATO",
     })
+    return jsonify({"status": "locked", "lock": rec, "locks": LOCKS})
+
+
+@app.route("/api/trade-action", methods=["POST"])
+def trade_action():
+    body = request.get_json(force=True) or {}
+    act = body.get("action", "buy")
+    sym = normalize_symbol(body.get("symbol", "BTC-USDT"))
+    tf = body.get("timeframe", "15m")
+    a = analyze_market(sym, tf)
+
+    if act == "close_all":
+        executed_live = False
+        if CFG.get("api_key") and CFG.get("secret_key"):
+            try:
+                bingx_signed_req("POST", "/openApi/swap/v2/trade/closeAllPositions")
+                executed_live = True
+            except Exception:
+                pass
+        append_room_log({
+            "time": datetime.now().astimezone().strftime("%H:%M:%S"),
+            "pair": sym,
+            "tf": tf,
+            "tag": "CLOSE_ALL · CHIUSURA POSIZIONI",
+            "tpSl": "-/-/-",
+            "outcome": "APERTO SU BINGX" if executed_live else "REGISTRATO IN SALA",
+        })
+        return jsonify({"status": "ok", "live": executed_live})
+
+    side = "BUY" if act == "buy" else "SELL"
+    if a["filters"]["isFalseSignal"] and not CFG.get("allow_manual_under_threshold", False):
+        return jsonify({"status": "blocked", "reason": a["entryReason"]}), 200
+    if a["reliabilityPct"] < float(CFG.get("certain_min_pct", 70.0)) and not CFG.get("allow_manual_under_threshold", False):
+        return jsonify({"status": "blocked", "reason": a["entryReason"]}), 200
+
+    qty = float(body.get("qty", CFG.get("default_qty", 0.0005)))
+    lev = int(body.get("leverage", a["leverage"]))
+    tp_val = body.get("tp", a["tp2"])
+    sl_val = body.get("sl", a["suggestedSL"])
+
+    live_sent = False
+    if CFG.get("api_key") and CFG.get("secret_key"):
+        try:
+            bingx_signed_req("POST", "/openApi/swap/v2/trade/leverage", {
+                "symbol": sym,
+                "side": "LONG" if side == "BUY" else "SHORT",
+                "leverage": lev,
+            })
+            bingx_signed_req("POST", "/openApi/swap/v2/trade/order", {
+                "symbol": sym,
+                "side": side,
+                "positionSide": "LONG" if side == "BUY" else "SHORT",
+                "type": "MARKET",
+                "quantity": qty,
+            })
+            live_sent = True
+        except Exception:
+            pass
+
+    append_room_log({
+        "time": datetime.now().astimezone().strftime("%H:%M:%S"),
+        "pair": sym,
+        "tf": tf,
+        "tag": f"{side} · {a['reliabilityPct']}% · {'LONG' if side == 'BUY' else 'SHORT'}",
+        "tpSl": f"{tp_val} / {sl_val}",
+        "outcome": "APERTO SU BINGX" if live_sent else "SEGNALE INVIATO",
+    })
+    return jsonify({"status": "ok", "liveSent": live_sent, "side": side, "tp": tp_val, "sl": sl_val})
 
 
 if __name__ == "__main__":
