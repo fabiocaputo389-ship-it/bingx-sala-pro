@@ -2,819 +2,635 @@
 <html lang="it">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>BingX VIP Institutional Terminal</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BINGX ELITE SIGNAL ROOM — Quantitative Institutional Terminal</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
   <style>
-    :root {
-      --bg: #070a0f;
-      --panel: #0e131d;
-      --panel-2: #141b29;
-      --border: #1f2a3d;
-      --text: #e6edf7;
-      --muted: #7f91ad;
-      --green: #00e676;
-      --green-soft: rgba(0, 230, 118, 0.14);
-      --red: #ff3b5c;
-      --red-soft: rgba(255, 59, 92, 0.14);
-      --gold: #f5b041;
-      --blue: #38bdf8;
-    }
-    * { box-sizing: border-box; margin: 0; padding: 0; touch-action: manipulation; }
     body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace;
-      font-size: 12px;
-      padding: 10px;
+      background-color: #F4F7FA;
+      color: #0F172A;
+      font-family: 'Inter', sans-serif;
     }
-    .topbar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 8px;
-      background: var(--panel);
-      border: 1px solid var(--border);
-      padding: 10px 14px;
-      border-radius: 10px;
-      margin-bottom: 10px;
+    .mono { font-family: 'JetBrains Mono', monospace; }
+    .card-white {
+      background: #FFFFFF;
+      border: 1px solid #E2E8F0;
+      box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.05);
+      border-radius: 14px;
     }
-    .brand-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-    .brand { font-size: 15px; font-weight: 800; letter-spacing: 0.6px; color: var(--gold); }
-    .pill {
-      padding: 3px 8px;
-      border-radius: 999px;
-      font-size: 10px;
-      font-weight: 700;
-      border: 1px solid var(--border);
+    .gauge-needle {
+      transition: transform 0.65s cubic-bezier(0.22, 1, 0.36, 1);
+      transform-origin: 100px 100px;
     }
-    .pill-live { background: var(--green-soft); color: var(--green); border-color: rgba(0,230,118,0.3); }
-    .pill-warn { background: rgba(245,176,65,0.14); color: var(--gold); border-color: rgba(245,176,65,0.35); }
-    .pill-danger { background: var(--red-soft); color: var(--red); border-color: rgba(255,59,92,0.35); }
-    .pill-timer { background: rgba(56,189,248,0.14); color: var(--blue); border-color: rgba(56,189,248,0.35); }
-    .toolbar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-    select, input, button {
-      background: var(--panel-2);
-      color: var(--text);
-      border: 1px solid var(--border);
-      padding: 6px 10px;
-      border-radius: 6px;
-      font-size: 12px;
-      font-weight: 600;
+    .tab-active {
+      background-color: #0F172A;
+      color: #FFFFFF;
+      border-color: #0F172A;
     }
-    button { cursor: pointer; transition: 0.15s ease; }
-    button:hover { border-color: var(--blue); }
-    .btn-buy { background: var(--green-soft); color: var(--green); border-color: rgba(0,230,118,0.4); }
-    .btn-sell { background: var(--red-soft); color: var(--red); border-color: rgba(255,59,92,0.4); }
-    .btn-gold { background: rgba(245,176,65,0.16); color: var(--gold); border-color: rgba(245,176,65,0.45); }
-
-    .kpi-strip {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(135px, 1fr));
-      gap: 8px;
-      margin-bottom: 10px;
-    }
-    .kpi {
-      background: var(--panel);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 10px 12px;
-    }
-    .kpi-title { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px; }
-    .kpi-value { font-size: 16px; font-weight: 800; margin-top: 4px; }
-
-    .pro-grid {
-      display: grid;
-      grid-template-columns: 1.65fr 1fr;
-      gap: 10px;
-      margin-bottom: 10px;
-    }
-    @media (max-width: 900px) {
-      .pro-grid { grid-template-columns: 1fr; }
-    }
-    .card {
-      background: var(--panel);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 12px;
-      margin-bottom: 10px;
-    }
-    .card-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 6px;
-      margin-bottom: 10px;
-      padding-bottom: 8px;
-      border-bottom: 1px solid var(--border);
-    }
-    .card-title { font-weight: 700; font-size: 13px; color: var(--text); }
-    canvas { width: 100%; height: 185px; background: #090d14; border-radius: 8px; border: 1px solid #182234; }
-
-    .metrics-grid {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 6px;
-      margin-top: 8px;
-    }
-    @media (max-width: 600px) {
-      .metrics-grid { grid-template-columns: repeat(2, 1fr); }
-    }
-    .mini-box {
-      background: var(--panel-2);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 6px 8px;
-    }
-    .mini-lbl { color: var(--muted); font-size: 10px; }
-    .mini-val { font-weight: 700; margin-top: 2px; }
-
-    .alert-banner {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-      margin-top: 8px;
-    }
-    @media (max-width: 600px) {
-      .alert-banner { grid-template-columns: 1fr; }
-    }
-    .alert-entry {
-      background: var(--green-soft);
-      border: 1px solid rgba(0,230,118,0.35);
-      color: var(--green);
-      padding: 7px 9px;
-      border-radius: 6px;
-      font-weight: 700;
-      font-size: 11px;
-    }
-    .alert-blocked {
-      background: rgba(245,176,65,0.12);
-      border: 1px solid rgba(245,176,65,0.4);
-      color: var(--gold);
-      padding: 7px 9px;
-      border-radius: 6px;
-      font-weight: 700;
-      font-size: 11px;
-    }
-    .alert-exit {
-      background: var(--red-soft);
-      border: 1px solid rgba(255,59,92,0.35);
-      color: var(--red);
-      padding: 7px 9px;
-      border-radius: 6px;
-      font-weight: 700;
-      font-size: 11px;
-    }
-
-    .ticket-row {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-      margin-bottom: 8px;
-    }
-    .ticket-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
-    .pos-up { color: var(--green); }
-    .pos-dn { color: var(--red); }
-
-    .room-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 8px;
-    }
-    .room-card {
-      background: var(--panel-2);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 10px;
-    }
-    .room-top {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 6px;
-    }
-    .room-levels {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 4px;
-      font-size: 11px;
-      margin-bottom: 6px;
-    }
-    .room-adv {
-      font-size: 10px;
-      line-height: 1.45;
-      background: #0d121c;
-      border: 1px solid #1b2538;
-      border-radius: 6px;
-      padding: 6px;
-      margin-bottom: 6px;
-    }
-    .room-foot {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 10px;
-      color: var(--muted);
-      border-top: 1px solid #1d283b;
-      padding-top: 6px;
-    }
-
-    .table-wrap {
-      background: var(--panel);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      overflow-x: auto;
-      margin-bottom: 10px;
-    }
-    table { width: 100%; border-collapse: collapse; min-width: 1220px; }
-    th, td { padding: 9px 10px; text-align: left; border-bottom: 1px solid #172030; white-space: nowrap; }
-    th {
-      background: #0b0f17;
-      color: var(--muted);
-      font-size: 10px;
-      text-transform: uppercase;
-      cursor: pointer;
-      user-select: none;
-    }
-    tbody tr:hover { background: rgba(56, 189, 248, 0.06); cursor: pointer; }
-    tbody tr.selected-row { background: rgba(245, 176, 65, 0.1); }
-    .sig-badge {
-      padding: 3px 7px;
-      border-radius: 4px;
-      font-size: 10px;
-      font-weight: 800;
-    }
-    .sig-buy { background: var(--green-soft); color: var(--green); }
-    .sig-sell { background: var(--red-soft); color: var(--red); }
-    .sig-neu { background: rgba(127,145,173,0.14); color: var(--muted); }
-    .bar-bg { width: 58px; height: 6px; background: #1c2638; border-radius: 3px; overflow: hidden; display: inline-block; vertical-align: middle; margin-right: 4px; }
-    .bar-fill { height: 100%; }
-    .toast {
-      position: fixed;
-      bottom: 14px;
-      right: 14px;
-      background: var(--panel-2);
-      border: 1px solid var(--gold);
-      color: var(--text);
-      padding: 10px 14px;
-      border-radius: 8px;
-      font-weight: 600;
-      display: none;
-      z-index: 99;
-    }
+    input[type="number"]::-webkit-inner-spin-button { opacity: 1; }
   </style>
 </head>
-<body>
+<body class="antialiased">
 
-  <div class="topbar">
-    <div class="brand-row">
-      <span class="brand">BINGX VIP PRO TERMINAL</span>
-      <span id="api-badge" class="pill pill-warn">SYNCING...</span>
-      <span id="candle-timer-pill" class="pill pill-timer">CANDLE 5m · 00:00</span>
-      <span id="last-sync" style="color:var(--muted);font-size:11px;">--:--:--</span>
-    </div>
-    <div class="toolbar">
-      <label style="color:var(--gold);font-size:11px;font-weight:700;">Min Score:</label>
-      <input id="min-score-input" type="number" min="10" max="95" step="5" value="65" style="width:68px;" />
-      <button class="btn-gold" onclick="applyMinScore()">SET SCORE</button>
-      <input id="search-input" type="text" placeholder="Filtra coppia..." style="width:125px;" />
-      <select id="filter-sig">
-        <option value="ALL">Tutti</option>
-        <option value="CERTIFIED">Solo Entrata Certa</option>
-        <option value="NOFAKE">Anti-Fakeout OK</option>
-        <option value="STRONG">Solo STRONG</option>
-        <option value="BUY">Solo BUY</option>
-        <option value="SELL">Solo SELL</option>
-      </select>
-      <select id="vip-tf">
-        <option value="1m">1m Candle</option>
-        <option value="5m" selected>5m Candle</option>
-        <option value="15m">15m Candle</option>
-        <option value="1h">1h Candle</option>
-        <option value="4h">4h Candle</option>
-      </select>
-      <button id="btn-sound" class="btn-gold" onclick="toggleSound()">ALERT: ON</button>
-      <button onclick="refreshVipScanner()">REFRESH</button>
-    </div>
-  </div>
-
-  <div class="kpi-strip">
-    <div class="kpi">
-      <div class="kpi-title">Available Balance</div>
-      <div class="kpi-value" id="kpi-bal">0.00 USDT</div>
-    </div>
-    <div class="kpi">
-      <div class="kpi-title">Unrealized PnL</div>
-      <div class="kpi-value" id="kpi-upnl">0.0000</div>
-    </div>
-    <div class="kpi">
-      <div class="kpi-title">24h Realized PnL</div>
-      <div class="kpi-value" id="kpi-rpnl">0.0000</div>
-    </div>
-    <div class="kpi">
-      <div class="kpi-title">Dynamic Leverage</div>
-      <div class="kpi-value" style="color:var(--gold);" id="kpi-lev">20x</div>
-    </div>
-    <div class="kpi">
-      <div class="kpi-title">Score Soglia Attivo</div>
-      <div class="kpi-value" style="color:var(--gold);" id="kpi-minscore">65.0</div>
-    </div>
-    <div class="kpi">
-      <div class="kpi-title">Candle Timer</div>
-      <div class="kpi-value" style="color:var(--blue);" id="kpi-timer">00:00</div>
-    </div>
-  </div>
-
-  <div class="pro-grid">
-    <div class="card" style="margin-bottom:0;">
-      <div class="card-header">
-        <span class="card-title" id="chart-title">LIVE PRICE & LEVELS — BTC-USDT</span>
-        <div>
-          <span id="chart-cert" class="pill pill-live" style="margin-right:6px;">CERTAINTY 0%</span>
-          <span id="chart-signal" class="sig-badge sig-neu">NEUTRAL</span>
-        </div>
-      </div>
-      <canvas id="price-canvas" width="700" height="185"></canvas>
-      <div class="alert-banner">
-        <div class="alert-entry" id="adv-entry">ENTRATA: IN ATTESA</div>
-        <div class="alert-exit" id="adv-exit">USCITA: IN ATTESA</div>
-      </div>
-      <div class="metrics-grid">
-        <div class="mini-box"><div class="mini-lbl">EMA 9 / 21 / 55</div><div class="mini-val" id="m-emas" style="font-size:10px;">-</div></div>
-        <div class="mini-box"><div class="mini-lbl">Score / Trend</div><div class="mini-val" id="m-trend">-</div></div>
-        <div class="mini-box"><div class="mini-lbl">Anti-Fakeout</div><div class="mini-val" id="m-fakeout" style="font-size:10px;">-</div></div>
-        <div class="mini-box"><div class="mini-lbl">ATR / R:R</div><div class="mini-val" id="m-rr">-</div></div>
-      </div>
-    </div>
-
-    <div class="card" style="margin-bottom:0;">
-      <div class="card-header">
-        <span class="card-title">EXECUTION TICKET & POSITIONS</span>
-        <span id="ticket-sym" style="color:var(--gold);font-weight:700;">BTC-USDT</span>
-      </div>
-      <div class="ticket-row">
-        <div>
-          <label style="color:var(--muted);font-size:10px;">Margin (USDT)</label>
-          <input id="t-margin" type="number" step="0.05" value="0.25" style="width:100%;margin-top:3px;" />
+  <!-- TOP INSTITUTIONAL BAR -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-40">
+    <div class="max-w-[1600px] mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center font-extrabold text-lg tracking-tighter">
+          BX
         </div>
         <div>
-          <label style="color:var(--muted);font-size:10px;">Leverage</label>
-          <input id="t-lev" type="number" min="1" max="125" value="20" style="width:100%;margin-top:3px;" />
+          <div class="flex items-center gap-2">
+            <h1 class="font-extrabold text-slate-900 text-base md:text-lg tracking-tight">BINGX ELITE QUANT SIGNAL ROOM</h1>
+            <span class="px-2 py-0.5 text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full flex items-center gap-1">
+              <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> LIVE BINGX SWAP V2
+            </span>
+          </div>
+          <p class="text-xs text-slate-500">Motore Matematico Multi-Fattore • EMA 9/21/50/200 • ADX • Z-Score • R² • Orderbook Sentiment</p>
         </div>
       </div>
-      <div class="ticket-row">
-        <div>
-          <label style="color:var(--muted);font-size:10px;">Take Profit</label>
-          <input id="t-tp" type="number" step="any" placeholder="Auto TP" style="width:100%;margin-top:3px;" />
+
+      <div class="flex flex-wrap items-center gap-2">
+        <select id="timeframeSelect" onchange="refreshActiveSymbol()" class="bg-slate-50 border border-slate-300 text-slate-900 text-xs font-bold rounded-lg px-3 py-2 focus:outline-none">
+          <option value="1m">1m (Scalping HFT)</option>
+          <option value="5m">5m (Intraday Fast)</option>
+          <option value="15m" selected>15m (Istituzionale)</option>
+          <option value="1h">1H (Swing Trend)</option>
+          <option value="4h">4H (Macro Trend)</option>
+        </select>
+
+        <button onclick="scanVisibleCategory()" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-4 py-2 rounded-lg shadow-sm transition">
+          ⚡ SCANSIONA CATEGORIA LIVE
+        </button>
+        <button onclick="loadAllMarkets()" class="bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold px-3 py-2 rounded-lg border border-slate-300 transition">
+          ↻ Aggiorna Mercati BingX
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-[1600px] mx-auto px-4 py-6 space-y-6">
+
+    <!-- SEZIONE 1: TACHIMETRI PROFESSIONALI & SCHEDA SEGNALE ESATTO -->
+    <div class="grid grid-cols-1 xl:grid-cols-12 gap-6">
+
+      <!-- 6 TACHIMETRI DI PRECISIONE (8 COLONNE) -->
+      <div class="xl:col-span-8 card-white p-5">
+        <div class="flex flex-wrap items-center justify-between gap-2 pb-4 mb-4 border-b border-slate-100">
+          <div>
+            <span class="text-[11px] font-bold uppercase tracking-wider text-blue-600">Telemetria Quantitativa in Tempo Reale</span>
+            <h2 class="text-xl font-extrabold text-slate-900 flex items-center gap-2">
+              <span id="activeSymbolTitle">BTC-USDT</span>
+              <span id="activePriceBadge" class="mono text-base font-bold px-2.5 py-0.5 rounded-md bg-slate-100 text-slate-800">--</span>
+            </h2>
+          </div>
+          <div id="signalMasterBadge" class="px-4 py-1.5 rounded-lg font-extrabold text-sm tracking-wide bg-slate-100 text-slate-700 border border-slate-200">
+            IN ATTESA DI ANALISI
+          </div>
         </div>
-        <div>
-          <label style="color:var(--muted);font-size:10px;">Stop Loss</label>
-          <input id="t-sl" type="number" step="any" placeholder="Auto SL" style="width:100%;margin-top:3px;" />
+
+        <!-- GRIGLIA 6 TACHIMETRI SVG -->
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+          <!-- Tachimetro 1: Certezza Matematica -->
+          <div class="bg-slate-50/70 border border-slate-200/80 rounded-xl p-3 flex flex-col items-center">
+            <span class="text-[11px] font-bold text-slate-500 uppercase">Certezza Matematica</span>
+            <svg viewBox="0 0 200 120" class="w-40 h-24">
+              <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#E2E8F0" stroke-width="14" stroke-linecap="round"/>
+              <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="url(#gradConf)" stroke-width="14" stroke-linecap="round" stroke-dasharray="251" stroke-dashoffset="0"/>
+              <defs>
+                <linearGradient id="gradConf" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stop-color="#EF4444"/><stop offset="50%" stop-color="#F59E0B"/><stop offset="100%" stop-color="#10B981"/>
+                </linearGradient>
+              </defs>
+              <line id="needleConf" class="gauge-needle" x1="100" y1="100" x2="100" y2="30" stroke="#0F172A" stroke-width="3.5" stroke-linecap="round" style="transform: rotate(-90deg)"/>
+              <circle cx="100" cy="100" r="6" fill="#0F172A"/>
+            </svg>
+            <span id="valConf" class="mono text-lg font-extrabold text-slate-900 -mt-2">0.0%</span>
+            <span class="text-[10px] text-slate-400">R² + ADX + Coerenza</span>
+          </div>
+
+          <!-- Tachimetro 2: Alpha Composite Score -->
+          <div class="bg-slate-50/70 border border-slate-200/80 rounded-xl p-3 flex flex-col items-center">
+            <span class="text-[11px] font-bold text-slate-500 uppercase">Alpha Score (-100/+100)</span>
+            <svg viewBox="0 0 200 120" class="w-40 h-24">
+              <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="url(#gradAlpha)" stroke-width="14" stroke-linecap="round"/>
+              <defs>
+                <linearGradient id="gradAlpha" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stop-color="#DC2626"/><stop offset="50%" stop-color="#94A3B8"/><stop offset="100%" stop-color="#059669"/>
+                </linearGradient>
+              </defs>
+              <line id="needleScore" class="gauge-needle" x1="100" y1="100" x2="100" y2="30" stroke="#0F172A" stroke-width="3.5" stroke-linecap="round" style="transform: rotate(0deg)"/>
+              <circle cx="100" cy="100" r="6" fill="#0F172A"/>
+            </svg>
+            <span id="valScore" class="mono text-lg font-extrabold text-slate-900 -mt-2">0.0</span>
+            <span class="text-[10px] text-slate-400">Direzione Netta</span>
+          </div>
+
+          <!-- Tachimetro 3: RSI (14) -->
+          <div class="bg-slate-50/70 border border-slate-200/80 rounded-xl p-3 flex flex-col items-center">
+            <span class="text-[11px] font-bold text-slate-500 uppercase">RSI (14) Wilder</span>
+            <svg viewBox="0 0 200 120" class="w-40 h-24">
+              <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#CBD5E1" stroke-width="14" stroke-linecap="round"/>
+              <line id="needleRsi" class="gauge-needle" x1="100" y1="100" x2="100" y2="30" stroke="#2563EB" stroke-width="3.5" stroke-linecap="round" style="transform: rotate(0deg)"/>
+              <circle cx="100" cy="100" r="6" fill="#2563EB"/>
+            </svg>
+            <span id="valRsi" class="mono text-lg font-extrabold text-blue-700 -mt-2">50.0</span>
+            <span class="text-[10px] text-slate-400">OS &lt;30 | OB &gt;70</span>
+          </div>
+
+          <!-- Tachimetro 4: ADX Forza Trend -->
+          <div class="bg-slate-50/70 border border-slate-200/80 rounded-xl p-3 flex flex-col items-center">
+            <span class="text-[11px] font-bold text-slate-500 uppercase">ADX (14) Forza Trend</span>
+            <svg viewBox="0 0 200 120" class="w-40 h-24">
+              <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#CBD5E1" stroke-width="14" stroke-linecap="round"/>
+              <line id="needleAdx" class="gauge-needle" x1="100" y1="100" x2="100" y2="30" stroke="#7C3AED" stroke-width="3.5" stroke-linecap="round" style="transform: rotate(-45deg)"/>
+              <circle cx="100" cy="100" r="6" fill="#7C3AED"/>
+            </svg>
+            <span id="valAdx" class="mono text-lg font-extrabold text-purple-700 -mt-2">0.0</span>
+            <span class="text-[10px] text-slate-400">&gt;25 Trend Istituzionale</span>
+          </div>
+
+          <!-- Tachimetro 5: Sentiment Orderbook -->
+          <div class="bg-slate-50/70 border border-slate-200/80 rounded-xl p-3 flex flex-col items-center">
+            <span class="text-[11px] font-bold text-slate-500 uppercase">Sentiment Live</span>
+            <svg viewBox="0 0 200 120" class="w-40 h-24">
+              <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="url(#gradAlpha)" stroke-width="14" stroke-linecap="round"/>
+              <line id="needleSent" class="gauge-needle" x1="100" y1="100" x2="100" y2="30" stroke="#0F172A" stroke-width="3.5" stroke-linecap="round" style="transform: rotate(0deg)"/>
+              <circle cx="100" cy="100" r="6" fill="#0F172A"/>
+            </svg>
+            <span id="valSent" class="mono text-lg font-extrabold text-slate-900 -mt-2">0.0</span>
+            <span class="text-[10px] text-slate-400">Bid/Ask Imbalance</span>
+          </div>
+
+          <!-- Tachimetro 6: Z-Score & Bollinger %B -->
+          <div class="bg-slate-50/70 border border-slate-200/80 rounded-xl p-3 flex flex-col items-center">
+            <span class="text-[11px] font-bold text-slate-500 uppercase">Z-Score Statistico</span>
+            <svg viewBox="0 0 200 120" class="w-40 h-24">
+              <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#CBD5E1" stroke-width="14" stroke-linecap="round"/>
+              <line id="needleZ" class="gauge-needle" x1="100" y1="100" x2="100" y2="30" stroke="#D97706" stroke-width="3.5" stroke-linecap="round" style="transform: rotate(0deg)"/>
+              <circle cx="100" cy="100" r="6" fill="#D97706"/>
+            </svg>
+            <span id="valZ" class="mono text-lg font-extrabold text-amber-700 -mt-2">0.00σ</span>
+            <span id="valR2Sub" class="text-[10px] text-slate-400">R²: 0.000 | BB: 50%</span>
+          </div>
+        </div>
+
+        <!-- BARRA PARAMETRI EMA & INDICATORI COMPLETI -->
+        <div class="mt-4 pt-4 border-t border-slate-100 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2 text-center">
+          <div class="bg-slate-50 p-2 rounded-lg border border-slate-200/60">
+            <div class="text-[10px] font-bold text-slate-400">EMA 9</div>
+            <div id="indEma9" class="mono text-xs font-bold text-slate-800">--</div>
+          </div>
+          <div class="bg-slate-50 p-2 rounded-lg border border-slate-200/60">
+            <div class="text-[10px] font-bold text-slate-400">EMA 21</div>
+            <div id="indEma21" class="mono text-xs font-bold text-slate-800">--</div>
+          </div>
+          <div class="bg-slate-50 p-2 rounded-lg border border-slate-200/60">
+            <div class="text-[10px] font-bold text-slate-400">EMA 50</div>
+            <div id="indEma50" class="mono text-xs font-bold text-slate-800">--</div>
+          </div>
+          <div class="bg-slate-50 p-2 rounded-lg border border-slate-200/60">
+            <div class="text-[10px] font-bold text-slate-400">EMA 200</div>
+            <div id="indEma200" class="mono text-xs font-bold text-slate-800">--</div>
+          </div>
+          <div class="bg-slate-50 p-2 rounded-lg border border-slate-200/60">
+            <div class="text-[10px] font-bold text-slate-400">MACD HIST</div>
+            <div id="indMacd" class="mono text-xs font-bold text-slate-800">--</div>
+          </div>
+          <div class="bg-slate-50 p-2 rounded-lg border border-slate-200/60">
+            <div class="text-[10px] font-bold text-slate-400">ATR (14)</div>
+            <div id="indAtr" class="mono text-xs font-bold text-slate-800">--</div>
+          </div>
+          <div class="bg-slate-50 p-2 rounded-lg border border-slate-200/60">
+            <div class="text-[10px] font-bold text-slate-400">FUNDING</div>
+            <div id="indFunding" class="mono text-xs font-bold text-slate-800">--</div>
+          </div>
+          <div class="bg-slate-50 p-2 rounded-lg border border-slate-200/60">
+            <div class="text-[10px] font-bold text-slate-400">R² LIN.</div>
+            <div id="indR2" class="mono text-xs font-bold text-slate-800">--</div>
+          </div>
         </div>
       </div>
-      <div style="margin-bottom:6px;">
-        <label style="display:flex;align-items:center;gap:6px;font-size:10px;color:var(--muted);cursor:pointer;">
-          <input id="t-force" type="checkbox" /> Consenti ordine manuale anche se Score &lt; Soglia / Fakeout
-        </label>
-      </div>
-      <div class="ticket-actions">
-        <button class="btn-buy" onclick="sendOrder('BUY')">LONG / BUY</button>
-        <button class="btn-sell" onclick="sendOrder('SELL')">SHORT / SELL</button>
-      </div>
-      <div id="pos-list" style="margin-top:10px;font-size:11px;color:var(--muted);">Nessuna posizione aperta.</div>
-    </div>
-  </div>
 
-  <div class="card" style="margin-top:10px;">
-    <div class="card-header">
-      <span class="card-title">VIP SIGNAL ROOM — SOLO SEGNALI CERTI &amp; ANTI-FAKEOUT</span>
-      <span id="room-count" class="pill pill-live">0 CERTIFIED</span>
-    </div>
-    <div id="signal-room-grid" class="room-grid">
-      <div style="color:var(--muted);">In attesa di segnali certi con score sopra soglia e senza false rotture...</div>
-    </div>
-  </div>
+      <!-- SEGNALE OPERATIVO ESATTO + CALIBRAZIONE CERVELLO MATEMATICO (4 COLONNE) -->
+      <div class="xl:col-span-4 space-y-6">
+        <!-- Scheda Livelli Esatti & Esecuzione BingX -->
+        <div class="card-white p-5">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="font-extrabold text-slate-900 text-sm uppercase tracking-wider">🎯 Segnale Matematico Esatto</h3>
+            <span id="rrBadge" class="mono text-xs font-bold px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">R:R 1:2.3</span>
+          </div>
 
-  <div class="table-wrap">
-    <table>
-      <thead>
-        <tr>
-          <th onclick="sortBy('symbol')">Pair</th>
-          <th onclick="sortBy('timeframe')">TF</th>
-          <th onclick="sortBy('price')">Price</th>
-          <th onclick="sortBy('signal')">Signal</th>
-          <th onclick="sortBy('score')">Score</th>
-          <th onclick="sortBy('certainty_pct')">Certezza</th>
-          <th onclick="sortBy('ema9')">EMA 9/21/55</th>
-          <th onclick="sortBy('rsi')">RSI</th>
-          <th onclick="sortBy('z_score')">Z-Score</th>
-          <th onclick="sortBy('obi')">OBI %</th>
-          <th>Anti-Fakeout</th>
-          <th>Avviso Entrata</th>
-          <th>Avviso Uscita</th>
-        </tr>
-      </thead>
-      <tbody id="vip-tbody"></tbody>
-    </table>
-  </div>
-
-  <div id="toast" class="toast"></div>
-
-  <script>
-    const TF_SEC = { "1m": 60, "5m": 300, "15m": 900, "1h": 3600, "4h": 14400 };
-    const savedScore = parseFloat(localStorage.getItem("vip_min_score") || "65");
-    let currentMinScore = isNaN(savedScore) ? 65 : savedScore;
-    document.getElementById("min-score-input").value = currentMinScore;
-
-    let allSignals = [];
-    let selectedSymbol = "BTC-USDT";
-    let sortKey = "certainty_pct";
-    let sortAsc = false;
-    let soundOn = true;
-    let seenStrong = new Set();
-
-    function formatClock(sec) {
-      const s = Math.max(0, Math.floor(sec));
-      const h = Math.floor(s / 3600);
-      const m = Math.floor((s % 3600) / 60);
-      const r = s % 60;
-      if (h > 0) {
-        return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(r).padStart(2,"0")}`;
-      }
-      return `${String(m).padStart(2,"0")}:${String(r).padStart(2,"0")}`;
-    }
-
-    function tickCandleTimer() {
-      const tf = document.getElementById("vip-tf").value;
-      const period = TF_SEC[tf] || 300;
-      const nowSec = Math.floor(Date.now() / 1000);
-      const rem = period - (nowSec % period);
-      const clock = formatClock(rem);
-      document.getElementById("kpi-timer").textContent = clock;
-      document.getElementById("candle-timer-pill").textContent = `CANDLE ${tf} · ${clock}`;
-    }
-
-    function applyMinScore() {
-      const val = parseFloat(document.getElementById("min-score-input").value);
-      if (isNaN(val) || val < 10 || val > 95) {
-        showToast("Inserisci un Score tra 10 e 95");
-        return;
-      }
-      currentMinScore = val;
-      localStorage.setItem("vip_min_score", String(val));
-      document.getElementById("kpi-minscore").textContent = val.toFixed(1);
-      showToast(`Score minimo impostato su ${val.toFixed(1)}`);
-      refreshVipScanner();
-    }
-
-    function showToast(msg) {
-      const el = document.getElementById("toast");
-      el.textContent = msg;
-      el.style.display = "block";
-      clearTimeout(window._toastTimer);
-      window._toastTimer = setTimeout(() => { el.style.display = "none"; }, 3500);
-    }
-
-    function toggleSound() {
-      soundOn = !soundOn;
-      document.getElementById("btn-sound").textContent = `ALERT: ${soundOn ? "ON" : "OFF"}`;
-    }
-
-    function beep(freq = 880) {
-      if (!soundOn) return;
-      try {
-        const ctx = new (window.AudioContext || window.webkitAudioContext)();
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = "sine";
-        osc.frequency.value = freq;
-        gain.gain.value = 0.06;
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.start();
-        setTimeout(() => { osc.stop(); ctx.close(); }, 180);
-      } catch (_) {}
-    }
-
-    function sortBy(key) {
-      if (sortKey === key) sortAsc = !sortAsc;
-      else { sortKey = key; sortAsc = false; }
-      renderTable();
-    }
-
-    function selectPair(sym, autofillLevels = true) {
-      selectedSymbol = sym;
-      document.getElementById("ticket-sym").textContent = sym;
-      const row = allSignals.find(r => r.symbol === sym);
-      if (!row) return;
-
-      document.getElementById("chart-title").textContent = `LIVE PRICE & LEVELS — ${row.symbol} (${row.timeframe}) $${row.price}`;
-      document.getElementById("chart-cert").textContent = `CERTAINTY ${row.certainty_pct}%`;
-
-      const badge = document.getElementById("chart-signal");
-      badge.textContent = row.signal;
-      badge.className = "sig-badge " + (row.signal.includes("BUY") ? "sig-buy" : (row.signal.includes("SELL") ? "sig-sell" : "sig-neu"));
-
-      const advEntryEl = document.getElementById("adv-entry");
-      advEntryEl.textContent = `ENTRATA: ${row.entry_alert}`;
-      advEntryEl.className = row.can_enter ? "alert-entry" : "alert-blocked";
-
-      document.getElementById("adv-exit").textContent = `USCITA: ${row.exit_alert}`;
-
-      document.getElementById("m-emas").textContent = `${row.ema9} / ${row.ema21} / ${row.ema55}`;
-      document.getElementById("m-trend").textContent = `${row.score} (${row.trend})`;
-      const fakeEl = document.getElementById("m-fakeout");
-      fakeEl.textContent = row.fakeout_summary;
-      fakeEl.className = `mini-val ${row.is_fakeout ? "pos-dn" : "pos-up"}`;
-      document.getElementById("m-rr").textContent = `${row.atr} / ${row.rr > 0 ? "1:" + row.rr : "-"}`;
-
-      if (autofillLevels && row.can_enter && row.tp > 0 && row.sl > 0) {
-        document.getElementById("t-tp").value = row.tp;
-        document.getElementById("t-sl").value = row.sl;
-      }
-      drawChart(row);
-      renderTable();
-    }
-
-    function loadSignalToTicket(sym, bxSide, lev, tp3, sl) {
-      selectPair(sym, false);
-      document.getElementById("t-lev").value = lev;
-      if (tp3 > 0) document.getElementById("t-tp").value = tp3;
-      if (sl > 0) document.getElementById("t-sl").value = sl;
-      showToast(`Segnale certificato ${sym} (${bxSide}) caricato nel Ticket`);
-    }
-
-    function drawChart(row) {
-      const canvas = document.getElementById("price-canvas");
-      const ctx = canvas.getContext("2d");
-      const w = canvas.width, h = canvas.height;
-      ctx.clearRect(0, 0, w, h);
-
-      const pts = row.sparkline || [];
-      if (pts.length < 2) return;
-
-      const levels = pts.slice();
-      if (row.tp > 0) levels.push(row.tp);
-      if (row.sl > 0) levels.push(row.sl);
-      const minV = Math.min(...levels);
-      const maxV = Math.max(...levels);
-      const span = (maxV - minV) || 1e-6;
-
-      const yOf = v => h - 18 - ((v - minV) / span) * (h - 36);
-
-      ctx.strokeStyle = "#172030";
-      ctx.lineWidth = 1;
-      for (let i = 1; i <= 3; i++) {
-        const gy = (h / 4) * i;
-        ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(w, gy); ctx.stroke();
-      }
-
-      if (row.tp > 0) {
-        const ytp = yOf(row.tp);
-        ctx.strokeStyle = "#00e676"; ctx.setLineDash([5, 4]);
-        ctx.beginPath(); ctx.moveTo(0, ytp); ctx.lineTo(w, ytp); ctx.stroke();
-        ctx.fillStyle = "#00e676"; ctx.font = "10px monospace";
-        ctx.fillText(`TP ${row.tp}`, 8, ytp - 4);
-      }
-      if (row.sl > 0) {
-        const ysl = yOf(row.sl);
-        ctx.strokeStyle = "#ff3b5c"; ctx.setLineDash([5, 4]);
-        ctx.beginPath(); ctx.moveTo(0, ysl); ctx.lineTo(w, ysl); ctx.stroke();
-        ctx.fillStyle = "#ff3b5c"; ctx.font = "10px monospace";
-        ctx.fillText(`SL ${row.sl}`, 8, ysl + 12);
-      }
-      ctx.setLineDash([]);
-
-      ctx.strokeStyle = "#38bdf8";
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      pts.forEach((val, idx) => {
-        const x = (idx / (pts.length - 1)) * (w - 20) + 10;
-        const y = yOf(val);
-        if (idx === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      });
-      ctx.stroke();
-    }
-
-    function renderSignalRoom(roomList) {
-      const grid = document.getElementById("signal-room-grid");
-      document.getElementById("room-count").textContent = `${(roomList || []).length} CERTIFIED`;
-      if (!roomList || !roomList.length) {
-        grid.innerHTML = `<div style="color:var(--muted);">Nessun segnale certificato al momento (Score &ge; ${currentMinScore} e zero false rotture).</div>`;
-        return;
-      }
-
-      const nowSec = Math.floor(Date.now() / 1000);
-      grid.innerHTML = roomList.slice(0, 8).map(item => {
-        const isLong = item.side === "LONG";
-        const dirCol = isLong ? "pos-up" : "pos-dn";
-        const stCol = item.status.includes("TP") ? "pos-up" : (item.status.includes("SL") ? "pos-dn" : "pill-live");
-        const remCandle = item.candle_close_ts ? formatClock(item.candle_close_ts - nowSec) : "--:--";
-        return `
-          <div class="room-card">
-            <div class="room-top">
-              <div>
-                <strong style="font-size:13px;">${item.symbol}</strong>
-                <span class="${dirCol}" style="font-weight:800;margin-left:6px;">${item.signal} (${item.leverage}x)</span>
-                <span class="pill pill-timer" style="margin-left:4px;">${item.tf} · ${remCandle}</span>
-              </div>
-              <span class="pill ${stCol}">${item.status}</span>
+          <div class="space-y-2 text-sm">
+            <div class="flex justify-between items-center p-2.5 rounded-lg bg-slate-50 border border-slate-200">
+              <span class="font-semibold text-slate-600">ENTRY PRICE (MARKET/LIMIT)</span>
+              <span id="lvlEntry" class="mono font-extrabold text-slate-900">--</span>
             </div>
-            <div style="font-size:10px;color:var(--muted);margin-bottom:6px;">
-              Score: <strong style="color:var(--gold);">${item.score}</strong> · Certezza: <strong>${item.certainty_pct}%</strong> · ${item.fakeout_summary}
+            <div class="flex justify-between items-center p-2.5 rounded-lg bg-red-50/70 border border-red-200">
+              <span class="font-semibold text-red-700">STOP LOSS (1.5x ATR)</span>
+              <span id="lvlSl" class="mono font-extrabold text-red-700">--</span>
             </div>
-            <div class="room-levels">
-              <div><span style="color:var(--muted);">Entry:</span> <strong>${item.entry}</strong></div>
-              <div><span style="color:var(--muted);">SL:</span> <strong class="pos-dn">${item.sl}</strong></div>
-              <div><span style="color:var(--muted);">R:R:</span> <strong>1:${item.rr}</strong></div>
-              <div><span style="color:var(--muted);">TP1:</span> <strong class="pos-up">${item.tp1}</strong></div>
-              <div><span style="color:var(--muted);">TP2:</span> <strong class="pos-up">${item.tp2}</strong></div>
-              <div><span style="color:var(--muted);">TP3:</span> <strong class="pos-up">${item.tp3}</strong></div>
+            <div class="flex justify-between items-center p-2 rounded-lg bg-emerald-50/60 border border-emerald-200">
+              <span class="font-semibold text-emerald-700">TAKE PROFIT 1 (Conservativo)</span>
+              <span id="lvlTp1" class="mono font-bold text-emerald-700">--</span>
             </div>
-            <div class="room-adv">
-              <div class="pos-up"><strong>ENTRATA:</strong> ${item.entry_advice}</div>
-              <div class="pos-dn"><strong>USCITA:</strong> ${item.exit_advice}</div>
+            <div class="flex justify-between items-center p-2 rounded-lg bg-emerald-50/90 border border-emerald-300">
+              <span class="font-semibold text-emerald-800">TAKE PROFIT 2 (Target Core)</span>
+              <span id="lvlTp2" class="mono font-extrabold text-emerald-800">--</span>
             </div>
-            <div class="room-foot">
-              <span>${item.time} · Risk ${item.risk_pct}%</span>
-              <button class="${isLong ? "btn-buy" : "btn-sell"}" style="padding:4px 8px;font-size:10px;"
-                onclick="loadSignalToTicket('${item.symbol}','${item.bx_side}',${item.leverage},${item.tp3},${item.sl})">
-                LOAD ${item.side}
-              </button>
+            <div class="flex justify-between items-center p-2 rounded-lg bg-emerald-100/70 border border-emerald-400">
+              <span class="font-semibold text-emerald-900">TAKE PROFIT 3 (Runner)</span>
+              <span id="lvlTp3" class="mono font-extrabold text-emerald-900">--</span>
             </div>
           </div>
-        `;
-      }).join("");
+
+          <!-- Esecuzione Diretta Reale BingX -->
+          <div class="mt-4 pt-3 border-t border-slate-100 flex items-center gap-2">
+            <input id="orderQty" type="number" step="any" placeholder="Quantità (es. 0.01)" class="w-1/2 bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs mono font-bold" />
+            <button onclick="executeBingXOrder()" class="w-1/2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-extrabold py-2.5 px-3 rounded-lg transition">
+              ESEGUI SU BINGX
+            </button>
+          </div>
+        </div>
+
+        <!-- Calibrazione Pesi Cervello Matematico -->
+        <div class="card-white p-5">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="font-extrabold text-slate-900 text-sm uppercase tracking-wider">🧠 Cervello Matematico (Pesi)</h3>
+            <button onclick="saveBrainWeights()" class="text-xs font-bold text-blue-600 hover:underline">Applica Pesi</button>
+          </div>
+          <div class="space-y-2.5 text-xs">
+            <div>
+              <div class="flex justify-between font-semibold text-slate-600"><span>Sistema EMA (9/21/50/200)</span><span id="lblWema" class="mono">30%</span></div>
+              <input id="wEma" type="range" min="0" max="100" value="30" oninput="document.getElementById('lblWema').innerText=this.value+'%'" class="w-full accent-slate-900">
+            </div>
+            <div>
+              <div class="flex justify-between font-semibold text-slate-600"><span>Momentum (RSI + MACD + ADX)</span><span id="lblWmom" class="mono">25%</span></div>
+              <input id="wMom" type="range" min="0" max="100" value="25" oninput="document.getElementById('lblWmom').innerText=this.value+'%'" class="w-full accent-slate-900">
+            </div>
+            <div>
+              <div class="flex justify-between font-semibold text-slate-600"><span>Volatilità & Statistica (Z-Score + R²)</span><span id="lblWvol" class="mono">20%</span></div>
+              <input id="wVol" type="range" min="0" max="100" value="20" oninput="document.getElementById('lblWvol').innerText=this.value+'%'" class="w-full accent-slate-900">
+            </div>
+            <div>
+              <div class="flex justify-between font-semibold text-slate-600"><span>Sentiment (Orderbook + Funding)</span><span id="lblWsent" class="mono">25%</span></div>
+              <input id="wSent" type="range" min="0" max="100" value="25" oninput="document.getElementById('lblWsent').innerText=this.value+'%'" class="w-full accent-slate-900">
+            </div>
+            <div>
+              <div class="flex justify-between font-bold text-blue-700"><span>Soglia Certezza Minima</span><span id="lblMinConf" class="mono">78%</span></div>
+              <input id="wMinConf" type="range" min="50" max="98" value="78" oninput="document.getElementById('lblMinConf').innerText=this.value+'%'" class="w-full accent-blue-600">
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SEZIONE 2: TUTTI I MERCATI FUTURES BINGX DIVISI PER CATEGORIA -->
+    <div class="card-white p-5">
+      <div class="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-200">
+        <div>
+          <h2 class="text-lg font-extrabold text-slate-900">Tutti i Mercati Futures BingX (Perpetual Swap v2)</h2>
+          <p class="text-xs text-slate-500">Clicca su un asset per caricare i tachimetri. Modifica direttamente <strong>Score</strong> e <strong>Sentiment</strong> nella tabella per ricalcolare i segnali.</p>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <input id="searchMarket" onkeyup="renderMarketsTable()" type="text" placeholder="Cerca simbolo (es. BTC, XAU, EUR, SOL)..." class="bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs font-medium w-64 focus:outline-none focus:border-slate-900" />
+        </div>
+      </div>
+
+      <!-- TAB CATEGORIE -->
+      <div class="flex flex-wrap gap-2 my-4" id="categoryTabs">
+        <button onclick="setCategory('ALL')" data-cat="ALL" class="cat-btn tab-active px-3.5 py-1.5 rounded-lg text-xs font-bold border border-slate-300 transition">TUTTI I MERCATI</button>
+        <button onclick="setCategory('CRYPTO MAJOR')" data-cat="CRYPTO MAJOR" class="cat-btn bg-white text-slate-700 px-3.5 py-1.5 rounded-lg text-xs font-bold border border-slate-300 transition">CRYPTO MAJOR</button>
+        <button onclick="setCategory('ALTCOIN & DEFI')" data-cat="ALTCOIN & DEFI" class="cat-btn bg-white text-slate-700 px-3.5 py-1.5 rounded-lg text-xs font-bold border border-slate-300 transition">ALTCOIN & DEFI</button>
+        <button onclick="setCategory('METALLI & COMMODITIES')" data-cat="METALLI & COMMODITIES" class="cat-btn bg-white text-slate-700 px-3.5 py-1.5 rounded-lg text-xs font-bold border border-slate-300 transition">METALLI & COMMODITIES (Oro/Argento/Petrolio)</button>
+        <button onclick="setCategory('FOREX & VALUTE')" data-cat="FOREX & VALUTE" class="cat-btn bg-white text-slate-700 px-3.5 py-1.5 rounded-lg text-xs font-bold border border-slate-300 transition">FOREX & VALUTE</button>
+        <button onclick="setCategory('INDICI & AZIONI')" data-cat="INDICI & AZIONI" class="cat-btn bg-white text-slate-700 px-3.5 py-1.5 rounded-lg text-xs font-bold border border-slate-300 transition">INDICI & AZIONI</button>
+      </div>
+
+      <!-- TABELLA ISTITUZIONALE -->
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="border-b-2 border-slate-200 text-[11px] font-extrabold text-slate-500 uppercase bg-slate-50">
+              <th class="py-3 px-3">Simbolo / Categoria</th>
+              <th class="py-3 px-3 text-right">Prezzo Live</th>
+              <th class="py-3 px-3 text-right">24h %</th>
+              <th class="py-3 px-3 text-right">Volume 24h (USDT)</th>
+              <th class="py-3 px-3 text-center">Leva Max</th>
+              <th class="py-3 px-3 text-center">Score Modificabile (-100/+100)</th>
+              <th class="py-3 px-3 text-center">Sentiment Modificabile</th>
+              <th class="py-3 px-3 text-center">Certezza %</th>
+              <th class="py-3 px-3 text-center">Segnale Esatto</th>
+              <th class="py-3 px-3 text-right">Azione</th>
+            </tr>
+          </thead>
+          <tbody id="marketsTableBody" class="divide-y divide-slate-100 text-xs">
+            <tr><td colspan="10" class="py-8 text-center text-slate-400 font-semibold">Connessione alle API reali di BingX in corso...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+
+  <script>
+    let allMarkets = [];
+    let currentCategory = 'ALL';
+    let activeSymbol = 'BTC-USDT';
+    let currentAnalysis = null;
+    // Mappa modifiche manuali utente per simbolo: { "BTC-USDT": { score: 85, sentiment: 90, confidence: 92, signal: "STRONG LONG" } }
+    let userOverrides = {};
+
+    function setNeedle(id, angleDeg) {
+      const clamped = Math.max(-90, Math.min(90, angleDeg));
+      document.getElementById(id).style.transform = `rotate(${clamped}deg)`;
     }
 
-    function renderTable() {
-      const q = document.getElementById("search-input").value.trim().toUpperCase();
-      const fSig = document.getElementById("filter-sig").value;
+    async function loadAllMarkets() {
+      try {
+        const res = await fetch('/api/markets');
+        const json = await res.json();
+        if (json.status === 'ok') {
+          allMarkets = json.markets;
+          renderMarketsTable();
+          analyzeSymbol(activeSymbol);
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
 
-      let list = allSignals.filter(r => {
-        if (q && !r.symbol.includes(q)) return false;
-        if (fSig === "CERTIFIED" && !r.can_enter) return false;
-        if (fSig === "NOFAKE" && r.is_fakeout) return false;
-        if (fSig === "STRONG" && !r.signal.includes("STRONG")) return false;
-        if (fSig === "BUY" && !r.signal.includes("BUY")) return false;
-        if (fSig === "SELL" && !r.signal.includes("SELL")) return false;
-        return true;
+    function setCategory(cat) {
+      currentCategory = cat;
+      document.querySelectorAll('.cat-btn').forEach(btn => {
+        if (btn.dataset.cat === cat) {
+          btn.classList.add('tab-active');
+          btn.classList.remove('bg-white', 'text-slate-700');
+        } else {
+          btn.classList.remove('tab-active');
+          btn.classList.add('bg-white', 'text-slate-700');
+        }
       });
+      renderMarketsTable();
+    }
 
-      list.sort((a, b) => {
-        const va = a[sortKey], vb = b[sortKey];
-        if (typeof va === "string") return sortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
-        return sortAsc ? (va - vb) : (vb - va);
+    function getFilteredMarkets() {
+      const q = document.getElementById('searchMarket').value.trim().toUpperCase();
+      return allMarkets.filter(m => {
+        const matchCat = currentCategory === 'ALL' || m.category === currentCategory;
+        const matchQ = !q || m.symbol.includes(q) || m.category.includes(q);
+        return matchCat && matchQ;
       });
+    }
 
-      const tbody = document.getElementById("vip-tbody");
-      tbody.innerHTML = list.map(s => {
-        const badgeCls = s.signal.includes("BUY") ? "sig-buy" : (s.signal.includes("SELL") ? "sig-sell" : "sig-neu");
-        const obiCls = s.obi >= 0 ? "pos-up" : "pos-dn";
-        const barW = Math.min(100, Math.abs(s.obi));
-        const barCol = s.obi >= 0 ? "#00e676" : "#ff3b5c";
-        const selCls = s.symbol === selectedSymbol ? "selected-row" : "";
-        const fakeCls = s.is_fakeout ? "pill-danger" : "pill-live";
-        const entCls = s.can_enter ? "pos-up" : "pos-dn";
+    function renderMarketsTable() {
+      const filtered = getFilteredMarkets();
+      const tbody = document.getElementById('marketsTableBody');
+      if (!filtered.length) {
+        tbody.innerHTML = `<tr><td colspan="10" class="py-6 text-center text-slate-400">Nessun contratto trovato per questa categoria.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = filtered.slice(0, 150).map(m => {
+        const ov = userOverrides[m.symbol] || {};
+        const scoreVal = ov.score !== undefined ? ov.score : '';
+        const sentVal = ov.sentiment !== undefined ? ov.sentiment : 0;
+        const confVal = ov.confidence !== undefined ? `${ov.confidence}%` : '--';
+        const sigVal = ov.signal || 'ANALIZZA';
+        const chgColor = m.priceChangePercent >= 0 ? 'text-emerald-600' : 'text-red-600';
+
+        let sigBadgeClass = 'bg-slate-100 text-slate-600';
+        if (sigVal.includes('STRONG LONG')) sigBadgeClass = 'bg-emerald-600 text-white';
+        else if (sigVal.includes('LONG')) sigBadgeClass = 'bg-emerald-100 text-emerald-800';
+        else if (sigVal.includes('STRONG SHORT')) sigBadgeClass = 'bg-red-600 text-white';
+        else if (sigVal.includes('SHORT')) sigBadgeClass = 'bg-red-100 text-red-800';
+
         return `
-          <tr class="${selCls}" onclick="selectPair('${s.symbol}')">
-            <td><strong>${s.symbol}</strong></td>
-            <td><span class="pill pill-timer">${s.timeframe}</span></td>
-            <td>$${s.price}</td>
-            <td><span class="sig-badge ${badgeCls}">${s.signal}</span></td>
-            <td><strong>${s.score}</strong></td>
-            <td><strong style="color:var(--gold);">${s.certainty_pct}%</strong></td>
-            <td style="font-size:10px;">${s.ema9} / ${s.ema21} / ${s.ema55}</td>
-            <td>${s.rsi}</td>
-            <td>${s.z_score}σ</td>
-            <td class="${obiCls}">
-              <span class="bar-bg"><span class="bar-fill" style="width:${barW}%;background:${barCol};"></span></span>
-              ${s.obi >= 0 ? "+" : ""}${s.obi}%
+          <tr class="hover:bg-blue-50/40 transition cursor-pointer" onclick="analyzeSymbol('${m.symbol}')">
+            <td class="py-2.5 px-3">
+              <div class="font-extrabold text-slate-900">${m.symbol}</div>
+              <div class="text-[10px] font-semibold text-slate-400">${m.category}</div>
             </td>
-            <td><span class="pill ${fakeCls}">${s.is_fakeout ? "FAKEOUT" : "CLEAN"}</span></td>
-            <td class="${entCls}" style="font-size:11px;"><strong>${s.entry_alert}</strong></td>
-            <td style="font-size:11px;">${s.exit_alert}</td>
+            <td class="py-2.5 px-3 text-right mono font-bold text-slate-800">${m.lastPrice}</td>
+            <td class="py-2.5 px-3 text-right mono font-bold ${chgColor}">${m.priceChangePercent > 0 ? '+' : ''}${m.priceChangePercent.toFixed(2)}%</td>
+            <td class="py-2.5 px-3 text-right mono text-slate-600">$${Math.round(m.volume24h).toLocaleString()}</td>
+            <td class="py-2.5 px-3 text-center mono font-bold text-slate-700">${m.maxLeverage}x</td>
+
+            <!-- SCORE MODIFICABILE LIVE -->
+            <td class="py-2.5 px-3 text-center" onclick="event.stopPropagation()">
+              <input type="number" min="-100" max="100" step="1" value="${scoreVal}" placeholder="Auto"
+                onchange="updateManualScore('${m.symbol}', this.value)"
+                class="w-20 text-center mono font-bold text-xs bg-white border border-slate-300 rounded-md py-1 focus:border-blue-600 focus:outline-none" />
+            </td>
+
+            <!-- SENTIMENT MODIFICABILE LIVE -->
+            <td class="py-2.5 px-3 text-center" onclick="event.stopPropagation()">
+              <select onchange="updateManualSentiment('${m.symbol}', this.value)"
+                class="bg-white border border-slate-300 rounded-md px-2 py-1 text-[11px] font-bold text-slate-800 focus:border-blue-600 focus:outline-none">
+                <option value="0" ${sentVal == 0 ? 'selected' : ''}>AUTO / NEUTRAL (0)</option>
+                <option value="90" ${sentVal == 90 ? 'selected' : ''}>🔥 EXTREME BULL (+90)</option>
+                <option value="50" ${sentVal == 50 ? 'selected' : ''}>🟢 BULLISH (+50)</option>
+                <option value="-50" ${sentVal == -50 ? 'selected' : ''}>🔴 BEARISH (-50)</option>
+                <option value="-90" ${sentVal == -90 ? 'selected' : ''}>❄️ EXTREME BEAR (-90)</option>
+              </select>
+            </td>
+
+            <td class="py-2.5 px-3 text-center mono font-extrabold text-slate-900">${confVal}</td>
+            <td class="py-2.5 px-3 text-center">
+              <span class="px-2.5 py-1 rounded-md text-[11px] font-extrabold ${sigBadgeClass}">${sigVal}</span>
+            </td>
+            <td class="py-2.5 px-3 text-right" onclick="event.stopPropagation()">
+              <button onclick="analyzeSymbol('${m.symbol}')" class="bg-slate-900 hover:bg-blue-600 text-white text-[11px] font-bold px-2.5 py-1 rounded-md transition">
+                Tachimetri
+              </button>
+            </td>
           </tr>
         `;
-      }).join("");
+      }).join('');
     }
 
-    async function sendOrder(side) {
-      const row = allSignals.find(r => r.symbol === selectedSymbol);
-      if (!row) return;
+    function updateManualScore(symbol, val) {
+      if (!userOverrides[symbol]) userOverrides[symbol] = {};
+      if (val === '') {
+        delete userOverrides[symbol].score;
+        analyzeSymbol(symbol);
+        return;
+      }
+      const num = Math.max(-100, Math.min(100, parseFloat(val)));
+      userOverrides[symbol].score = num;
+      const conf = Math.min(Math.round(Math.abs(num) * 1.15 * 10) / 10, 99.9);
+      userOverrides[symbol].confidence = conf;
+      userOverrides[symbol].signal = num >= 20 ? 'STRONG LONG' : (num > 5 ? 'LONG' : (num <= -20 ? 'STRONG SHORT' : (num < -5 ? 'SHORT' : 'NEUTRAL / WAIT')));
+      renderMarketsTable();
+      if (activeSymbol === symbol) {
+        document.getElementById('valScore').innerText = num.toFixed(1);
+        setNeedle('needleScore', (num / 100) * 90);
+        document.getElementById('valConf').innerText = conf.toFixed(1) + '%';
+        setNeedle('needleConf', ((conf / 100) * 180) - 90);
+      }
+    }
+
+    async function updateManualSentiment(symbol, val) {
+      if (!userOverrides[symbol]) userOverrides[symbol] = {};
+      userOverrides[symbol].sentiment = parseFloat(val);
+      await analyzeSymbol(symbol);
+    }
+
+    async function analyzeSymbol(symbol) {
+      activeSymbol = symbol;
+      document.getElementById('activeSymbolTitle').innerText = symbol;
+      const interval = document.getElementById('timeframeSelect').value;
+      const ov = userOverrides[symbol] || {};
+
+      const res = await fetch('/api/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          symbol,
+          interval,
+          custom_sentiment: ov.sentiment !== undefined && ov.sentiment !== 0 ? ov.sentiment : null
+        })
+      });
+      const json = await res.json();
+      if (json.status !== 'ok') return;
+
+      const d = json.data;
+      currentAnalysis = d;
+
+      // Se l'utente ha impostato uno score manuale, mantienilo
+      if (ov.score !== undefined) {
+        d.composite_score = ov.score;
+        d.confidence = ov.confidence;
+        d.signal = ov.signal;
+      } else {
+        userOverrides[symbol] = {
+          ...ov,
+          score: d.composite_score,
+          confidence: d.confidence,
+          signal: d.signal
+        };
+      }
+
+      // Aggiorna Prezzo e Badge Segnale
+      document.getElementById('activePriceBadge').innerText = d.price;
+      const sigBadge = document.getElementById('signalMasterBadge');
+      sigBadge.innerText = `${d.signal} (${d.confidence}%)`;
+      sigBadge.className = 'px-4 py-1.5 rounded-lg font-extrabold text-sm tracking-wide ' + (
+        d.signal.includes('LONG') ? 'bg-emerald-600 text-white' :
+        d.signal.includes('SHORT') ? 'bg-red-600 text-white' : 'bg-slate-200 text-slate-800'
+      );
+
+      // Aggiorna 6 Tachimetri
+      document.getElementById('valConf').innerText = d.confidence.toFixed(1) + '%';
+      setNeedle('needleConf', ((d.confidence / 100) * 180) - 90);
+
+      document.getElementById('valScore').innerText = d.composite_score.toFixed(1);
+      setNeedle('needleScore', (d.composite_score / 100) * 90);
+
+      document.getElementById('valRsi').innerText = d.indicators.rsi.toFixed(1);
+      setNeedle('needleRsi', ((d.indicators.rsi / 100) * 180) - 90);
+
+      document.getElementById('valAdx').innerText = d.indicators.adx.toFixed(1);
+      setNeedle('needleAdx', ((Math.min(d.indicators.adx, 60) / 60) * 180) - 90);
+
+      document.getElementById('valSent').innerText = d.sentiment.toFixed(1);
+      setNeedle('needleSent', (d.sentiment / 100) * 90);
+
+      document.getElementById('valZ').innerText = d.indicators.z_score.toFixed(2) + 'σ';
+      setNeedle('needleZ', (Math.max(-3, Math.min(3, d.indicators.z_score)) / 3) * 90);
+      document.getElementById('valR2Sub').innerText = `R²: ${d.indicators.r_squared} | BB: ${d.indicators.bb_percent}%`;
+
+      // Indicatori EMA e tecnici
+      document.getElementById('indEma9').innerText = d.indicators.ema9;
+      document.getElementById('indEma21').innerText = d.indicators.ema21;
+      document.getElementById('indEma50').innerText = d.indicators.ema50;
+      document.getElementById('indEma200').innerText = d.indicators.ema200;
+      document.getElementById('indMacd').innerText = d.indicators.macd_hist;
+      document.getElementById('indAtr').innerText = d.indicators.atr;
+      document.getElementById('indFunding').innerText = d.indicators.funding_rate + '%';
+      document.getElementById('indR2').innerText = d.indicators.r_squared;
+
+      // Livelli Esatti Entry / SL / TP
+      document.getElementById('lvlEntry').innerText = d.levels.entry;
+      document.getElementById('lvlSl').innerText = d.levels.sl;
+      document.getElementById('lvlTp1').innerText = d.levels.tp1;
+      document.getElementById('lvlTp2').innerText = d.levels.tp2;
+      document.getElementById('lvlTp3').innerText = d.levels.tp3;
+      document.getElementById('rrBadge').innerText = `R:R 1:${d.levels.rr}`;
+
+      renderMarketsTable();
+    }
+
+    function refreshActiveSymbol() {
+      analyzeSymbol(activeSymbol);
+    }
+
+    async function scanVisibleCategory() {
+      const filtered = getFilteredMarkets().slice(0, 15).map(m => m.symbol);
+      const interval = document.getElementById('timeframeSelect').value;
+      const res = await fetch('/api/scan_top', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ symbols: filtered, interval, overrides: userOverrides })
+      });
+      const json = await res.json();
+      if (json.status === 'ok') {
+        json.signals.forEach(s => {
+          userOverrides[s.symbol] = {
+            ...(userOverrides[s.symbol] || {}),
+            score: s.composite_score,
+            confidence: s.confidence,
+            signal: s.signal
+          };
+        });
+        renderMarketsTable();
+      }
+    }
+
+    async function saveBrainWeights() {
       const payload = {
-        symbol: selectedSymbol,
-        side,
-        tf: document.getElementById("vip-tf").value,
-        margin_usdt: parseFloat(document.getElementById("t-margin").value || "0.25"),
-        leverage: parseInt(document.getElementById("t-lev").value || "20", 10),
-        price: row.price,
-        tp: parseFloat(document.getElementById("t-tp").value || "0"),
-        sl: parseFloat(document.getElementById("t-sl").value || "0"),
-        force_override: document.getElementById("t-force").checked
+        ema_weight: document.getElementById('wEma').value,
+        momentum_weight: document.getElementById('wMom').value,
+        volatility_weight: document.getElementById('wVol').value,
+        sentiment_weight: document.getElementById('wSent').value,
+        min_confidence: document.getElementById('wMinConf').value
       };
-      const r = await fetch("/api/order", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      await fetch('/api/weights', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
-      const out = await r.json();
-      if (out.code === 0) {
-        showToast(`Ordine ${side} ${selectedSymbol} inviato su BingX!`);
-        beep(1046);
-      } else {
-        showToast(out.msg || "Errore ordine: verifica API/Saldo/Score");
-        beep(320);
-      }
-      refreshVipScanner();
+      analyzeSymbol(activeSymbol);
     }
 
-    async function refreshVipScanner() {
-      const tf = document.getElementById("vip-tf").value;
-      try {
-        const res = await fetch(`/api/vip-scan?tf=${encodeURIComponent(tf)}&min_score=${encodeURIComponent(currentMinScore)}`);
-        const data = await res.json();
+    async function executeBingXOrder() {
+      if (!currentAnalysis) return alert("Analizza prima un simbolo.");
+      const qty = parseFloat(document.getElementById('orderQty').value);
+      if (!qty || qty <= 0) return alert("Inserisci una quantità valida.");
+      const side = currentAnalysis.composite_score >= 0 ? "BUY" : "SELL";
 
-        if (typeof data.min_score === "number") {
-          currentMinScore = data.min_score;
-          document.getElementById("kpi-minscore").textContent = currentMinScore.toFixed(1);
-        }
+      if (!confirm(`Confermi ordine REALE su BingX?\nSimbolo: ${currentAnalysis.symbol}\nDirezione: ${side}\nQuantità: ${qty}\nSL: ${currentAnalysis.levels.sl}\nTP2: ${currentAnalysis.levels.tp2}`)) return;
 
-        const badge = document.getElementById("api-badge");
-        if (data.account && data.account.connected) {
-          badge.textContent = "LIVE API CONNECTED";
-          badge.className = "pill pill-live";
-        } else {
-          badge.textContent = "MARKET FEED ONLY";
-          badge.className = "pill pill-warn";
-        }
-
-        if (data.ts) {
-          document.getElementById("last-sync").textContent = new Date(data.ts * 1000).toLocaleTimeString();
-        }
-
-        if (data.account) {
-          document.getElementById("kpi-bal").textContent = `${data.account.balance.toFixed(2)} USDT`;
-          const upnl = data.account.unrealized_pnl || 0;
-          const upnlEl = document.getElementById("kpi-upnl");
-          upnlEl.textContent = `${upnl >= 0 ? "+" : ""}${upnl.toFixed(4)}`;
-          upnlEl.className = `kpi-value ${upnl >= 0 ? "pos-up" : "pos-dn"}`;
-
-          const rpnl = data.account.realized_24h || 0;
-          const rpnlEl = document.getElementById("kpi-rpnl");
-          rpnlEl.textContent = `${rpnl >= 0 ? "+" : ""}${rpnl.toFixed(4)}`;
-          rpnlEl.className = `kpi-value ${rpnl >= 0 ? "pos-up" : "pos-dn"}`;
-
-          document.getElementById("kpi-lev").textContent = `${data.account.leverage}x`;
-          document.getElementById("t-lev").value = data.account.leverage;
-        }
-
-        const posList = data.positions || [];
-        document.getElementById("pos-list").innerHTML = posList.length
-          ? posList.map(p => {
-              const cls = p.pnl >= 0 ? "pos-up" : "pos-dn";
-              return `<div style="padding:4px 0;border-top:1px solid #182234;display:flex;justify-content:space-between;">
-                <span><strong>${p.symbol}</strong> ${p.side} (${p.size}) @ ${p.entry}</span>
-                <span class="${cls}"><strong>${p.pnl >= 0 ? "+" : ""}${p.pnl}</strong></span>
-              </div>`;
-            }).join("")
-          : "Nessuna posizione aperta.";
-
-        allSignals = data.signals || [];
-
-        allSignals.forEach(s => {
-          if (s.can_enter) {
-            const key = `${s.symbol}-${s.signal}-${tf}-${s.score}`;
-            if (!seenStrong.has(key)) {
-              seenStrong.add(key);
-              showToast(`${s.entry_alert} · Certezza ${s.certainty_pct}%`);
-              beep(920);
-            }
-          }
-        });
-
-        renderSignalRoom(data.signal_room || []);
-        renderTable();
-        selectPair(selectedSymbol, false);
-        tickCandleTimer();
-      } catch (err) {
-        console.error(err);
-      }
+      const res = await fetch('/api/execute_order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          symbol: currentAnalysis.symbol,
+          side,
+          quantity: qty,
+          sl: currentAnalysis.levels.sl,
+          tp: currentAnalysis.levels.tp2
+        })
+      });
+      const json = await res.json();
+      alert("Risposta BingX: " + JSON.stringify(json));
     }
 
-    document.getElementById("vip-tf").addEventListener("change", () => {
-      tickCandleTimer();
-      refreshVipScanner();
-    });
-    document.getElementById("filter-sig").addEventListener("change", renderTable);
-    document.getElementById("search-input").addEventListener("input", renderTable);
-
-    setInterval(tickCandleTimer, 1000);
-    setInterval(refreshVipScanner, 3000);
-    tickCandleTimer();
-    refreshVipScanner();
+    // Avvio automatico
+    loadAllMarkets();
+    setInterval(() => analyzeSymbol(activeSymbol), 15000);
   </script>
 </body>
 </html>
