@@ -1,67 +1,583 @@
-<div id="vip-scanner-panel" style="background:#111622;color:#e6edf7;padding:14px;border-radius:10px;margin:12px 0;font-family:monospace;">
-  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
-    <strong>BINGX VIP SCANNER LIVE</strong>
-    <div>
-      <select id="vip-tf" style="background:#1b2436;color:#fff;padding:6px;border-radius:6px;">
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>BingX VIP Institutional Terminal</title>
+  <style>
+    :root {
+      --bg: #070a0f;
+      --panel: #0e131d;
+      --panel-2: #141b29;
+      --border: #1f2a3d;
+      --text: #e6edf7;
+      --muted: #7f91ad;
+      --green: #00e676;
+      --green-soft: rgba(0, 230, 118, 0.14);
+      --red: #ff3b5c;
+      --red-soft: rgba(255, 59, 92, 0.14);
+      --gold: #f5b041;
+      --blue: #38bdf8;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; touch-action: manipulation; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace;
+      font-size: 12px;
+      padding: 10px;
+    }
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      padding: 10px 14px;
+      border-radius: 10px;
+      margin-bottom: 10px;
+    }
+    .brand-row { display: flex; align-items: center; gap: 10px; }
+    .brand { font-size: 15px; font-weight: 800; letter-spacing: 0.6px; color: var(--gold); }
+    .pill {
+      padding: 3px 8px;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 700;
+      border: 1px solid var(--border);
+    }
+    .pill-live { background: var(--green-soft); color: var(--green); border-color: rgba(0,230,118,0.3); }
+    .pill-warn { background: rgba(245,176,65,0.14); color: var(--gold); border-color: rgba(245,176,65,0.35); }
+    .toolbar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+    select, input, button {
+      background: var(--panel-2);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    button { cursor: pointer; transition: 0.15s ease; }
+    button:hover { border-color: var(--blue); }
+    .btn-buy { background: var(--green-soft); color: var(--green); border-color: rgba(0,230,118,0.4); }
+    .btn-sell { background: var(--red-soft); color: var(--red); border-color: rgba(255,59,92,0.4); }
+    .btn-gold { background: rgba(245,176,65,0.16); color: var(--gold); border-color: rgba(245,176,65,0.45); }
+
+    .kpi-strip {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(135px, 1fr));
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .kpi {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+    }
+    .kpi-title { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px; }
+    .kpi-value { font-size: 16px; font-weight: 800; margin-top: 4px; }
+
+    .pro-grid {
+      display: grid;
+      grid-template-columns: 1.65fr 1fr;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    @media (max-width: 900px) {
+      .pro-grid { grid-template-columns: 1fr; }
+    }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px;
+    }
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+    .card-title { font-weight: 700; font-size: 13px; color: var(--text); }
+    canvas { width: 100%; height: 190px; background: #090d14; border-radius: 8px; border: 1px solid #182234; }
+
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .mini-box {
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 6px 8px;
+    }
+    .mini-lbl { color: var(--muted); font-size: 10px; }
+    .mini-val { font-weight: 700; margin-top: 2px; }
+
+    .ticket-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .ticket-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+    .pos-up { color: var(--green); }
+    .pos-dn { color: var(--red); }
+
+    .table-wrap {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow-x: auto;
+      margin-bottom: 10px;
+    }
+    table { width: 100%; border-collapse: collapse; min-width: 920px; }
+    th, td { padding: 9px 10px; text-align: left; border-bottom: 1px solid #172030; white-space: nowrap; }
+    th {
+      background: #0b0f17;
+      color: var(--muted);
+      font-size: 10px;
+      text-transform: uppercase;
+      cursor: pointer;
+      user-select: none;
+    }
+    tbody tr:hover { background: rgba(56, 189, 248, 0.06); cursor: pointer; }
+    tbody tr.selected-row { background: rgba(245, 176, 65, 0.1); }
+    .sig-badge {
+      padding: 3px 7px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 800;
+    }
+    .sig-buy { background: var(--green-soft); color: var(--green); }
+    .sig-sell { background: var(--red-soft); color: var(--red); }
+    .sig-neu { background: rgba(127,145,173,0.14); color: var(--muted); }
+    .bar-bg { width: 64px; height: 6px; background: #1c2638; border-radius: 3px; overflow: hidden; display: inline-block; vertical-align: middle; margin-right: 4px; }
+    .bar-fill { height: 100%; }
+    .toast {
+      position: fixed;
+      bottom: 14px;
+      right: 14px;
+      background: var(--panel-2);
+      border: 1px solid var(--gold);
+      color: var(--text);
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-weight: 600;
+      display: none;
+      z-index: 99;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="brand-row">
+      <span class="brand">BINGX VIP PRO TERMINAL</span>
+      <span id="api-badge" class="pill pill-warn">SYNCING...</span>
+      <span id="last-sync" style="color:var(--muted);font-size:11px;">--:--:--</span>
+    </div>
+    <div class="toolbar">
+      <input id="search-input" type="text" placeholder="Filtra coppia (es. BTC)..." style="width:150px;" />
+      <select id="filter-sig">
+        <option value="ALL">Tutti i segnali</option>
+        <option value="STRONG">Solo STRONG</option>
+        <option value="BUY">Solo BUY</option>
+        <option value="SELL">Solo SELL</option>
+      </select>
+      <select id="vip-tf">
         <option value="1m">1m</option>
         <option value="5m" selected>5m</option>
         <option value="15m">15m</option>
         <option value="1h">1h</option>
+        <option value="4h">4h</option>
       </select>
-      <span id="vip-acc-info" style="margin-left:10px;color:#f5b041;">Balance: 0.00 | Lev: 20x</span>
+      <button id="btn-sound" class="btn-gold" onclick="toggleSound()">ALERT: ON</button>
+      <button onclick="refreshVipScanner()">REFRESH</button>
     </div>
   </div>
-  <div style="overflow-x:auto;">
-    <table style="width:100%;border-collapse:collapse;min-width:680px;font-size:12px;">
+
+  <div class="kpi-strip">
+    <div class="kpi">
+      <div class="kpi-title">Available Balance</div>
+      <div class="kpi-value" id="kpi-bal">0.00 USDT</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-title">Unrealized PnL</div>
+      <div class="kpi-value" id="kpi-upnl">0.0000</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-title">24h Realized PnL</div>
+      <div class="kpi-value" id="kpi-rpnl">0.0000</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-title">Dynamic Leverage</div>
+      <div class="kpi-value pos-up" style="color:var(--gold);" id="kpi-lev">20x</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-title">Active Setups</div>
+      <div class="kpi-value" style="color:var(--blue);" id="kpi-setups">0</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-title">Open Positions</div>
+      <div class="kpi-value" id="kpi-pos">0</div>
+    </div>
+  </div>
+
+  <div class="pro-grid">
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title" id="chart-title">LIVE PRICE & LEVELS — BTC-USDT</span>
+        <span id="chart-signal" class="sig-badge sig-neu">NEUTRAL</span>
+      </div>
+      <canvas id="price-canvas" width="700" height="190"></canvas>
+      <div class="metrics-grid">
+        <div class="mini-box"><div class="mini-lbl">Trend EMA</div><div class="mini-val" id="m-trend">-</div></div>
+        <div class="mini-box"><div class="mini-lbl">ATR (Volatility)</div><div class="mini-val" id="m-atr">-</div></div>
+        <div class="mini-box"><div class="mini-lbl">Vol Ratio</div><div class="mini-val" id="m-vol">-</div></div>
+        <div class="mini-box"><div class="mini-lbl">Risk / Reward</div><div class="mini-val" id="m-rr">-</div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">EXECUTION TICKET & POSITIONS</span>
+        <span id="ticket-sym" style="color:var(--gold);font-weight:700;">BTC-USDT</span>
+      </div>
+      <div class="ticket-row">
+        <div>
+          <label style="color:var(--muted);font-size:10px;">Margin (USDT)</label>
+          <input id="t-margin" type="number" step="0.05" value="0.25" style="width:100%;margin-top:3px;" />
+        </div>
+        <div>
+          <label style="color:var(--muted);font-size:10px;">Leverage</label>
+          <input id="t-lev" type="number" min="1" max="125" value="20" style="width:100%;margin-top:3px;" />
+        </div>
+      </div>
+      <div class="ticket-row">
+        <div>
+          <label style="color:var(--muted);font-size:10px;">Take Profit</label>
+          <input id="t-tp" type="number" step="any" placeholder="Auto TP" style="width:100%;margin-top:3px;" />
+        </div>
+        <div>
+          <label style="color:var(--muted);font-size:10px;">Stop Loss</label>
+          <input id="t-sl" type="number" step="any" placeholder="Auto SL" style="width:100%;margin-top:3px;" />
+        </div>
+      </div>
+      <div class="ticket-actions">
+        <button class="btn-buy" onclick="sendOrder('BUY')">LONG / BUY</button>
+        <button class="btn-sell" onclick="sendOrder('SELL')">SHORT / SELL</button>
+      </div>
+      <div id="pos-list" style="margin-top:10px;font-size:11px;color:var(--muted);">Nessuna posizione aperta.</div>
+    </div>
+  </div>
+
+  <div class="table-wrap">
+    <table>
       <thead>
-        <tr style="color:#8fa1bd;border-bottom:1px solid #233047;text-align:left;">
-          <th style="padding:8px;">Pair</th>
-          <th style="padding:8px;">Price</th>
-          <th style="padding:8px;">Signal</th>
-          <th style="padding:8px;">Score</th>
-          <th style="padding:8px;">RSI</th>
-          <th style="padding:8px;">Z-Score</th>
-          <th style="padding:8px;">OBI %</th>
-          <th style="padding:8px;">TP</th>
-          <th style="padding:8px;">SL</th>
+        <tr>
+          <th onclick="sortBy('symbol')">Pair</th>
+          <th onclick="sortBy('price')">Price</th>
+          <th onclick="sortBy('change_pct')">24h %</th>
+          <th onclick="sortBy('signal')">Signal</th>
+          <th onclick="sortBy('score')">Score</th>
+          <th onclick="sortBy('rsi')">RSI (14)</th>
+          <th onclick="sortBy('z_score')">Z-Score</th>
+          <th onclick="sortBy('obi')">Orderbook OBI</th>
+          <th onclick="sortBy('rr')">R:R</th>
+          <th>Entry</th>
+          <th>Take Profit</th>
+          <th>Stop Loss</th>
         </tr>
       </thead>
       <tbody id="vip-tbody"></tbody>
     </table>
   </div>
-</div>
 
-<script>
-async function refreshVipScanner() {
-  const tf = document.getElementById("vip-tf").value;
-  const res = await fetch(`/api/vip-scan?tf=${encodeURIComponent(tf)}`);
-  const data = await res.json();
+  <div id="toast" class="toast"></div>
 
-  if (data.account) {
-    document.getElementById("vip-acc-info").textContent =
-      `Balance: ${data.account.balance.toFixed(2)} USDT | Lev: ${data.account.leverage}x | 24h PnL: ${data.account.realized_24h >= 0 ? "+" : ""}${data.account.realized_24h.toFixed(4)}`;
-  }
+  <script>
+    let allSignals = [];
+    let selectedSymbol = "BTC-USDT";
+    let sortKey = "confidence";
+    let sortAsc = false;
+    let soundOn = true;
+    let seenStrong = new Set();
 
-  const tbody = document.getElementById("vip-tbody");
-  tbody.innerHTML = (data.signals || []).map(s => {
-    const color = s.signal.includes("BUY") ? "#00e676" : (s.signal.includes("SELL") ? "#ff3b5c" : "#94a3b8");
-    return `
-      <tr style="border-bottom:1px solid #1a2334;">
-        <td style="padding:8px;"><strong>${s.symbol}</strong></td>
-        <td style="padding:8px;">${s.price}</td>
-        <td style="padding:8px;color:${color};font-weight:700;">${s.signal}</td>
-        <td style="padding:8px;">${s.score} (${s.confidence}%)</td>
-        <td style="padding:8px;">${s.rsi}</td>
-        <td style="padding:8px;">${s.z_score}σ</td>
-        <td style="padding:8px;">${s.obi}%</td>
-        <td style="padding:8px;color:#00e676;">${s.tp || "-"}</td>
-        <td style="padding:8px;color:#ff3b5c;">${s.sl || "-"}</td>
-      </tr>
-    `;
-  }).join("");
-}
+    function showToast(msg) {
+      const el = document.getElementById("toast");
+      el.textContent = msg;
+      el.style.display = "block";
+      clearTimeout(window._toastTimer);
+      window._toastTimer = setTimeout(() => { el.style.display = "none"; }, 3500);
+    }
 
-document.getElementById("vip-tf").addEventListener("change", refreshVipScanner);
-setInterval(refreshVipScanner, 3000);
-refreshVipScanner();
-</script>
+    function toggleSound() {
+      soundOn = !soundOn;
+      document.getElementById("btn-sound").textContent = `ALERT: ${soundOn ? "ON" : "OFF"}`;
+    }
+
+    function beep(freq = 880) {
+      if (!soundOn) return;
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.value = freq;
+        gain.gain.value = 0.06;
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        setTimeout(() => { osc.stop(); ctx.close(); }, 180);
+      } catch (_) {}
+    }
+
+    function sortBy(key) {
+      if (sortKey === key) sortAsc = !sortAsc;
+      else { sortKey = key; sortAsc = false; }
+      renderTable();
+    }
+
+    function selectPair(sym, autofillLevels = true) {
+      selectedSymbol = sym;
+      document.getElementById("ticket-sym").textContent = sym;
+      const row = allSignals.find(r => r.symbol === sym);
+      if (!row) return;
+
+      document.getElementById("chart-title").textContent = `LIVE PRICE & LEVELS — ${row.symbol} ($${row.price})`;
+      const badge = document.getElementById("chart-signal");
+      badge.textContent = row.signal;
+      badge.className = "sig-badge " + (row.signal.includes("BUY") ? "sig-buy" : (row.signal.includes("SELL") ? "sig-sell" : "sig-neu"));
+
+      document.getElementById("m-trend").textContent = row.trend;
+      document.getElementById("m-atr").textContent = row.atr;
+      document.getElementById("m-vol").textContent = `${row.vol_ratio}x`;
+      document.getElementById("m-rr").textContent = row.rr > 0 ? `1 : ${row.rr}` : "-";
+
+      if (autofillLevels && row.tp > 0 && row.sl > 0) {
+        document.getElementById("t-tp").value = row.tp;
+        document.getElementById("t-sl").value = row.sl;
+      }
+      drawChart(row);
+      renderTable();
+    }
+
+    function drawChart(row) {
+      const canvas = document.getElementById("price-canvas");
+      const ctx = canvas.getContext("2d");
+      const w = canvas.width, h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+
+      const pts = row.sparkline || [];
+      if (pts.length < 2) return;
+
+      const levels = pts.slice();
+      if (row.tp > 0) levels.push(row.tp);
+      if (row.sl > 0) levels.push(row.sl);
+      const minV = Math.min(...levels);
+      const maxV = Math.max(...levels);
+      const span = (maxV - minV) || 1e-6;
+
+      const yOf = v => h - 18 - ((v - minV) / span) * (h - 36);
+
+      // Griglia orizzontale
+      ctx.strokeStyle = "#172030";
+      ctx.lineWidth = 1;
+      for (let i = 1; i <= 3; i++) {
+        const gy = (h / 4) * i;
+        ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(w, gy); ctx.stroke();
+      }
+
+      // Linee TP & SL
+      if (row.tp > 0) {
+        const ytp = yOf(row.tp);
+        ctx.strokeStyle = "#00e676"; ctx.setLineDash([5, 4]);
+        ctx.beginPath(); ctx.moveTo(0, ytp); ctx.lineTo(w, ytp); ctx.stroke();
+        ctx.fillStyle = "#00e676"; ctx.font = "10px monospace";
+        ctx.fillText(`TP ${row.tp}`, 8, ytp - 4);
+      }
+      if (row.sl > 0) {
+        const ysl = yOf(row.sl);
+        ctx.strokeStyle = "#ff3b5c"; ctx.setLineDash([5, 4]);
+        ctx.beginPath(); ctx.moveTo(0, ysl); ctx.lineTo(w, ysl); ctx.stroke();
+        ctx.fillStyle = "#ff3b5c"; ctx.font = "10px monospace";
+        ctx.fillText(`SL ${row.sl}`, 8, ysl + 12);
+      }
+      ctx.setLineDash([]);
+
+      // Curva prezzo
+      ctx.strokeStyle = "#38bdf8";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      pts.forEach((val, idx) => {
+        const x = (idx / (pts.length - 1)) * (w - 20) + 10;
+        const y = yOf(val);
+        if (idx === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+    }
+
+    function renderTable() {
+      const q = document.getElementById("search-input").value.trim().toUpperCase();
+      const fSig = document.getElementById("filter-sig").value;
+
+      let list = allSignals.filter(r => {
+        if (q && !r.symbol.includes(q)) return false;
+        if (fSig === "STRONG" && !r.signal.includes("STRONG")) return false;
+        if (fSig === "BUY" && !r.signal.includes("BUY")) return false;
+        if (fSig === "SELL" && !r.signal.includes("SELL")) return false;
+        return true;
+      });
+
+      list.sort((a, b) => {
+        const va = a[sortKey], vb = b[sortKey];
+        if (typeof va === "string") return sortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
+        return sortAsc ? (va - vb) : (vb - va);
+      });
+
+      const tbody = document.getElementById("vip-tbody");
+      tbody.innerHTML = list.map(s => {
+        const badgeCls = s.signal.includes("BUY") ? "sig-buy" : (s.signal.includes("SELL") ? "sig-sell" : "sig-neu");
+        const chgCls = s.change_pct >= 0 ? "pos-up" : "pos-dn";
+        const obiCls = s.obi >= 0 ? "pos-up" : "pos-dn";
+        const barW = Math.min(100, Math.abs(s.obi));
+        const barCol = s.obi >= 0 ? "#00e676" : "#ff3b5c";
+        const selCls = s.symbol === selectedSymbol ? "selected-row" : "";
+        return `
+          <tr class="${selCls}" onclick="selectPair('${s.symbol}')">
+            <td><strong>${s.symbol}</strong></td>
+            <td>$${s.price}</td>
+            <td class="${chgCls}">${s.change_pct >= 0 ? "+" : ""}${s.change_pct}%</td>
+            <td><span class="sig-badge ${badgeCls}">${s.signal}</span></td>
+            <td><strong>${s.score}</strong> <span style="color:var(--muted);">(${s.confidence}%)</span></td>
+            <td>${s.rsi}</td>
+            <td>${s.z_score}σ</td>
+            <td class="${obiCls}">
+              <span class="bar-bg"><span class="bar-fill" style="width:${barW}%;background:${barCol};"></span></span>
+              ${s.obi >= 0 ? "+" : ""}${s.obi}%
+            </td>
+            <td>${s.rr > 0 ? "1:" + s.rr : "-"}</td>
+            <td>${s.entry > 0 ? "$" + s.entry : "-"}</td>
+            <td class="pos-up">${s.tp > 0 ? "$" + s.tp : "-"}</td>
+            <td class="pos-dn">${s.sl > 0 ? "$" + s.sl : "-"}</td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    async function sendOrder(side) {
+      const row = allSignals.find(r => r.symbol === selectedSymbol);
+      if (!row) return;
+      const payload = {
+        symbol: selectedSymbol,
+        side,
+        margin_usdt: parseFloat(document.getElementById("t-margin").value || "0.25"),
+        leverage: parseInt(document.getElementById("t-lev").value || "20", 10),
+        price: row.price,
+        tp: parseFloat(document.getElementById("t-tp").value || "0"),
+        sl: parseFloat(document.getElementById("t-sl").value || "0")
+      };
+      const r = await fetch("/api/order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const out = await r.json();
+      if (out.code === 0) {
+        showToast(`Ordine ${side} ${selectedSymbol} inviato su BingX!`);
+        beep(1046);
+      } else {
+        showToast(`Errore ordine: ${out.msg || "Verifica API/Saldo"}`);
+        beep(320);
+      }
+      refreshVipScanner();
+    }
+
+    async function refreshVipScanner() {
+      const tf = document.getElementById("vip-tf").value;
+      try {
+        const res = await fetch(`/api/vip-scan?tf=${encodeURIComponent(tf)}`);
+        const data = await res.json();
+
+        const badge = document.getElementById("api-badge");
+        if (data.account && data.account.connected) {
+          badge.textContent = "LIVE API CONNECTED";
+          badge.className = "pill pill-live";
+        } else {
+          badge.textContent = "MARKET FEED ONLY";
+          badge.className = "pill pill-warn";
+        }
+
+        if (data.ts) {
+          document.getElementById("last-sync").textContent = new Date(data.ts * 1000).toLocaleTimeString();
+        }
+
+        if (data.account) {
+          document.getElementById("kpi-bal").textContent = `${data.account.balance.toFixed(2)} USDT`;
+          const upnl = data.account.unrealized_pnl || 0;
+          const upnlEl = document.getElementById("kpi-upnl");
+          upnlEl.textContent = `${upnl >= 0 ? "+" : ""}${upnl.toFixed(4)}`;
+          upnlEl.className = `kpi-value ${upnl >= 0 ? "pos-up" : "pos-dn"}`;
+
+          const rpnl = data.account.realized_24h || 0;
+          const rpnlEl = document.getElementById("kpi-rpnl");
+          rpnlEl.textContent = `${rpnl >= 0 ? "+" : ""}${rpnl.toFixed(4)}`;
+          rpnlEl.className = `kpi-value ${rpnl >= 0 ? "pos-up" : "pos-dn"}`;
+
+          document.getElementById("kpi-lev").textContent = `${data.account.leverage}x`;
+          document.getElementById("t-lev").value = data.account.leverage;
+        }
+
+        const posList = data.positions || [];
+        document.getElementById("kpi-pos").textContent = posList.length;
+        document.getElementById("pos-list").innerHTML = posList.length
+          ? posList.map(p => {
+              const cls = p.pnl >= 0 ? "pos-up" : "pos-dn";
+              return `<div style="padding:4px 0;border-top:1px solid #182234;display:flex;justify-content:space-between;">
+                <span><strong>${p.symbol}</strong> ${p.side} (${p.size}) @ ${p.entry}</span>
+                <span class="${cls}"><strong>${p.pnl >= 0 ? "+" : ""}${p.pnl}</strong></span>
+              </div>`;
+            }).join("")
+          : "Nessuna posizione aperta.";
+
+        allSignals = data.signals || [];
+        const activeCount = allSignals.filter(s => s.signal !== "NEUTRAL").length;
+        document.getElementById("kpi-setups").textContent = activeCount;
+
+        allSignals.forEach(s => {
+          if (s.signal.includes("STRONG")) {
+            const key = `${s.symbol}-${s.signal}-${tf}`;
+            if (!seenStrong.has(key)) {
+              seenStrong.add(key);
+              showToast(`Segnale ${s.signal} su ${s.symbol} (Score ${s.score})`);
+              beep(920);
+            }
+          }
+        });
+
+        renderTable();
+        selectPair(selectedSymbol, false);
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    document.getElementById("vip-tf").addEventListener("change", refreshVipScanner);
+    document.getElementById("filter-sig").addEventListener("change", renderTable);
+    document.getElementById("search-input").addEventListener("input", renderTable);
+
+    setInterval(refreshVipScanner, 3000);
+    refreshVipScanner();
+  </script>
+</body>
+</html>
