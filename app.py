@@ -20,6 +20,14 @@ SCANNER_SYMBOLS = [
     "SUI-USDT", "ADA-USDT", "TON-USDT", "PEPE-USDT"
 ]
 
+TF_SECONDS = {
+    "1m": 60,
+    "5m": 300,
+    "15m": 900,
+    "1h": 3600,
+    "4h": 14400
+}
+
 SIGNAL_HISTORY = []
 _SEEN_SIGNAL_KEYS = set()
 
@@ -104,6 +112,23 @@ def dynamic_leverage(capital: float) -> int:
     return 5
 
 
+def candle_timer_info(interval: str, now_ts: int) -> dict:
+    period = TF_SECONDS.get(interval, 300)
+    candle_open_ts = (now_ts // period) * period
+    candle_close_ts = candle_open_ts + period
+    rem = max(0, candle_close_ts - now_ts)
+    elapsed = period - rem
+    progress_pct = round((elapsed / period) * 100.0, 1)
+    return {
+        "timeframe": interval,
+        "period_sec": period,
+        "remaining_sec": rem,
+        "candle_open_ts": candle_open_ts,
+        "candle_close_ts": candle_close_ts,
+        "progress_pct": progress_pct
+    }
+
+
 def scan_bingx_market(interval: str = "5m") -> list:
     rows = []
     for sym in SCANNER_SYMBOLS:
@@ -123,6 +148,8 @@ def scan_bingx_market(interval: str = "5m") -> list:
         price = float(closes[-1])
         chg_24h = ((price - float(opens[0])) / float(opens[0])) * 100.0 if opens[0] else 0.0
         ema9, ema21, ema55 = _ema(closes, 9), _ema(closes, 21), _ema(closes, 55)
+        e9, e21, e55 = float(ema9[-1]), float(ema21[-1]), float(ema55[-1])
+
         rsi_val = _rsi(closes, 14)
         atr_val = _atr(highs, lows, closes, 14)
 
@@ -140,39 +167,62 @@ def scan_bingx_market(interval: str = "5m") -> list:
             if (b_vol + a_vol) > 0:
                 obi = (b_vol - a_vol) / (b_vol + a_vol)
 
+        # Fattori di confluenza per Certezza % reale
+        factors_aligned = 0
         score = 0.0
         trend_state = "RANGE"
-        if ema9[-1] > ema21[-1] > ema55[-1]:
+
+        if e9 > e21 > e55:
             score += 35
             trend_state = "BULLISH"
-        elif ema9[-1] < ema21[-1] < ema55[-1]:
+            factors_aligned += 1
+        elif e9 < e21 < e55:
             score -= 35
             trend_state = "BEARISH"
-        elif ema9[-1] > ema21[-1]:
+            factors_aligned += 1
+        elif e9 > e21:
             score += 15
             trend_state = "WEAK BULL"
-        elif ema9[-1] < ema21[-1]:
+        elif e9 < e21:
             score -= 15
             trend_state = "WEAK BEAR"
 
         if rsi_val < 30:
             score += 25
+            factors_aligned += 1
         elif rsi_val > 70:
             score -= 25
+            factors_aligned += 1
         elif rsi_val > 52:
             score += 15
+            if score > 0:
+                factors_aligned += 1
         elif rsi_val < 48:
             score -= 15
+            if score < 0:
+                factors_aligned += 1
 
         if 0.3 < z_score < 2.0:
             score += 20
+            if score > 0:
+                factors_aligned += 1
         elif -2.0 < z_score < -0.3:
             score -= 20
+            if score < 0:
+                factors_aligned += 1
 
         score += obi * 20.0
-        if vol_ratio > 1.5:
+        if (score > 0 and obi > 0.15) or (score < 0 and obi < -0.15):
+            factors_aligned += 1
+
+        if vol_ratio > 1.35:
             score *= 1.1
+            factors_aligned += 1
+
         score = max(-100.0, min(100.0, round(score, 1)))
+        raw_conf = min(99.0, abs(score))
+        certainty_pct = round(raw_conf * (0.75 + 0.05 * min(factors_aligned, 5)), 1)
+        certainty_pct = max(0.0, min(99.0, certainty_pct))
 
         if score >= 60:
             signal, tp, sl, rr = "STRONG BUY", price + 2.8 * atr_val, price - 1.4 * atr_val, 2.0
@@ -185,16 +235,39 @@ def scan_bingx_market(interval: str = "5m") -> list:
         else:
             signal, tp, sl, rr = "NEUTRAL", 0.0, 0.0, 0.0
 
+        # Avvisi operativi di Entrata e Uscita
+        if signal == "STRONG BUY" and certainty_pct >= 65:
+            entry_alert = f"ENTRA LONG ORA @ {price}"
+            exit_alert = f"ESCI A TP {round(tp, 6)} O SL {round(sl, 6)}"
+        elif signal == "BUY":
+            entry_alert = f"VALUTA LONG @ {price} (Certezza {certainty_pct}%)"
+            exit_alert = f"TARGET {round(tp, 6)} / STOP {round(sl, 6)}"
+        elif signal == "STRONG SELL" and certainty_pct >= 65:
+            entry_alert = f"ENTRA SHORT ORA @ {price}"
+            exit_alert = f"ESCI A TP {round(tp, 6)} O SL {round(sl, 6)}"
+        elif signal == "SELL":
+            entry_alert = f"VALUTA SHORT @ {price} (Certezza {certainty_pct}%)"
+            exit_alert = f"TARGET {round(tp, 6)} / STOP {round(sl, 6)}"
+        else:
+            entry_alert = "NO ENTRY — ATTENDI SETUP"
+            exit_alert = "FLAT / CHIUDI SE IN PROFITTO"
+
         spark = [round(float(x), 6) for x in closes[-35:]]
 
         rows.append({
             "symbol": sym,
+            "timeframe": interval,
             "price": price,
             "change_pct": round(chg_24h, 2),
             "signal": signal,
             "score": score,
             "confidence": round(abs(score), 1),
+            "certainty_pct": certainty_pct,
+            "factors_aligned": factors_aligned,
             "trend": trend_state,
+            "ema9": round(e9, 6),
+            "ema21": round(e21, 6),
+            "ema55": round(e55, 6),
             "rsi": round(rsi_val, 1),
             "z_score": round(z_score, 2),
             "obi": round(obi * 100, 1),
@@ -204,49 +277,52 @@ def scan_bingx_market(interval: str = "5m") -> list:
             "entry": price if tp > 0 else 0.0,
             "tp": round(tp, 6) if tp > 0 else 0.0,
             "sl": round(sl, 6) if sl > 0 else 0.0,
+            "entry_alert": entry_alert,
+            "exit_alert": exit_alert,
             "sparkline": spark
         })
 
-    rows.sort(key=lambda r: r["confidence"], reverse=True)
+    rows.sort(key=lambda r: r["certainty_pct"], reverse=True)
     return rows
 
 
-def _evaluate_signal_status(sig: dict, current_price: float) -> str:
+def _evaluate_signal_status(sig: dict, current_price: float) -> tuple:
     side = sig["side"]
     tp1, tp2, tp3, sl = sig["tp1"], sig["tp2"], sig["tp3"], sig["sl"]
     if side == "LONG":
         if current_price <= sl:
-            return "SL HIT"
+            return "SL HIT", f"ESCI SUBITO: STOP LOSS TOCCATO ({sl})"
         if current_price >= tp3:
-            return "TP3 HIT"
+            return "TP3 HIT", f"ESCI / INCASSA COMPLETO A TP3 ({tp3})"
         if current_price >= tp2:
-            return "TP2 HIT"
+            return "TP2 HIT", f"PARZIALIZZA / SPOSTA SL A TP1 ({tp1})"
         if current_price >= tp1:
-            return "TP1 HIT"
-        return "ACTIVE"
+            return "TP1 HIT", f"PRENDI PARZIALE TP1 ({tp1}) — SL A BREAKEVEN"
+        return "ACTIVE", f"MANTIENI LONG — TP1 {tp1} / SL {sl}"
     else:
         if current_price >= sl:
-            return "SL HIT"
+            return "SL HIT", f"ESCI SUBITO: STOP LOSS TOCCATO ({sl})"
         if current_price <= tp3:
-            return "TP3 HIT"
+            return "TP3 HIT", f"ESCI / INCASSA COMPLETO A TP3 ({tp3})"
         if current_price <= tp2:
-            return "TP2 HIT"
+            return "TP2 HIT", f"PARZIALIZZA / SPOSTA SL A TP1 ({tp1})"
         if current_price <= tp1:
-            return "TP1 HIT"
-        return "ACTIVE"
+            return "TP1 HIT", f"PRENDI PARZIALE TP1 ({tp1}) — SL A BREAKEVEN"
+        return "ACTIVE", f"MANTIENI SHORT — TP1 {tp1} / SL {sl}"
 
 
 def build_signal_room(rows: list, interval: str, leverage: int) -> list:
     now_ts = int(time.time())
     now_str = time.strftime("%H:%M:%S")
+    timer_meta = candle_timer_info(interval, now_ts)
 
     for r in rows:
         price = float(r["price"])
         atr = float(r["atr"])
         sig_type = r["signal"]
-        conf = float(r["confidence"])
+        cert = float(r["certainty_pct"])
 
-        if sig_type in ("STRONG BUY", "STRONG SELL") or (sig_type in ("BUY", "SELL") and conf >= 55.0):
+        if sig_type in ("STRONG BUY", "STRONG SELL") or (sig_type in ("BUY", "SELL") and cert >= 55.0):
             is_long = "BUY" in sig_type
             side = "LONG" if is_long else "SHORT"
             bx_side = "BUY" if is_long else "SELL"
@@ -275,12 +351,16 @@ def build_signal_room(rows: list, interval: str, leverage: int) -> list:
                     "ts": now_ts,
                     "symbol": r["symbol"],
                     "tf": interval,
+                    "candle_close_ts": timer_meta["candle_close_ts"],
                     "signal": sig_type,
                     "side": side,
                     "bx_side": bx_side,
                     "leverage": leverage,
-                    "confidence": conf,
+                    "certainty_pct": cert,
                     "score": r["score"],
+                    "ema9": r["ema9"],
+                    "ema21": r["ema21"],
+                    "ema55": r["ema55"],
                     "rsi": r["rsi"],
                     "z_score": r["z_score"],
                     "obi": r["obi"],
@@ -291,6 +371,8 @@ def build_signal_room(rows: list, interval: str, leverage: int) -> list:
                     "tp3": tp3,
                     "risk_pct": risk_pct,
                     "rr": rr_tp3,
+                    "entry_advice": f"ENTRA {side} @ {price} (Certezza {cert}%)",
+                    "exit_advice": f"ESCI A TP1 {tp1} / TP2 {tp2} / TP3 {tp3} — SL {sl}",
                     "status": "ACTIVE"
                 })
                 SIGNAL_HISTORY[:] = SIGNAL_HISTORY[:40]
@@ -300,7 +382,9 @@ def build_signal_room(rows: list, interval: str, leverage: int) -> list:
         live_p = price_map.get(item["symbol"])
         if live_p:
             item["current_price"] = live_p
-            item["status"] = _evaluate_signal_status(item, live_p)
+            st, ex_adv = _evaluate_signal_status(item, live_p)
+            item["status"] = st
+            item["exit_advice"] = ex_adv
 
     return SIGNAL_HISTORY
 
@@ -368,6 +452,9 @@ def index():
 @app.route("/api/vip-scan")
 def api_vip_scan():
     tf = request.args.get("tf", "5m")
+    if tf not in TF_SECONDS:
+        tf = "5m"
+    now_ts = int(time.time())
     api_key, secret = _creds()
     account, positions = fetch_account_and_positions(api_key, secret)
     signals = scan_bingx_market(tf)
@@ -377,7 +464,8 @@ def api_vip_scan():
         "positions": positions,
         "signals": signals,
         "signal_room": room_signals,
-        "ts": int(time.time())
+        "candle_timer": candle_timer_info(tf, now_ts),
+        "ts": now_ts
     })
 
 
