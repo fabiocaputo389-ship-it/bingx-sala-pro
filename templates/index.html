@@ -88,16 +88,25 @@
       cursor: pointer;
     }
     .tf-btn.active { background: #2563eb; color: #fff; }
+    .gauge-box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background: #10192b;
+      border: 1px solid #213454;
+      border-radius: 12px;
+      padding: 10px;
+      margin-bottom: 8px;
+    }
+    .gauge-readout { font-size: 16px; font-weight: 900; margin-top: -10px; }
+    .gauge-sub { font-size: 11px; color: #94a3b8; margin-top: 2px; }
     .decision-card {
       border-radius: 14px;
       padding: 12px;
       border: 2px solid #b91c1c;
       background: #250f16;
     }
-    .decision-card.enter {
-      border-color: #16a34a;
-      background: #0c2418;
-    }
+    .decision-card.enter { border-color: #16a34a; background: #0c2418; }
     .decision-badge { font-size: 16px; font-weight: 900; color: #f87171; }
     .decision-card.enter .decision-badge { color: #4ade80; }
     .decision-reason { font-size: 12px; margin-top: 4px; color: #fecaca; font-weight: 700; }
@@ -116,7 +125,7 @@
       color: #fff;
       border: 1px solid #283c61;
       border-radius: 8px;
-      padding: 8px;
+      padding: 7px;
       font-size: 12px;
       margin-bottom: 6px;
     }
@@ -173,7 +182,7 @@
       <div id="scannerList"></div>
     </div>
 
-    <!-- TIMEFRAME + GRAFICO TRADINGVIEW -->
+    <!-- TIMEFRAME, TACHIMETRO REALE & GRAFICO TRADINGVIEW -->
     <div class="card">
       <div class="tf-bar">
         <button type="button" class="tf-btn" data-tf="1m">1m</button>
@@ -182,7 +191,26 @@
         <button type="button" class="tf-btn active" data-tf="15m">15m</button>
         <button type="button" class="tf-btn" data-tf="4h">4h</button>
       </div>
-      <div id="tvChart" style="height:240px;"></div>
+
+      <!-- TACHIMETRO REALE -->
+      <div class="gauge-box">
+        <svg width="230" height="120" viewBox="0 0 230 120">
+          <defs>
+            <linearGradient id="deskGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stop-color="#ef4444" />
+              <stop offset="50%" stop-color="#f59e0b" />
+              <stop offset="100%" stop-color="#22c55e" />
+            </linearGradient>
+          </defs>
+          <path d="M 20 105 A 95 95 0 0 1 210 105" fill="none" stroke="url(#deskGrad)" stroke-width="15" stroke-linecap="round" />
+          <line id="deskNeedle" x1="115" y1="105" x2="115" y2="25" stroke="#f8fafc" stroke-width="4" stroke-linecap="round" />
+          <circle cx="115" cy="105" r="6" fill="#f8fafc" />
+        </svg>
+        <div class="gauge-readout" id="gaugeLabel">NEUTRAL · SCORE 0</div>
+        <div class="gauge-sub" id="gaugeSub">Trend Health --% | Balene --% / Orsi --%</div>
+      </div>
+
+      <div id="tvChart" style="height:230px;"></div>
     </div>
 
     <!-- POSIZIONI APERTE -->
@@ -239,7 +267,7 @@
       </div>
     </div>
 
-    <!-- IMPOSTAZIONI API, BLOCCO SEGNALE CERTO & CONTROLLI -->
+    <!-- IMPOSTAZIONI API, CONTROLLI, PARAMETRI EMA & ESECUZIONE -->
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
         <strong style="font-size:12px;">IMPOSTAZIONI API BINGX</strong>
@@ -273,7 +301,7 @@
       </div>
 
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px;">
-        <button type="button" class="cat-btn" id="soundBtn" style="padding:8px;">SUONO: ON</button>
+        <button type="button" class="cat-btn active" id="soundBtn" style="padding:8px;">SUONO: ON</button>
         <button type="button" class="cat-btn active" id="voiceBtn" style="padding:8px;">VOCALE IT: ON</button>
       </div>
       <button type="button" class="btn-blue" id="testVoiceBtn" style="margin-bottom:8px;">TEST VOCE & AVVISO SEGNALE</button>
@@ -295,17 +323,46 @@
           <div class="brain-cell">RR / Win%: <strong id="bRr">--</strong></div>
           <div class="brain-cell">ADX Trend: <strong id="bAdx">--</strong></div>
           <div class="brain-cell">Z-Score: <strong id="bZ">--</strong></div>
-          <div class="brain-cell">EMA 9/21: <strong id="bEma9_21">--</strong></div>
-          <div class="brain-cell">EMA 50/200: <strong id="bEma50_200">--</strong></div>
+          <div class="brain-cell">EMA Fast/Mid: <strong id="bEma9_21">--</strong></div>
+          <div class="brain-cell">EMA Trend/Slow: <strong id="bEma50_200">--</strong></div>
           <div class="brain-cell">RSI / MACD: <strong id="bRsiMacd">--</strong></div>
           <div class="brain-cell">ATR / Vol: <strong id="bAtrVol">--</strong></div>
         </div>
       </div>
 
-      <!-- PARAMETRI ORDINE & CHECKBOX FILTRI -->
+      <!-- PARAMETRI EMA, RSI, MACD, ATR MODIFICABILI -->
+      <div style="background:#10192b;border:1px solid #213454;border-radius:10px;padding:8px;margin-bottom:8px;">
+        <div style="font-size:11px;font-weight:900;color:#38bdf8;margin-bottom:6px;">PARAMETRI EMA & INDICATORI</div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-bottom:6px;">
+          <div><span style="font-size:10px;color:#8fa3c4;">EMA Fast</span><input class="inp" id="emaFastP" type="number" value="9" /></div>
+          <div><span style="font-size:10px;color:#8fa3c4;">EMA Mid</span><input class="inp" id="emaMidP" type="number" value="21" /></div>
+          <div><span style="font-size:10px;color:#8fa3c4;">EMA Trend</span><input class="inp" id="emaTrendP" type="number" value="50" /></div>
+          <div><span style="font-size:10px;color:#8fa3c4;">EMA Slow</span><input class="inp" id="emaSlowP" type="number" value="200" /></div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px;">
+          <div><span style="font-size:10px;color:#8fa3c4;">RSI Periodo</span><input class="inp" id="rsiP" type="number" value="14" /></div>
+          <div><span style="font-size:10px;color:#8fa3c4;">ATR Periodo</span><input class="inp" id="atrP" type="number" value="14" /></div>
+          <div><span style="font-size:10px;color:#8fa3c4;">MACD F/S/Sig</span><input class="inp" id="macdCfgStr" type="text" value="12/26/9" /></div>
+        </div>
+        <button type="button" class="btn-blue" id="saveIndBtn">APPLICA PARAMETRI EMA / INDICATORI</button>
+      </div>
+
+      <!-- PARAMETRI ORDINE & CALCOLO TP1/TP2/TP3 -->
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+        <div><span style="font-size:10px;color:#8fa3c4;">Tipo Ordine</span>
+          <select class="inp" id="orderTypeSel">
+            <option value="MARKET" selected>MARKET</option>
+            <option value="LIMIT">LIMIT</option>
+          </select>
+        </div>
         <div><span style="font-size:10px;color:#8fa3c4;">Quantità</span><input class="inp" id="qtyInp" type="number" step="0.0001" value="0.0005" /></div>
+      </div>
+
+      <button type="button" class="btn-blue" id="calcSignalBtn" style="margin-bottom:8px;">CALCOLA SEGNALE, % CERTEZZA & TP1/TP2/TP3</button>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
         <div><span style="font-size:10px;color:#8fa3c4;">Leva</span><input class="inp" id="levInp" type="number" value="20" /></div>
+        <div><span style="font-size:10px;color:#8fa3c4;">Target / Stop (%)</span><input class="inp" id="pctTargetStopInp" type="text" readonly /></div>
         <div><span style="font-size:10px;color:#8fa3c4;">TP Ordine</span><input class="inp" id="tpInp" type="number" step="0.01" /></div>
         <div><span style="font-size:10px;color:#8fa3c4;">Stop Loss</span><input class="inp" id="slInp" type="number" step="0.01" /></div>
       </div>
@@ -333,6 +390,19 @@
     let lastDesk = null;
     let lastSpokenKey = "";
 
+    function setGaugeAngle(signedScore) {
+      // signedScore da -100 a +100 -> angolo da -80 a +80 gradi
+      const clamped = Math.max(-100, Math.min(100, Number(signedScore) || 0));
+      const deg = (clamped / 100) * 80;
+      const rad = (deg - 90) * (Math.PI / 180);
+      const len = 76;
+      const x2 = 115 + len * Math.cos(rad);
+      const y2 = 105 + len * Math.sin(rad);
+      const needle = document.getElementById("deskNeedle");
+      needle.setAttribute("x2", x2.toFixed(1));
+      needle.setAttribute("y2", y2.toFixed(1));
+    }
+
     function speakIt(text) {
       if (!lastDesk || !lastDesk.voiceItEnabled || !("speechSynthesis" in window)) return;
       const u = new SpeechSynthesisUtterance(text);
@@ -357,7 +427,7 @@
     function mountTvWidget(sym) {
       if (!window.TradingView) return;
       const clean = sym.replace("-", "");
-      document.getElementById("tvChart").innerHTML = `<div id="tv_inner" style="height:240px;"></div>`;
+      document.getElementById("tvChart").innerHTML = `<div id="tv_inner" style="height:230px;"></div>`;
       new TradingView.widget({
         autosize: true,
         symbol: `BINANCE:${clean === "XAUTUSDT" ? "PAXGUSDT" : clean}`,
@@ -370,6 +440,41 @@
         hide_top_toolbar: true,
         hide_side_toolbar: true,
       });
+    }
+
+    async function pushConfig(extra = {}) {
+      const macdParts = (document.getElementById("macdCfgStr").value || "12/26/9").split("/");
+      const payload = {
+        mode: lastDesk ? lastDesk.mode : "AUTOMATICO",
+        auto_trade: lastDesk ? lastDesk.autoTrade : true,
+        score_threshold: Number(document.getElementById("scoreThreshInp").value || 60),
+        certain_min_pct: Number(document.getElementById("certainMinInp").value || 70),
+        order_type: document.getElementById("orderTypeSel").value,
+        default_qty: Number(document.getElementById("qtyInp").value || 0.0005),
+        default_leverage: Number(document.getElementById("levInp").value || 20),
+        ema_fast_period: Number(document.getElementById("emaFastP").value || 9),
+        ema_mid_period: Number(document.getElementById("emaMidP").value || 21),
+        ema_trend_period: Number(document.getElementById("emaTrendP").value || 50),
+        ema_slow_period: Number(document.getElementById("emaSlowP").value || 200),
+        rsi_period: Number(document.getElementById("rsiP").value || 14),
+        atr_period: Number(document.getElementById("atrP").value || 14),
+        macd_fast: Number(macdParts[0] || 12),
+        macd_slow: Number(macdParts[1] || 26),
+        macd_signal: Number(macdParts[2] || 9),
+        close_at_candle_end: document.getElementById("chkCloseTf").checked,
+        block_false_signals: document.getElementById("chkFalseSig").checked,
+        anti_breakout_enabled: document.getElementById("chkAntiBreak").checked,
+        allow_manual_under_threshold: document.getElementById("chkManualUnder").checked,
+        sound_enabled: lastDesk ? lastDesk.soundEnabled : true,
+        voice_it_enabled: lastDesk ? lastDesk.voiceItEnabled : true,
+        ...extra,
+      };
+      await fetch("/api/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      refreshDesk();
     }
 
     async function refreshDesk() {
@@ -391,6 +496,13 @@
         document.getElementById("tfTimerVal").textContent = m.remainingText;
         document.getElementById("levEqVal").textContent = `${m.equityUsdt} · ${m.leverage}x`;
 
+        // Tachimetro reale
+        setGaugeAngle(m.signedScore);
+        const gLabel = document.getElementById("gaugeLabel");
+        gLabel.textContent = `${m.side} · SCORE ${m.signedScore >= 0 ? "+" : ""}${m.signedScore}`;
+        gLabel.style.color = m.side === "BUY" ? "#4ade80" : (m.side === "SELL" ? "#f87171" : "#fbbf24");
+        document.getElementById("gaugeSub").textContent = `Trend Health ${m.trendHealth}% | Balene ${m.whalePct}% / Orsi ${m.bearPct}%`;
+
         // Card ENTRA / NON ENTRARE + MOTIVO
         const dCard = document.getElementById("decisionCard");
         const canEnter = m.entryDecision === "ENTRA";
@@ -399,7 +511,21 @@
         document.getElementById("decisionMeta").textContent = `Chiusura: ${m.closeLocal} (${m.remainingText})`;
         document.getElementById("decisionReason").textContent = `Motivo: ${m.entryReason}`;
 
-        // Avviso vocale/sonoro su segnale certo
+        // Stato tasti toggle
+        document.getElementById("modeAutoBtn").classList.toggle("active", d.mode === "AUTOMATICO");
+        document.getElementById("modeManBtn").classList.toggle("active", d.mode === "MANUALE");
+        const atBtn = document.getElementById("autoTradeToggleBtn");
+        atBtn.textContent = d.autoTrade ? "AUTO-TRADE: ON (ATTIVO)" : "AUTO-TRADE: OFF (IN ATTESA)";
+        atBtn.className = d.autoTrade ? "btn-green" : "btn-amber";
+        atBtn.style.padding = "9px";
+        atBtn.style.fontSize = "11px";
+        atBtn.style.marginBottom = "8px";
+
+        document.getElementById("soundBtn").textContent = `SUONO: ${d.soundEnabled ? "ON" : "OFF"}`;
+        document.getElementById("soundBtn").classList.toggle("active", d.soundEnabled);
+        document.getElementById("voiceBtn").textContent = `VOCALE IT: ${d.voiceItEnabled ? "ON" : "OFF"}`;
+        document.getElementById("voiceBtn").classList.toggle("active", d.voiceItEnabled);
+
         const alertKey = `${m.symbol}_${m.side}_${m.isCertainSignal}`;
         if (m.isCertainSignal && alertKey !== lastSpokenKey) {
           lastSpokenKey = alertKey;
@@ -470,11 +596,12 @@
         document.getElementById("bRr").textContent = b.rrWin ?? "--";
         document.getElementById("bAdx").textContent = b.adx ?? "--";
         document.getElementById("bZ").textContent = b.zScore ?? "--";
-        document.getElementById("bEma9_21").textContent = `${b.ema9 ?? "--"} / ${b.ema21 ?? "--"}`;
-        document.getElementById("bEma50_200").textContent = `${b.ema50 ?? "--"} / ${b.ema200 ?? "--"}`;
+        document.getElementById("bEma9_21").textContent = `${b.emaFast ?? "--"} / ${b.emaMid ?? "--"}`;
+        document.getElementById("bEma50_200").textContent = `${b.emaTrend ?? "--"} / ${b.emaSlow ?? "--"}`;
         document.getElementById("bRsiMacd").textContent = `${b.rsi ?? "--"} / ${b.macdStatus ?? "--"}`;
         document.getElementById("bAtrVol").textContent = `${b.atr ?? "--"} / ${b.volRatio ?? "--"}`;
 
+        document.getElementById("pctTargetStopInp").value = `${m.tpPct ?? 0}% / ${m.slPct ?? 0}%`;
         if (!document.activeElement || document.activeElement.id !== "tpInp") {
           document.getElementById("tpInp").value = m.tp2 ?? "";
         }
@@ -539,6 +666,20 @@
       refreshDesk();
     });
 
+    document.getElementById("modeAutoBtn").addEventListener("click", () => pushConfig({ mode: "AUTOMATICO" }));
+    document.getElementById("modeManBtn").addEventListener("click", () => pushConfig({ mode: "MANUALE" }));
+    document.getElementById("autoTradeToggleBtn").addEventListener("click", () => {
+      pushConfig({ auto_trade: !(lastDesk && lastDesk.autoTrade) });
+    });
+    document.getElementById("soundBtn").addEventListener("click", () => {
+      pushConfig({ sound_enabled: !(lastDesk && lastDesk.soundEnabled) });
+    });
+    document.getElementById("voiceBtn").addEventListener("click", () => {
+      pushConfig({ voice_it_enabled: !(lastDesk && lastDesk.voiceItEnabled) });
+    });
+    document.getElementById("saveIndBtn").addEventListener("click", () => pushConfig());
+    document.getElementById("calcSignalBtn").addEventListener("click", () => pushConfig());
+
     document.getElementById("lockCertainBtn").addEventListener("click", async () => {
       const r = await fetch("/api/lock-signal", {
         method: "POST",
@@ -560,6 +701,7 @@
     });
 
     async function sendOrder(sideAct) {
+      await pushConfig();
       const r = await fetch("/api/trade-action", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
