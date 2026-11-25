@@ -220,9 +220,7 @@ BRAIN_WEIGHTS = {
     "breakeven_at_tp_pct": 50.0,
     "max_daily_loss_usdt": 100.0,
     "account_capital": 0.0,
-    "risk_per_trade_pct": 1.5,
-    "max_entry_atr_stretch": 1.25,
-    "max_entry_z_abs": 2.20
+    "risk_per_trade_pct": 1.5
 }
 
 BALANCE_STATE = {
@@ -918,79 +916,6 @@ def calc_adx(highs: np.ndarray, lows: np.ndarray, closes: np.ndarray, period: in
     return float(np.mean(dx[-period:]))
 
 
-def evaluate_entry_window(
-    direction: str,
-    current_price: float,
-    ref_price: float,
-    atr: float,
-    z_score: float,
-    max_atr_stretch: float = None,
-    max_z_abs: float = None
-):
-    if max_atr_stretch is None:
-        max_atr_stretch = float(BRAIN_WEIGHTS.get("max_entry_atr_stretch", 1.25))
-    if max_z_abs is None:
-        max_z_abs = float(BRAIN_WEIGHTS.get("max_entry_z_abs", 2.20))
-
-    if not direction or ref_price <= 0 or atr <= 0:
-        return {
-            "in_window": False,
-            "exceeded": False,
-            "threshold_price": None,
-            "status_badge": "⏳ IN ATTESA",
-            "reason": "In attesa di una direzione o di un livello di riferimento valido."
-        }
-
-    if direction == "LONG":
-        threshold_price = round(ref_price + max_atr_stretch * atr, 6)
-        exceeded = (current_price > threshold_price) or (z_score > max_z_abs)
-        if exceeded:
-            return {
-                "in_window": False,
-                "exceeded": True,
-                "threshold_price": threshold_price,
-                "status_badge": "🛑 OLTRE SOGLIA — NON ENTRARE",
-                "reason": (
-                    f"Prezzo {current_price} oltre soglia max {threshold_price} "
-                    f"(rif. {ref_price} + {max_atr_stretch}x ATR, Z={z_score:+.2f}σ). Non inseguire."
-                )
-            }
-        return {
-            "in_window": True,
-            "exceeded": False,
-            "threshold_price": threshold_price,
-            "status_badge": "✅ FINESTRA INGRESSO LONG",
-            "reason": (
-                f"Prezzo {current_price} entro la soglia max {threshold_price} "
-                f"(rif. {ref_price}, Z={z_score:+.2f}σ). Momento valido per valutare l'ingresso."
-            )
-        }
-
-    threshold_price = round(ref_price - max_atr_stretch * atr, 6)
-    exceeded = (current_price < threshold_price) or (z_score < -max_z_abs)
-    if exceeded:
-        return {
-            "in_window": False,
-            "exceeded": True,
-            "threshold_price": threshold_price,
-            "status_badge": "🛑 OLTRE SOGLIA — NON ENTRARE",
-            "reason": (
-                f"Prezzo {current_price} sceso oltre soglia max {threshold_price} "
-                f"(rif. {ref_price} - {max_atr_stretch}x ATR, Z={z_score:+.2f}σ). Non inseguire."
-            )
-        }
-    return {
-        "in_window": True,
-        "exceeded": False,
-        "threshold_price": threshold_price,
-        "status_badge": "✅ FINESTRA INGRESSO SHORT",
-        "reason": (
-            f"Prezzo {current_price} entro la soglia max {threshold_price} "
-            f"(rif. {ref_price}, Z={z_score:+.2f}σ). Momento valido per valutare l'ingresso."
-        )
-    }
-
-
 def detect_early_entry_setup(opens, highs, lows, closes, volumes, ema20_arr, ema50_arr, ema200_val, atr_series, rsi, z_score):
     price = closes[-1]
     prev_high, prev_low = highs[-2], lows[-2]
@@ -1113,7 +1038,7 @@ def calc_recommended_leverage(atr_pct: float, max_contract_lev: int, capital: fl
 def evaluate_profit_math_and_entry(
     symbol, signal, confidence, rr_ratio, adx, r_squared, z_score, rsi,
     min_conf, capital, risk_pct, stop_dist, price, rec_leverage,
-    ema_dir, mom_dir, vol_dir, final_sentiment, session_info, early_setup, entry_window
+    ema_dir, mom_dir, vol_dir, final_sentiment, session_info, early_setup
 ):
     p_win = float(np.clip(0.48 + (confidence - 50.0) * 0.0045 + (r_squared - 0.25) * 0.14, 0.38, 0.78))
     p_loss = 1.0 - p_win
@@ -1133,14 +1058,12 @@ def evaluate_profit_math_and_entry(
     session_ok = bool(session_info.get("session_ok", True))
     early_dir = early_setup.get("direction")
     is_early_active = bool(early_setup.get("trigger_sound") and early_dir)
-    window_exceeded = bool((entry_window or {}).get("exceeded", False))
 
     bull_aligned = (ema_dir > 5) and (mom_dir > 5) and (vol_dir >= -10) and (final_sentiment >= -20)
     bear_aligned = (ema_dir < -5) and (mom_dir < -5) and (vol_dir <= 10) and (final_sentiment <= 20)
 
     certain_long = (
-        not window_exceeded
-        and early_dir == "LONG"
+        early_dir == "LONG"
         and is_early_active
         and early_setup.get("not_chasing", True)
         and bull_aligned
@@ -1151,8 +1074,7 @@ def evaluate_profit_math_and_entry(
         and session_ok
     )
     certain_short = (
-        not window_exceeded
-        and early_dir == "SHORT"
+        early_dir == "SHORT"
         and is_early_active
         and early_setup.get("not_chasing", True)
         and bear_aligned
@@ -1169,13 +1091,7 @@ def evaluate_profit_math_and_entry(
     elif certain_short:
         certain_signal = "SEGNALE CERTO ANTICIPO SHORT"
 
-    if window_exceeded:
-        entry_rule = {
-            "action": "NO ENTRY",
-            "badge": entry_window.get("status_badge", "🛑 OLTRE SOGLIA — NON ENTRARE"),
-            "reason": entry_window.get("reason", "Soglia massima di ingresso superata: non entrare.")
-        }
-    elif not early_setup.get("not_chasing", True) or abs(z_score) > 2.45:
+    if not early_setup.get("not_chasing", True) or abs(z_score) > 2.45:
         entry_rule = {
             "action": "NO ENTRY",
             "badge": "🚫 NON INSEGUIRE",
@@ -1236,9 +1152,6 @@ def is_certain_or_early_signal(analysis: dict) -> bool:
 def register_sound_alert_if_exact_moment(analysis: dict):
     early = analysis.get("early_setup", {})
     certain = analysis.get("certain_signal")
-    ew = analysis.get("entry_window", {})
-    if ew.get("exceeded"):
-        return
     if not (early.get("trigger_sound") or certain):
         return
     if not analysis.get("session", {}).get("session_ok", True):
@@ -1431,15 +1344,6 @@ def analyze_symbol_math(symbol: str, interval: str = "15m", custom_sentiment: fl
         tp2 = round(price - tp2_m * atr, decimals)
         tp3 = round(price - tp3_m * atr, decimals)
 
-    ref_entry_price = float(early_setup.get("limit_price") or entry)
-    entry_window = evaluate_entry_window(
-        direction=ref_dir,
-        current_price=float(price),
-        ref_price=ref_entry_price,
-        atr=atr,
-        z_score=float(z_score)
-    )
-
     stop_dist = max(abs(entry - sl), 1e-9)
     rr_ratio = round(abs(tp2 - entry) / stop_dist, 2)
     tp_plan = compute_tp_timeframe_plan(interval, adx)
@@ -1456,7 +1360,7 @@ def analyze_symbol_math(symbol: str, interval: str = "15m", custom_sentiment: fl
         min_conf=min_conf, capital=capital, risk_pct=risk_pct,
         stop_dist=stop_dist, price=price, rec_leverage=rec_lev,
         ema_dir=ema_dir, mom_dir=mom_dir, vol_dir=vol_dir, final_sentiment=final_sentiment,
-        session_info=session_info, early_setup=early_setup, entry_window=entry_window
+        session_info=session_info, early_setup=early_setup
     )
 
     result_obj = {
@@ -1466,7 +1370,6 @@ def analyze_symbol_math(symbol: str, interval: str = "15m", custom_sentiment: fl
         "category": category,
         "session": session_info,
         "early_setup": early_setup,
-        "entry_window": entry_window,
         "timeframe": interval,
         "applied_profile": applied_profile,
         "weights": dict(BRAIN_WEIGHTS),
@@ -1512,9 +1415,6 @@ def maybe_auto_execute_trade(analysis: dict):
     if not BRAIN_WEIGHTS.get("auto_trade_enabled", False):
         return
     if not BINGX_API_KEY or not BINGX_SECRET_KEY:
-        return
-
-    if analysis.get("entry_window", {}).get("exceeded"):
         return
 
     bal = float(BALANCE_STATE.get("balance_usdt", 0.0) or 0.0)
