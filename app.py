@@ -1,4 +1,5 @@
 import os
+import json
 import time
 import hmac
 import hashlib
@@ -13,9 +14,40 @@ load_dotenv()
 
 app = Flask(__name__)
 
-BINGX_API_KEY = os.getenv("BINGX_API_KEY", "")
-BINGX_SECRET_KEY = os.getenv("BINGX_SECRET_KEY", "")
+KEYS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".bingx_keys.json")
 BASE_URL = "https://open-api.bingx.com"
+
+
+def load_saved_keys():
+    api_key = os.getenv("BINGX_API_KEY", "")
+    secret_key = os.getenv("BINGX_SECRET_KEY", "")
+    if os.path.exists(KEYS_FILE):
+        try:
+            with open(KEYS_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                if data.get("api_key"):
+                    api_key = data["api_key"].strip()
+                if data.get("secret_key"):
+                    secret_key = data["secret_key"].strip()
+        except Exception as e:
+            print(f"[Keys Load Error] {e}")
+    return api_key, secret_key
+
+
+def save_keys_to_disk(api_key: str, secret_key: str):
+    with open(KEYS_FILE, "w", encoding="utf-8") as f:
+        json.dump({
+            "api_key": api_key.strip(),
+            "secret_key": secret_key.strip(),
+            "updated_at": time.strftime("%Y-%m-%d %H:%M:%S")
+        }, f, indent=2)
+    try:
+        os.chmod(KEYS_FILE, 0o600)
+    except Exception:
+        pass
+
+
+BINGX_API_KEY, BINGX_SECRET_KEY = load_saved_keys()
 
 BRAIN_WEIGHTS = {
     "ema_weight": 30,
@@ -25,17 +57,70 @@ BRAIN_WEIGHTS = {
     "min_confidence": 75,
     "auto_scan_interval": 25,
     "auto_monitor_enabled": True,
+    "auto_trade_enabled": False,
+    "auto_trade_cooldown_sec": 300,
     "account_capital": 1000.0,
     "risk_per_trade_pct": 1.5
 }
 
-BINGX_ALIAS_MAP = {
+# Nomi esteri e TradFi BingX -> simboli Swap v2 reali
+BINGX_FOREIGN_MAP = {
+    # Metalli Preziosi & Materie Prime
     "GOLD(XAU)": ["XAUT-USDT", "PAXG-USDT", "GOLD-USDT", "XAU-USDT"],
+    "XAUUSD": ["XAUT-USDT", "PAXG-USDT", "XAU-USDT"],
     "XAUT(GOLD)USDT": ["XAUT-USDT"],
     "PAXG(GOLD)USDT": ["PAXG-USDT"],
+    "XAGUSD": ["XAG-USDT", "SILVER-USDT"],
+    "SILVER": ["XAG-USDT", "SILVER-USDT"],
+    "WTI": ["WTI-USDT", "OIL-USDT", "CRUDE-USDT"],
+    "BRENT": ["BRENT-USDT", "OIL-USDT"],
+    "CRUDE OIL": ["WTI-USDT", "BRENT-USDT", "OIL-USDT"],
+    "NATURAL GAS": ["NATGAS-USDT", "NG-USDT"],
+    "NATGAS": ["NATGAS-USDT"],
+    "COPPER": ["COPPER-USDT", "XCU-USDT"],
     "XAUXPT": ["XAUT-USDT", "PAXG-USDT"],
     "XAUEUR": ["XAUT-USDT", "PAXG-USDT"],
-    "GS": ["GS-USDT", "SPY-USDT", "BTC-USDT"],
+    # Forex Majors Esteri
+    "EURUSD": ["EUR-USDT", "EURUSD-USDT"],
+    "GBPUSD": ["GBP-USDT", "GBPUSD-USDT"],
+    "USDJPY": ["JPY-USDT", "USDJPY-USDT"],
+    "AUDUSD": ["AUD-USDT", "AUDUSD-USDT"],
+    "USDCAD": ["CAD-USDT", "USDCAD-USDT"],
+    "USDCHF": ["CHF-USDT", "USDCHF-USDT"],
+    "EURJPY": ["EURJPY-USDT", "EUR-USDT"],
+    # Indici & Azioni Estere
+    "SP500": ["SPX-USDT", "SP500-USDT", "US500-USDT"],
+    "NASDAQ100": ["NDX-USDT", "NAS100-USDT", "NASDAQ100-USDT"],
+    "DOWJONES": ["US30-USDT", "DJI-USDT"],
+    "TSLA": ["TSLA-USDT"],
+    "NVDA": ["NVDA-USDT"],
+    "AAPL": ["AAPL-USDT"],
+    "MSFT": ["MSFT-USDT"],
+    "AMZN": ["AMZN-USDT"],
+    "GOOGL": ["GOOGL-USDT"],
+    "META": ["META-USDT"],
+    "GS": ["GS-USDT"]
+}
+
+FOREIGN_DISPLAY_LABELS = {
+    "XAUT-USDT": "XAUT(GOLD)USDT • GOLD(XAU) / XAUUSD",
+    "PAXG-USDT": "PAXG(GOLD)USDT • GOLD(XAU) / XAUUSD",
+    "XAG-USDT": "XAGUSD • Silver Futures",
+    "WTI-USDT": "WTI Crude Oil • US Oil Perp",
+    "BRENT-USDT": "Brent Crude Oil • Global Oil Perp",
+    "NATGAS-USDT": "Natural Gas • Henry Hub Perp",
+    "EUR-USDT": "EUR/USD • Euro FX Perp",
+    "GBP-USDT": "GBP/USD • British Pound FX Perp",
+    "JPY-USDT": "USD/JPY • Japanese Yen FX Perp",
+    "SPX-USDT": "S&P 500 (SP500) • US Index Perp",
+    "NDX-USDT": "NASDAQ 100 (NASDAQ100) • Tech Index Perp",
+    "TSLA-USDT": "Tesla Inc. (TSLA) • US Stock Perp",
+    "NVDA-USDT": "NVIDIA Corp. (NVDA) • US Stock Perp",
+    "AAPL-USDT": "Apple Inc. (AAPL) • US Stock Perp",
+    "MSFT-USDT": "Microsoft Corp. (MSFT) • US Stock Perp",
+    "AMZN-USDT": "Amazon.com (AMZN) • US Stock Perp",
+    "GOOGL-USDT": "Alphabet Inc. (GOOGL) • US Stock Perp",
+    "GS-USDT": "Goldman Sachs (GS) • US Stock Perp"
 }
 
 CONTRACTS_CACHE = {"timestamp": 0, "data": [], "symbol_set": set(), "max_lev_map": {}}
@@ -43,7 +128,9 @@ AUTO_SCAN_STATE = {
     "running": False,
     "last_run": None,
     "interval": "15m",
-    "signals": {}
+    "signals": {},
+    "last_auto_trade": {},
+    "trade_logs": []
 }
 
 
@@ -89,7 +176,7 @@ def bingx_private_get(endpoint: str, params: dict = None):
 
 def bingx_private_post(endpoint: str, params: dict):
     if not BINGX_API_KEY or not BINGX_SECRET_KEY:
-        return {"code": -1, "msg": "API Key BingX non configurate nel file .env"}
+        return {"code": -1, "msg": "API Key / Secret Key BingX mancanti. Inseriscili e salvali nella Dashboard."}
     params["timestamp"] = int(time.time() * 1000)
     signed_qs = sign_request(params)
     url = f"{BASE_URL}{endpoint}?{signed_qs}"
@@ -103,10 +190,8 @@ def bingx_private_post(endpoint: str, params: dict):
 
 def format_bingx_display_name(symbol: str) -> str:
     s = symbol.upper()
-    if s == "XAUT-USDT":
-        return "XAUT(GOLD)USDT • GOLD(XAU)"
-    if s == "PAXG-USDT":
-        return "PAXG(GOLD)USDT • GOLD(XAU)"
+    if s in FOREIGN_DISPLAY_LABELS:
+        return FOREIGN_DISPLAY_LABELS[s]
     return s.replace("-", "")
 
 
@@ -116,7 +201,7 @@ def categorize_symbol(symbol: str) -> str:
         return "METALLI & COMMODITIES"
     if any(k in s for k in ["EUR-", "GBP-", "JPY", "AUD-", "CAD-", "CHF-", "NZD-", "USDJPY", "EURUSD", "GBPUSD"]):
         return "FOREX & VALUTE"
-    if any(k in s for k in ["SPX", "NAS100", "NDX", "US30", "DJI", "DAX", "UK100", "NIKKEI", "TSLA", "NVDA", "AAPL", "GS-"]):
+    if any(k in s for k in ["SPX", "NAS100", "NDX", "US30", "DJI", "DAX", "UK100", "NIKKEI", "TSLA", "NVDA", "AAPL", "MSFT", "AMZN", "GOOGL", "META", "GS-"]):
         return "INDICI & AZIONI"
     if any(s.startswith(k) for k in ["BTC-", "ETH-", "SOL-", "BNB-", "XRP-", "ADA-", "AVAX-", "DOGE-", "DOT-", "LINK-", "TON-", "SUI-"]):
         return "CRYPTO MAJOR"
@@ -167,18 +252,57 @@ def get_all_bingx_contracts(force: bool = False):
 
 def resolve_bingx_symbol(query_symbol: str) -> str:
     clean = query_symbol.strip().upper().replace("/", "-")
-    if clean in BINGX_ALIAS_MAP:
-        for candidate in BINGX_ALIAS_MAP[clean]:
+    if clean in BINGX_FOREIGN_MAP:
+        for candidate in BINGX_FOREIGN_MAP[clean]:
             if candidate in CONTRACTS_CACHE["symbol_set"]:
                 return candidate
-        return BINGX_ALIAS_MAP[clean][0]
+        return BINGX_FOREIGN_MAP[clean][0]
     if "-" not in clean and clean.endswith("USDT"):
         return clean[:-4] + "-USDT"
     return clean
 
 
+def set_bingx_leverage(symbol: str, position_side: str, leverage: int):
+    params = {
+        "symbol": symbol,
+        "side": position_side,
+        "leverage": int(leverage)
+    }
+    return bingx_private_post("/openApi/swap/v2/trade/leverage", params)
+
+
+def place_bingx_real_order(symbol: str, side: str, quantity, sl, tp, leverage: int = None):
+    real_symbol = resolve_bingx_symbol(symbol)
+    position_side = "LONG" if side == "BUY" else "SHORT"
+    if leverage:
+        set_bingx_leverage(real_symbol, position_side, leverage)
+
+    order_params = {
+        "symbol": real_symbol,
+        "side": side,
+        "positionSide": position_side,
+        "type": "MARKET",
+        "quantity": quantity,
+        "stopLoss": f'{{"type": "STOP_MARKET", "stopPrice": {sl}, "workingType": "MARK_PRICE"}}',
+        "takeProfit": f'{{"type": "TAKE_PROFIT_MARKET", "stopPrice": {tp}, "workingType": "MARK_PRICE"}}'
+    }
+    res = bingx_private_post("/openApi/swap/v2/trade/order", order_params)
+    log_entry = {
+        "time": time.strftime("%H:%M:%S"),
+        "symbol": real_symbol,
+        "side": side,
+        "qty": quantity,
+        "sl": sl,
+        "tp": tp,
+        "response": res
+    }
+    AUTO_SCAN_STATE["trade_logs"].insert(0, log_entry)
+    AUTO_SCAN_STATE["trade_logs"] = AUTO_SCAN_STATE["trade_logs"][:30]
+    return res
+
+
 # ==============================================================================
-# CERVELLO MATEMATICO QUANTITATIVO: EXPECTANCY, KELLY & PARAMETRI CONSIGLIATI
+# CERVELLO MATEMATICO QUANTITATIVO
 # ==============================================================================
 
 def calc_ema(prices: np.ndarray, period: int) -> np.ndarray:
@@ -196,14 +320,11 @@ def calc_rsi(prices: np.ndarray, period: int = 14) -> float:
     deltas = np.diff(prices)
     gains = np.where(deltas > 0, deltas, 0.0)
     losses = np.where(deltas < 0, -deltas, 0.0)
-
     avg_gain = np.mean(gains[:period])
     avg_loss = np.mean(losses[:period])
-
     for i in range(period, len(gains)):
         avg_gain = (avg_gain * (period - 1) + gains[i]) / period
         avg_loss = (avg_loss * (period - 1) + losses[i]) / period
-
     if avg_loss == 0:
         return 100.0
     rs = avg_gain / avg_loss
@@ -230,7 +351,6 @@ def calc_adx(highs: np.ndarray, lows: np.ndarray, closes: np.ndarray, period: in
     down_move = lows[:-1] - lows[1:]
     plus_dm = np.where((up_move > down_move) & (up_move > 0), up_move, 0.0)
     minus_dm = np.where((down_move > up_move) & (down_move > 0), down_move, 0.0)
-
     tr = np.maximum(
         highs[1:] - lows[1:],
         np.maximum(np.abs(highs[1:] - closes[:-1]), np.abs(lows[1:] - closes[:-1]))
@@ -261,7 +381,6 @@ def compute_tp_timeframe_plan(interval: str, adx: float):
 
 
 def calc_recommended_leverage(atr_pct: float, max_contract_lev: int, capital: float) -> int:
-    """Calcola la leva consigliata in base alla volatilità ATR% e al capitale disponibile."""
     if atr_pct <= 0.15:
         base_lev = 25
     elif atr_pct <= 0.35:
@@ -279,96 +398,39 @@ def calc_recommended_leverage(atr_pct: float, max_contract_lev: int, capital: fl
 
 
 def evaluate_profit_math_and_entry(
-    signal: str,
-    confidence: float,
-    rr_ratio: float,
-    adx: float,
-    r_squared: float,
-    z_score: float,
-    rsi: float,
-    min_conf: float,
-    capital: float,
-    risk_pct: float,
-    stop_dist: float,
-    price: float,
-    rec_leverage: int
+    signal, confidence, rr_ratio, adx, r_squared, z_score, rsi,
+    min_conf, capital, risk_pct, stop_dist, price, rec_leverage
 ):
-    """
-    Calcola:
-    - Probabilità stimata di successo p_w (0.35 .. 0.78)
-    - Expectancy matematica E = p_w * R_reward - (1 - p_w) * 1.0
-    - Half-Kelly % prudente
-    - Size consigliata in unità asset e margine stimato
-    - Verdetto ENTRA ORA / NON ENTRARE
-    """
-    # Probabilità realistica calibrata su confidenza + R^2 + ADX (mai 100%)
     p_win = float(np.clip(0.45 + (confidence - 50.0) * 0.0045 + (r_squared - 0.3) * 0.12, 0.35, 0.76))
     p_loss = 1.0 - p_win
     reward_r = max(rr_ratio, 0.5)
-
-    # Expectancy in unità di R (es. +0.45R significa che in media guadagni 0.45 volte il rischio per trade)
     expectancy_r = round((p_win * reward_r) - (p_loss * 1.0), 2)
 
-    # Formula di Kelly: f* = p - q / b
     kelly_raw = p_win - (p_loss / max(reward_r, 0.1))
     half_kelly_pct = round(max(0.0, min(kelly_raw * 0.5 * 100.0, 5.0)), 2)
 
-    # Size basata su rischio % del capitale e distanza SL
     risk_usd = capital * (risk_pct / 100.0)
     suggested_qty = (risk_usd / stop_dist) if stop_dist > 0 else 0.0
     qty_fmt = round(suggested_qty, 4) if suggested_qty < 1 else (round(suggested_qty, 2) if suggested_qty < 100 else round(suggested_qty, 1))
     notional_usd = suggested_qty * price
     margin_needed = round(notional_usd / max(rec_leverage, 1), 2)
 
-    # Regola di ingresso professionale
     if expectancy_r <= 0:
-        entry_rule = {
-            "action": "NO ENTRY",
-            "badge": "🚫 NON ENTRARE",
-            "reason": f"Expectancy negativa ({expectancy_r:+.2f}R): vantaggio matematico insufficiente."
-        }
+        entry_rule = {"action": "NO ENTRY", "badge": "🚫 NON ENTRARE", "reason": f"Expectancy {expectancy_r:+.2f}R non favorevole."}
     elif signal == "NEUTRAL / WAIT":
-        entry_rule = {
-            "action": "NO ENTRY",
-            "badge": "🚫 NON ENTRARE",
-            "reason": "Setup neutro: nessun vantaggio direzionale confermato."
-        }
+        entry_rule = {"action": "NO ENTRY", "badge": "🚫 NON ENTRARE", "reason": "Setup neutro: attendere direzione chiara."}
     elif abs(z_score) > 2.45:
-        entry_rule = {
-            "action": "NO ENTRY",
-            "badge": "🚫 NON ENTRARE",
-            "reason": f"Estensione statistica eccessiva (Z={z_score:+.2f}σ): rischio inversione."
-        }
+        entry_rule = {"action": "NO ENTRY", "badge": "🚫 NON ENTRARE", "reason": f"Estensione eccessiva (Z={z_score:+.2f}σ)."}
     elif r_squared < 0.28 and adx < 22:
-        entry_rule = {
-            "action": "NO ENTRY",
-            "badge": "🚫 NON ENTRARE",
-            "reason": f"Mercato laterale/sporco (ADX {adx:.1f}, R² {r_squared:.2f})."
-        }
+        entry_rule = {"action": "NO ENTRY", "badge": "🚫 NON ENTRARE", "reason": f"Mercato laterale (ADX {adx:.1f}, R² {r_squared:.2f})."}
     elif "LONG" in signal and rsi > 78:
-        entry_rule = {
-            "action": "WAIT PULLBACK",
-            "badge": "⏳ ATTENDI PULLBACK",
-            "reason": f"RSI in ipercomprato estremo ({rsi:.1f}): attendi ritracciamento su EMA."
-        }
+        entry_rule = {"action": "WAIT PULLBACK", "badge": "⏳ ATTENDI PULLBACK", "reason": f"RSI {rsi:.1f} in ipercomprato."}
     elif "SHORT" in signal and rsi < 22:
-        entry_rule = {
-            "action": "WAIT PULLBACK",
-            "badge": "⏳ ATTENDI PULLBACK",
-            "reason": f"RSI in ipervenduto estremo ({rsi:.1f}): attendi rimbalzo su EMA."
-        }
+        entry_rule = {"action": "WAIT PULLBACK", "badge": "⏳ ATTENDI PULLBACK", "reason": f"RSI {rsi:.1f} in ipervenduto."}
     elif confidence >= min_conf and expectancy_r > 0.15:
-        entry_rule = {
-            "action": "ENTER NOW",
-            "badge": "✅ ENTRA ORA",
-            "reason": f"Expectancy {expectancy_r:+.2f}R • Conf {confidence}% • Half-Kelly {half_kelly_pct}%."
-        }
+        entry_rule = {"action": "ENTER NOW", "badge": "✅ ENTRA ORA", "reason": f"Exp {expectancy_r:+.2f}R • Conf {confidence}% • Kelly {half_kelly_pct}%."}
     else:
-        entry_rule = {
-            "action": "WAIT CONFIRMATION",
-            "badge": "⏳ CONFERMA PARZIALE",
-            "reason": f"Expectancy {expectancy_r:+.2f}R ma confidenza {confidence}% sotto soglia {min_conf}%."
-        }
+        entry_rule = {"action": "WAIT CONFIRMATION", "badge": "⏳ CONFERMA PARZIALE", "reason": f"Confidenza {confidence}% sotto soglia {min_conf}%."}
 
     recommended_params = {
         "leverage": rec_leverage,
@@ -380,7 +442,6 @@ def evaluate_profit_math_and_entry(
         "half_kelly_pct": half_kelly_pct,
         "summary": f"Lev {rec_leverage}x • Size {qty_fmt} • Exp {expectancy_r:+.2f}R • Kelly {half_kelly_pct}%"
     }
-
     return entry_rule, recommended_params
 
 
@@ -404,7 +465,6 @@ def analyze_symbol_math(symbol: str, interval: str = "15m", custom_sentiment: fl
     volumes = np.array([float(k["volume"]) for k in klines], dtype=float)
 
     price = closes[-1]
-
     ema9 = calc_ema(closes, 9)
     ema21 = calc_ema(closes, 21)
     ema50 = calc_ema(closes, 50)
@@ -530,19 +590,10 @@ def analyze_symbol_math(symbol: str, interval: str = "15m", custom_sentiment: fl
     rec_lev = calc_recommended_leverage(atr_pct, max_lev, capital)
 
     entry_rule, recommended_params = evaluate_profit_math_and_entry(
-        signal=signal,
-        confidence=confidence,
-        rr_ratio=rr_ratio,
-        adx=adx,
-        r_squared=r_squared,
-        z_score=z_score,
-        rsi=rsi,
-        min_conf=min_conf,
-        capital=capital,
-        risk_pct=risk_pct,
-        stop_dist=stop_dist,
-        price=price,
-        rec_leverage=rec_lev
+        signal=signal, confidence=confidence, rr_ratio=rr_ratio,
+        adx=adx, r_squared=r_squared, z_score=z_score, rsi=rsi,
+        min_conf=min_conf, capital=capital, risk_pct=risk_pct,
+        stop_dist=stop_dist, price=price, rec_leverage=rec_lev
     )
 
     return {
@@ -583,6 +634,39 @@ def analyze_symbol_math(symbol: str, interval: str = "15m", custom_sentiment: fl
     }
 
 
+def maybe_auto_execute_trade(analysis: dict):
+    """Apre posizioni reali su BingX solo se Auto-Trade è attivo, segnale forte, ENTRA ORA e cooldown rispettato."""
+    if not BRAIN_WEIGHTS.get("auto_trade_enabled", False):
+        return
+    if not BINGX_API_KEY or not BINGX_SECRET_KEY:
+        return
+
+    sig = analysis.get("signal", "")
+    action = analysis.get("entry_rule", {}).get("action", "")
+    if action != "ENTER NOW" or sig not in ("STRONG LONG", "STRONG SHORT"):
+        return
+
+    sym = analysis["symbol"]
+    now = time.time()
+    cooldown = int(BRAIN_WEIGHTS.get("auto_trade_cooldown_sec", 300))
+    last_ts = AUTO_SCAN_STATE["last_auto_trade"].get(sym, 0)
+    if now - last_ts < cooldown:
+        return
+
+    rp = analysis.get("recommended_params", {})
+    qty = rp.get("qty", 0)
+    if not qty or float(qty) <= 0:
+        return
+
+    side = "BUY" if "LONG" in sig else "SELL"
+    sl = analysis["levels"]["sl"]
+    tp = analysis["levels"]["tp2"]
+    lev = rp.get("leverage", 10)
+
+    AUTO_SCAN_STATE["last_auto_trade"][sym] = now
+    place_bingx_real_order(sym, side, qty, sl, tp, leverage=lev)
+
+
 def auto_market_monitor_loop():
     AUTO_SCAN_STATE["running"] = True
     while True:
@@ -596,6 +680,7 @@ def auto_market_monitor_loop():
                     res = analyze_symbol_math(sym, interval)
                     if res:
                         updated[sym] = res
+                        maybe_auto_execute_trade(res)
                     time.sleep(0.15)
                 AUTO_SCAN_STATE["signals"] = updated
                 AUTO_SCAN_STATE["last_run"] = time.strftime("%H:%M:%S")
@@ -619,6 +704,28 @@ def index():
     return render_template("index.html")
 
 
+@app.route("/api/keys", methods=["GET", "POST"])
+def api_keys():
+    global BINGX_API_KEY, BINGX_SECRET_KEY
+    if request.method == "POST":
+        data = request.json or {}
+        ak = (data.get("api_key") or "").strip()
+        sk = (data.get("secret_key") or "").strip()
+        if not ak or not sk:
+            return jsonify({"status": "error", "msg": "Inserisci sia API Key che Secret Key"}), 400
+        BINGX_API_KEY = ak
+        BINGX_SECRET_KEY = sk
+        save_keys_to_disk(ak, sk)
+        return jsonify({"status": "ok", "msg": "Chiavi API BingX salvate e attivate!"})
+
+    masked_key = f"{BINGX_API_KEY[:6]}...{BINGX_API_KEY[-4:]}" if len(BINGX_API_KEY) > 10 else ("Configurata" if BINGX_API_KEY else "Non impostata")
+    return jsonify({
+        "status": "ok",
+        "has_keys": bool(BINGX_API_KEY and BINGX_SECRET_KEY),
+        "masked_api_key": masked_key
+    })
+
+
 @app.route("/api/markets")
 def api_markets():
     force = request.args.get("force", "0") == "1"
@@ -632,6 +739,8 @@ def api_auto_monitor_status():
         data = request.json or {}
         if "enabled" in data:
             BRAIN_WEIGHTS["auto_monitor_enabled"] = bool(data["enabled"])
+        if "auto_trade_enabled" in data:
+            BRAIN_WEIGHTS["auto_trade_enabled"] = bool(data["auto_trade_enabled"])
         if "interval" in data:
             AUTO_SCAN_STATE["interval"] = data["interval"]
         if "scan_interval_sec" in data:
@@ -640,10 +749,12 @@ def api_auto_monitor_status():
         "status": "ok",
         "running": AUTO_SCAN_STATE["running"],
         "enabled": BRAIN_WEIGHTS.get("auto_monitor_enabled", True),
+        "auto_trade_enabled": BRAIN_WEIGHTS.get("auto_trade_enabled", False),
         "last_run": AUTO_SCAN_STATE["last_run"],
         "interval": AUTO_SCAN_STATE["interval"],
         "scan_interval_sec": BRAIN_WEIGHTS.get("auto_scan_interval", 25),
-        "signals": AUTO_SCAN_STATE["signals"]
+        "signals": AUTO_SCAN_STATE["signals"],
+        "trade_logs": AUTO_SCAN_STATE["trade_logs"]
     })
 
 
@@ -691,10 +802,8 @@ def api_weights():
         data = request.json or {}
         for k in BRAIN_WEIGHTS:
             if k in data:
-                if k == "auto_monitor_enabled":
+                if k in ("auto_monitor_enabled", "auto_trade_enabled"):
                     BRAIN_WEIGHTS[k] = bool(data[k])
-                elif k == "interval":
-                    pass
                 else:
                     BRAIN_WEIGHTS[k] = float(data[k])
     return jsonify({"status": "ok", "weights": BRAIN_WEIGHTS})
@@ -704,7 +813,7 @@ def api_weights():
 def api_account_balance():
     bal = bingx_private_get("/openApi/swap/v3/user/balance")
     if not bal:
-        return jsonify({"status": "demo", "balance": BRAIN_WEIGHTS.get("account_capital", 1000.0), "msg": "Usa saldo simulato o configura API Key in .env"})
+        return jsonify({"status": "demo", "balance": BRAIN_WEIGHTS.get("account_capital", 1000.0), "msg": "Usa saldo simulato o salva API Key BingX"})
     usdt_bal = 0.0
     if isinstance(bal, list):
         for item in bal:
@@ -720,26 +829,17 @@ def api_account_balance():
 @app.route("/api/execute_order", methods=["POST"])
 def api_execute_order():
     data = request.json or {}
-    symbol = resolve_bingx_symbol(data.get("symbol", ""))
+    symbol = data.get("symbol", "")
     side = data.get("side")
-    position_side = "LONG" if side == "BUY" else "SHORT"
     quantity = data.get("quantity")
     sl = data.get("sl")
     tp = data.get("tp")
+    leverage = data.get("leverage")
 
     if not all([symbol, side, quantity]):
         return jsonify({"status": "error", "msg": "Parametri ordine incompleti"}), 400
 
-    order_params = {
-        "symbol": symbol,
-        "side": side,
-        "positionSide": position_side,
-        "type": "MARKET",
-        "quantity": quantity,
-        "stopLoss": f'{{"type": "STOP_MARKET", "stopPrice": {sl}, "workingType": "MARK_PRICE"}}',
-        "takeProfit": f'{{"type": "TAKE_PROFIT_MARKET", "stopPrice": {tp}, "workingType": "MARK_PRICE"}}'
-    }
-    res = bingx_private_post("/openApi/swap/v2/trade/order", order_params)
+    res = place_bingx_real_order(symbol, side, quantity, sl, tp, leverage=leverage)
     return jsonify(res)
 
 
