@@ -1,38 +1,130 @@
-      const candleKey = `${interval}_${clk.candleIndex}`;
-      if (STATE.lastAnnouncedCandleKey && STATE.lastAnnouncedCandleKey !== candleKey) {
-        const sigList = Object.values(STATE.signals || {});
-        const freeList = sigList
-          .filter(s => {
-            if (!s) return false;
-            const ew = s.entry_window || {};
-            const sn = s.sn_rejection || {};
-            const ms = s.manual_sign || {};
-            const sess = s.session || {};
-            const blocked = (
-              Boolean(ew.exceeded)
-              || Boolean(sn.rejected)
-              || ["CANCELLED_REVERSAL", "REJECTED_SN", "OVER_THRESHOLD"].includes(ms.status)
-              || sess.session_ok === false
-            );
-            return !blocked;
-          })
-          .sort((a, b) => (b.confidence || 0) - (a.confidence || 0));
+    function formatSignalFullSpecJs(s) {
+      const lv = s.levels || {};
+      const rp = s.recommended_params || {};
+      const plan = (s.tp_plan && s.tp_plan.label) ? ` (${s.tp_plan.label})` : "";
+      const dir = s.certain_signal || s.signal || (s.early_setup && s.early_setup.direction) || "LONG";
+      return `${s.bingx_name || s.symbol} ${dir} | Entry: ${lv.entry ?? s.price} | TP1: ${lv.tp1 ?? "--"} | TP2: ${lv.tp2 ?? "--"} | TP3: ${lv.tp3 ?? "--"} | SL: ${lv.sl ?? "--"} | Lev: ${rp.leverage ?? "--"}x | Qty: ${rp.qty ?? 0}${plan}`;
+    }
 
+    function getEntryTimingBadge(symbol, interval) {
+      const tf = interval || document.getElementById("timeframeSelect").value || "15m";
+      const clk = computeLiveCandleClock(tf);
+      const sig = (STATE.signals || {})[symbol];
+
+      if (!sig) {
+        if (clk.isPre) {
+          return {
+            cls: "timing-pill go",
+            text: `🟢 PRE-CANDELA -${clk.rem}s`,
+            title: `Mancano ${clk.rem}s all'apertura della nuova candela ${tf}`
+          };
+        }
+        return {
+          cls: "timing-pill wait",
+          text: `⏳ ATTESA (${clk.countdownStr})`,
+          title: `Candela ${tf} in corso, prossima apertura tra ${clk.countdownStr}`
+        };
+      }
+
+      const ew = sig.entry_window || {};
+      const sn = sig.sn_rejection || {};
+      const ms = sig.manual_sign || {};
+      const sess = sig.session || {};
+      const lv = sig.levels || {};
+      const rp = sig.recommended_params || {};
+      const tpSummary = `Entry ${lv.entry ?? sig.price} • TP1 ${lv.tp1 ?? "--"} • TP2 ${lv.tp2 ?? "--"} • TP3 ${lv.tp3 ?? "--"} • SL ${lv.sl ?? "--"} • Lev ${rp.leverage ?? "--"}x`;
+
+      if (sn.rejected) {
+        return {
+          cls: "timing-pill stop",
+          text: "🛑 NON ENTRARE (SN)",
+          title: `${sn.reason || "Rifiuto SN candela alta opposta"} | ${tpSummary}`
+        };
+      }
+      if (ew.exceeded) {
+        return {
+          cls: "timing-pill stop",
+          text: "🛑 NON ENTRARE (SOGLIA)",
+          title: `${ew.reason || "Prezzo oltre soglia"} | ${tpSummary}`
+        };
+      }
+      if (ms.status === "CANCELLED_REVERSAL") {
+        return {
+          cls: "timing-pill stop",
+          text: "❌ ANNULLATO",
+          title: `${ms.reason || "Segnale annullato per inversione"} | ${tpSummary}`
+        };
+      }
+      if (sess.session_ok === false) {
+        return {
+          cls: "timing-pill wait",
+          text: `🟡 FUORI ORARIO • TP2 ${lv.tp2 ?? "--"}`,
+          title: `${sess.session_name || "Fuori orario"} | ${tpSummary}`
+        };
+      }
+      if (ms.show_enter_now || clk.isPre) {
+        return {
+          cls: "timing-pill go",
+          text: `🟢 ENTRA ORA (-${clk.rem}s) • TP1 ${lv.tp1 ?? "--"} / TP2 ${lv.tp2 ?? "--"} / TP3 ${lv.tp3 ?? "--"} • SL ${lv.sl ?? "--"}`,
+          title: tpSummary
+        };
+      }
+      return {
+        cls: "timing-pill wait",
+        text: `🎯 FINESTRA OK • TP1 ${lv.tp1 ?? "--"} / TP2 ${lv.tp2 ?? "--"} / TP3 ${lv.tp3 ?? "--"} • SL ${lv.sl ?? "--"} (${clk.countdownStr})`,
+        title: tpSummary
+      };
+    }
+
+    function tickTimersAndCandleTransition() {
+      const interval = document.getElementById("timeframeSelect").value || "15m";
+      const clk = computeLiveCandleClock(interval);
+
+      const globalBadge = document.getElementById("globalTimerBadge");
+      globalBadge.textContent = clk.isPre
+        ? `⏱ PRE-CANDELA ${interval}: -${clk.rem}s (apre ${clk.nextClock})`
+        : `Prossima candela ${interval}: ${clk.countdownStr} (alle ${clk.nextClock})`;
+      globalBadge.className = clk.isPre ? "pill green" : "pill blue";
+
+      document.querySelectorAll(".live-candle-badge").forEach(el => {
+        const tf = el.getAttribute("data-tf") || interval;
+        const c = computeLiveCandleClock(tf);
+        el.textContent = c.label;
+        el.className = c.isPre ? "candle-badge live-candle-badge pre" : "candle-badge live-candle-badge";
+      });
+
+      const candleKey = `${interval}_${clk.candleIndex}`;
+      const freeList = getFreeSignalsSorted();
+
+      // Pre-avviso qualche secondo prima con TP1, TP2, TP3, Entry, SL e Leva
+      if (clk.isPre && clk.rem > 0 && freeList.length > 0) {
+        const topParts = freeList.slice(0, 3).map(formatSignalFullSpecJs);
+        const banner = document.getElementById("newCandleBanner");
+        banner.classList.remove("blocked");
+        document.getElementById("newCandleAlertText").textContent =
+          `⏱ PRE-AVVISO -${clk.rem}s (apertura ${clk.nextClock}) — PREPARATI: ${topParts.join(" • ")}`;
+
+        const warnKey = `${candleKey}_PRE`;
+        if (STATE.preWarnedCandleKey !== warnKey) {
+          STATE.preWarnedCandleKey = warnKey;
+          playPreCandleBeep();
+        }
+      }
+
+      // Scatto esatto all'apertura della nuova candela con tutti i TP
+      if (STATE.lastAnnouncedCandleKey && STATE.lastAnnouncedCandleKey !== candleKey) {
         if (freeList.length > 0) {
-          const topParts = freeList.slice(0, 4).map(s => {
-            const dir = s.certain_signal || s.signal || (s.early_setup && s.early_setup.direction) || "";
-            const lv = s.levels || {};
-            const rp = s.recommended_params || {};
-            return `${s.bingx_name || s.symbol} ${dir} (Entry ${lv.entry ?? s.price} | TP2 ${lv.tp2 ?? "--"} | SL ${lv.sl ?? "--"} | Lev ${rp.leverage ?? "--"}x)`;
-          });
+          const topParts = freeList.slice(0, 3).map(formatSignalFullSpecJs);
           pushNewCandleWrittenAlert({
             id: candleKey,
             time: clk.openClock,
             timeframe: interval,
             blocked: false,
-            text: `Nuova candela ${interval} aperta alle ${clk.openClock} — LIBERI (${freeList.length}): ${topParts.join(" • ")}`
+            text: `Nuova candela ${interval} aperta alle ${clk.openClock} — ENTRA ORA (${freeList.length} LIBERI): ${topParts.join(" • ")}`
           });
+          playBeep(980, 220);
         } else {
+          const sigList = Object.values(STATE.signals || {});
           const snCnt = sigList.filter(s => s && s.sn_rejection && s.sn_rejection.rejected).length;
           const overCnt = sigList.filter(s => s && s.entry_window && s.entry_window.exceeded).length;
           const reasons = [];
@@ -47,6 +139,6 @@
             text: `Nuova candela ${interval} aperta alle ${clk.openClock} — NESSUN ASSET LIBERO (${reasonTxt}).`
           });
         }
-        playBeep(980, 220);
       }
       STATE.lastAnnouncedCandleKey = candleKey;
+    }
