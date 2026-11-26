@@ -289,6 +289,12 @@
       color: #86efac;
     }
 
+    .timing-pill.go-short {
+      background: rgba(239, 68, 68, .16);
+      border-color: rgba(239, 68, 68, .65);
+      color: #fca5a5;
+    }
+
     .timing-pill.wait {
       background: rgba(245, 158, 11, .14);
       border-color: rgba(245, 158, 11, .55);
@@ -350,7 +356,7 @@
     <div class="brand">
       <span>⚡ BingX HFT Signal Terminal</span>
       <span id="monitorPill" class="pill green">Monitor: ATTIVO</span>
-      <span id="profilePill" class="pill blue">Profilo: AUTO</span>
+      <span id="profilePill" class="pill blue">Profilo: PRO</span>
     </div>
 
     <div class="controls-row">
@@ -372,8 +378,8 @@
       </select>
 
       <label class="toggle-label">
-        <input type="checkbox" id="onlyCertainEarlyChk" />
-        Solo Certi / Anticipo
+        <input type="checkbox" id="onlyCertainEarlyChk" checked />
+        Solo Segnali Forti
       </label>
 
       <label class="toggle-label">
@@ -387,10 +393,10 @@
   </div>
 
   <div class="container">
-    <!-- AVVISO SCRITTO PRE-CANDELA / NUOVA CANDELA CON TP ESATTI -->
+    <!-- AVVISO SCRITTO PRE-CANDELA / NUOVA CANDELA CON DIREZIONE E TP ESATTI -->
     <div id="newCandleBanner" class="candle-alert-box">
       <div class="candle-alert-main">
-        <span id="newCandleAlertText">🕯️ In attesa dell'apertura della prossima candela...</span>
+        <span id="newCandleAlertText">🕯️ In attesa di segnali forti o apertura della prossima candela...</span>
         <span id="globalTimerBadge" class="pill blue">Prossima candela: --:--</span>
       </div>
       <div id="newCandleHistory" class="candle-history"></div>
@@ -484,11 +490,11 @@
       </div>
     </div>
 
-    <!-- RADAR SEGNALI & ANALISI DETTAGLIATA -->
+    <!-- RADAR SEGNALI FORTI & ANALISI DETTAGLIATA -->
     <div class="grid-2">
       <div class="card">
         <div class="card-header">
-          <div class="card-title">🎯 Radar Segnali Certi / Anticipo</div>
+          <div class="card-title">🔥 Radar Segnali Forti (Conf ≥ 78% • ADX ≥ 22)</div>
           <span id="radarCount" class="pill blue">0 segnali</span>
         </div>
         <div class="table-wrap">
@@ -496,7 +502,7 @@
             <thead>
               <tr>
                 <th>Asset, Avviso & Candela</th>
-                <th>Segnale / Stato</th>
+                <th>Direzione / Stato</th>
                 <th>Conf.</th>
                 <th>Prezzo / Limite</th>
                 <th>SL / TP1 / TP2 / TP3</th>
@@ -505,7 +511,7 @@
               </tr>
             </thead>
             <tbody id="signalsBody">
-              <tr><td colspan="7" class="muted">In attesa di segnali...</td></tr>
+              <tr><td colspan="7" class="muted">In attesa di segnali forti...</td></tr>
             </tbody>
           </table>
         </div>
@@ -566,7 +572,7 @@
 
       <div class="card">
         <div class="card-header">
-          <div class="card-title">🔔 Allarmi Acustici / Setup Rilevati</div>
+          <div class="card-title">🔔 Allarmi Acustici / Setup Forti Rilevati</div>
         </div>
         <div id="audioAlertsBox" class="log-box">
           <div class="muted">Nessun allarme recente.</div>
@@ -662,30 +668,54 @@
       };
     }
 
+    function getSignalSideInfo(sig) {
+      if (!sig) return { side: "", actionLabel: "", dirLabel: "", icon: "", isShort: false };
+      const early = sig.early_setup || {};
+      const raw = String(sig.certain_signal || early.direction || sig.signal || "").toUpperCase();
+      const isShort = raw.includes("SHORT") || raw.includes("SELL");
+      return {
+        side: isShort ? "SELL" : "BUY",
+        actionLabel: isShort ? "VENDI (SHORT)" : "COMPRA (LONG)",
+        dirLabel: isShort ? "SHORT" : "LONG",
+        icon: isShort ? "📉" : "📈",
+        isShort
+      };
+    }
+
+    function isStrongSignalJs(s) {
+      if (!s) return false;
+      const ew = s.entry_window || {};
+      const sn = s.sn_rejection || {};
+      const ms = s.manual_sign || {};
+      const sess = s.session || {};
+      const rp = s.recommended_params || {};
+      const ind = s.indicators || {};
+      const blocked = (
+        Boolean(ew.exceeded)
+        || Boolean(sn.rejected)
+        || ["CANCELLED_REVERSAL", "REJECTED_SN", "OVER_THRESHOLD", "WEAK_SIGNAL"].includes(ms.status)
+        || sess.session_ok === false
+      );
+      if (blocked) return false;
+      const conf = Number(s.confidence || 0);
+      const adx = Number(ind.adx || 0);
+      const expR = Number(rp.expectancy_r || 0);
+      const sigStr = String(s.signal || "").toUpperCase();
+      const hasStrong = Boolean(s.certain_signal) || sigStr.includes("STRONG");
+      return hasStrong && conf >= 78 && adx >= 22 && expR >= 0.25;
+    }
+
     function formatSignalFullSpecJs(s) {
       const lv = s.levels || {};
       const rp = s.recommended_params || {};
       const plan = (s.tp_plan && s.tp_plan.label) ? ` (${s.tp_plan.label})` : "";
-      const dir = s.certain_signal || s.signal || (s.early_setup && s.early_setup.direction) || "LONG";
-      return `${s.bingx_name || s.symbol} ${dir} | Entry: ${lv.entry ?? s.price} | TP1: ${lv.tp1 ?? "--"} | TP2: ${lv.tp2 ?? "--"} | TP3: ${lv.tp3 ?? "--"} | SL: ${lv.sl ?? "--"} | Lev: ${rp.leverage ?? "--"}x | Qty: ${rp.qty ?? 0}${plan}`;
+      const sInfo = getSignalSideInfo(s);
+      return `${s.bingx_name || s.symbol} [${sInfo.icon} ${sInfo.actionLabel} • Conf ${s.confidence}%] | Entry: ${lv.entry ?? s.price} | TP1: ${lv.tp1 ?? "--"} | TP2: ${lv.tp2 ?? "--"} | TP3: ${lv.tp3 ?? "--"} | SL: ${lv.sl ?? "--"} | Lev: ${rp.leverage ?? "--"}x | Qty: ${rp.qty ?? 0}${plan}`;
     }
 
     function getFreeSignalsSorted() {
       return Object.values(STATE.signals || {})
-        .filter(s => {
-          if (!s) return false;
-          const ew = s.entry_window || {};
-          const sn = s.sn_rejection || {};
-          const ms = s.manual_sign || {};
-          const sess = s.session || {};
-          const blocked = (
-            Boolean(ew.exceeded)
-            || Boolean(sn.rejected)
-            || ["CANCELLED_REVERSAL", "REJECTED_SN", "OVER_THRESHOLD"].includes(ms.status)
-            || sess.session_ok === false
-          );
-          return !blocked;
-        })
+        .filter(isStrongSignalJs)
         .sort((a, b) => (b.confidence || 0) - (a.confidence || 0));
     }
 
@@ -695,17 +725,10 @@
       const sig = (STATE.signals || {})[symbol];
 
       if (!sig) {
-        if (clk.isPre) {
-          return {
-            cls: "timing-pill go",
-            text: `🟢 PRE-CANDELA -${clk.rem}s`,
-            title: `Mancano ${clk.rem}s all'apertura della nuova candela ${tf}`
-          };
-        }
         return {
           cls: "timing-pill wait",
-          text: `⏳ ATTESA (${clk.countdownStr})`,
-          title: `Candela ${tf} in corso, prossima apertura tra ${clk.countdownStr}`
+          text: `⏳ ATTESA SETUP FORTE (${clk.countdownStr})`,
+          title: `Nessun segnale forte attivo su ${symbol} • Prossima candela tra ${clk.countdownStr}`
         };
       }
 
@@ -715,46 +738,54 @@
       const sess = sig.session || {};
       const lv = sig.levels || {};
       const rp = sig.recommended_params || {};
-      const tpSummary = `Entry ${lv.entry ?? sig.price} • TP1 ${lv.tp1 ?? "--"} • TP2 ${lv.tp2 ?? "--"} • TP3 ${lv.tp3 ?? "--"} • SL ${lv.sl ?? "--"} • Lev ${rp.leverage ?? "--"}x`;
+      const sInfo = getSignalSideInfo(sig);
+      const tpSummary = `${sInfo.actionLabel} • Conf ${sig.confidence}% • Entry ${lv.entry ?? sig.price} • TP1 ${lv.tp1 ?? "--"} • TP2 ${lv.tp2 ?? "--"} • TP3 ${lv.tp3 ?? "--"} • SL ${lv.sl ?? "--"} • Lev ${rp.leverage ?? "--"}x`;
 
       if (sn.rejected) {
         return {
           cls: "timing-pill stop",
-          text: "🛑 NON ENTRARE (SN)",
-          title: `${sn.reason || "Rifiuto SN candela alta opposta"} | ${tpSummary}`
+          text: `🛑 NON ENTRARE (SN) • ${sInfo.icon} ${sInfo.actionLabel}`,
+          title: `${sn.reason || "Rifiuto SN"} | ${tpSummary}`
         };
       }
       if (ew.exceeded) {
         return {
           cls: "timing-pill stop",
-          text: "🛑 NON ENTRARE (SOGLIA)",
-          title: `${ew.reason || "Prezzo oltre soglia"} | ${tpSummary}`
+          text: `🛑 NON ENTRARE (SOGLIA) • ${sInfo.icon} ${sInfo.actionLabel}`,
+          title: `${ew.reason || "Oltre soglia"} | ${tpSummary}`
         };
       }
       if (ms.status === "CANCELLED_REVERSAL") {
         return {
           cls: "timing-pill stop",
-          text: "❌ ANNULLATO",
-          title: `${ms.reason || "Segnale annullato per inversione"} | ${tpSummary}`
+          text: `❌ ANNULLATO • ${sInfo.icon} ${sInfo.actionLabel}`,
+          title: `${ms.reason || "Inversione"} | ${tpSummary}`
         };
       }
       if (sess.session_ok === false) {
         return {
           cls: "timing-pill wait",
-          text: `🟡 FUORI ORARIO • TP2 ${lv.tp2 ?? "--"}`,
+          text: `🟡 FUORI ORARIO • ${sInfo.icon} ${sInfo.actionLabel}`,
           title: `${sess.session_name || "Fuori orario"} | ${tpSummary}`
+        };
+      }
+      if (!isStrongSignalJs(sig)) {
+        return {
+          cls: "timing-pill wait",
+          text: `⏳ FILTRO FORZA (${sig.confidence}%) • ${sInfo.icon} ${sInfo.actionLabel}`,
+          title: `In attesa di confidenza/trend più forti | ${tpSummary}`
         };
       }
       if (ms.show_enter_now || clk.isPre) {
         return {
-          cls: "timing-pill go",
-          text: `🟢 ENTRA ORA (-${clk.rem}s) • TP1 ${lv.tp1 ?? "--"} / TP2 ${lv.tp2 ?? "--"} / TP3 ${lv.tp3 ?? "--"} • SL ${lv.sl ?? "--"}`,
+          cls: sInfo.isShort ? "timing-pill go-short" : "timing-pill go",
+          text: `🔥 ENTRA ORA • ${sInfo.icon} ${sInfo.actionLabel} (-${clk.rem}s) • TP1 ${lv.tp1 ?? "--"} / TP2 ${lv.tp2 ?? "--"} / TP3 ${lv.tp3 ?? "--"} • SL ${lv.sl ?? "--"}`,
           title: tpSummary
         };
       }
       return {
-        cls: "timing-pill wait",
-        text: `🎯 FINESTRA OK • TP1 ${lv.tp1 ?? "--"} / TP2 ${lv.tp2 ?? "--"} / TP3 ${lv.tp3 ?? "--"} • SL ${lv.sl ?? "--"} (${clk.countdownStr})`,
+        cls: sInfo.isShort ? "timing-pill go-short" : "timing-pill go",
+        text: `⚡ SEGNALE FORTE • ${sInfo.icon} ${sInfo.actionLabel} (${sig.confidence}%) • TP1 ${lv.tp1 ?? "--"} / TP2 ${lv.tp2 ?? "--"} / TP3 ${lv.tp3 ?? "--"} • SL ${lv.sl ?? "--"}`,
         title: tpSummary
       };
     }
@@ -803,15 +834,14 @@
       });
 
       const candleKey = `${interval}_${clk.candleIndex}`;
-      const freeList = getFreeSignalsSorted();
+      const strongList = getFreeSignalsSorted();
 
-      // Pre-avviso qualche secondo prima con TP1, TP2, TP3, Entry, SL e Leva
-      if (clk.isPre && clk.rem > 0 && freeList.length > 0) {
-        const topParts = freeList.slice(0, 3).map(formatSignalFullSpecJs);
+      if (clk.isPre && clk.rem > 0 && strongList.length > 0) {
+        const topParts = strongList.slice(0, 3).map(formatSignalFullSpecJs);
         const banner = document.getElementById("newCandleBanner");
         banner.classList.remove("blocked");
         document.getElementById("newCandleAlertText").textContent =
-          `⏱ PRE-AVVISO -${clk.rem}s (apertura ${clk.nextClock}) — PREPARATI: ${topParts.join(" • ")}`;
+          `⏱ PRE-AVVISO -${clk.rem}s (apertura ${clk.nextClock}) — SEGNALI FORTI: ${topParts.join(" • ")}`;
 
         const warnKey = `${candleKey}_PRE`;
         if (STATE.preWarnedCandleKey !== warnKey) {
@@ -820,32 +850,24 @@
         }
       }
 
-      // Scatto esatto all'apertura della nuova candela con tutti i TP
       if (STATE.lastAnnouncedCandleKey && STATE.lastAnnouncedCandleKey !== candleKey) {
-        if (freeList.length > 0) {
-          const topParts = freeList.slice(0, 3).map(formatSignalFullSpecJs);
+        if (strongList.length > 0) {
+          const topParts = strongList.slice(0, 3).map(formatSignalFullSpecJs);
           pushNewCandleWrittenAlert({
             id: candleKey,
             time: clk.openClock,
             timeframe: interval,
             blocked: false,
-            text: `Nuova candela ${interval} aperta alle ${clk.openClock} — ENTRA ORA (${freeList.length} LIBERI): ${topParts.join(" • ")}`
+            text: `Nuova candela ${interval} aperta alle ${clk.openClock} — SEGNALI FORTI (${strongList.length}): ${topParts.join(" • ")}`
           });
           playBeep(980, 220);
         } else {
-          const sigList = Object.values(STATE.signals || {});
-          const snCnt = sigList.filter(s => s && s.sn_rejection && s.sn_rejection.rejected).length;
-          const overCnt = sigList.filter(s => s && s.entry_window && s.entry_window.exceeded).length;
-          const reasons = [];
-          if (snCnt) reasons.push(`${snCnt} rifiutati per SN candela alta opposta`);
-          if (overCnt) reasons.push(`${overCnt} oltre soglia`);
-          const reasonTxt = reasons.length ? reasons.join(", ") : "nessun asset libero da blocchi";
           pushNewCandleWrittenAlert({
             id: candleKey,
             time: clk.openClock,
             timeframe: interval,
             blocked: true,
-            text: `Nuova candela ${interval} aperta alle ${clk.openClock} — NESSUN ASSET LIBERO (${reasonTxt}).`
+            text: `Nuova candela ${interval} aperta alle ${clk.openClock} — NESSUN SEGNALE FORTE VALIDO (in attesa di setup ad alta probabilità).`
           });
         }
       }
@@ -939,8 +961,8 @@
             <td>${m.maxLeverage}x</td>
             <td>
               <button onclick="selectAndAnalyze('${m.symbol}')">Analizza</button>
-              <button class="green" onclick="quickOrder('${m.symbol}', 'BUY')">LONG</button>
-              <button class="red" onclick="quickOrder('${m.symbol}', 'SELL')">SHORT</button>
+              <button class="green" onclick="quickOrder('${m.symbol}', 'BUY')">COMPRA</button>
+              <button class="red" onclick="quickOrder('${m.symbol}', 'SELL')">VENDI</button>
             </td>
           </tr>
         `;
@@ -952,18 +974,14 @@
       const onlyCE = document.getElementById("onlyCertainEarlyChk").checked;
       const list = Object.values(STATE.signals || {}).filter(s => {
         if (!s) return false;
-        if (onlyCE) {
-          const early = s.early_setup || {};
-          const sig = String(s.signal || "");
-          return Boolean(s.certain_signal || early.trigger_sound || early.direction || sig.includes("LONG") || sig.includes("SHORT"));
-        }
+        if (onlyCE) return isStrongSignalJs(s);
         return true;
       });
 
-      document.getElementById("radarCount").textContent = `${list.length} segnali`;
+      document.getElementById("radarCount").textContent = `${list.length} segnali forti`;
       const tbody = document.getElementById("signalsBody");
       if (!list.length) {
-        tbody.innerHTML = `<tr><td colspan="7" class="muted">Nessun segnale attivo per i filtri correnti.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" class="muted">Nessun segnale forte attivo al momento (filtrati automaticamente i segnali deboli o bloccati).</td></tr>`;
         return;
       }
 
@@ -972,9 +990,8 @@
         const rp = s.recommended_params || {};
         const early = s.early_setup || {};
         const ms = s.manual_sign || {};
+        const sInfo = getSignalSideInfo(s);
         const badgeText = ms.badge || s.certain_signal || s.signal;
-        const dir = s.certain_signal || early.direction || s.signal || "LONG";
-        const side = String(dir).includes("SHORT") ? "SELL" : "BUY";
         const tBadge = getEntryTimingBadge(s.symbol, s.timeframe || tf);
 
         return `
@@ -989,7 +1006,8 @@
               </div>
             </td>
             <td>
-              <div><strong>${badgeText}</strong></div>
+              <div><span class="pill ${sInfo.isShort ? "red" : "green"}">${sInfo.icon} ${sInfo.actionLabel}</span></div>
+              <div style="margin-top:3px;"><strong>${badgeText}</strong></div>
               <div class="muted" style="font-size:11px;">${early.setup_type || ""}</div>
             </td>
             <td><strong>${s.confidence}%</strong></td>
@@ -1007,8 +1025,8 @@
             </td>
             <td>
               <button onclick="selectAndAnalyze('${s.symbol}')">Dettagli</button>
-              <button class="${side === "BUY" ? "green" : "red"}" onclick="executeFromAnalysis('${s.symbol}', '${side}', ${rp.qty || 0}, ${lv.sl || 0}, ${lv.tp2 || 0}, ${rp.leverage || 10}, ${s.price}, ${early.candle_id || 0}, ${(s.candle_timing && s.candle_timing.candle_index) || 0}, ${lv.tp1 || 0}, ${lv.tp3 || 0})">
-                ${side === "BUY" ? "Compra" : "Vendi"}
+              <button class="${sInfo.side === "BUY" ? "green" : "red"}" onclick="executeFromAnalysis('${s.symbol}', '${sInfo.side}', ${rp.qty || 0}, ${lv.sl || 0}, ${lv.tp2 || 0}, ${rp.leverage || 10}, ${s.price}, ${early.candle_id || 0}, ${(s.candle_timing && s.candle_timing.candle_index) || 0}, ${lv.tp1 || 0}, ${lv.tp3 || 0})">
+                ${sInfo.side === "BUY" ? "COMPRA" : "VENDI"}
               </button>
             </td>
           </tr>
@@ -1031,7 +1049,7 @@
         return `
           <tr>
             <td><strong>${p.bingx_name || p.symbol}</strong></td>
-            <td><span class="pill ${p.side === "LONG" ? "green" : "red"}">${p.side}</span></td>
+            <td><span class="pill ${p.side === "LONG" ? "green" : "red"}">${p.side === "LONG" ? "📈 LONG" : "📉 SHORT"}</span></td>
             <td>${p.size}</td>
             <td>${p.entry_price}</td>
             <td>${p.mark_price}</td>
@@ -1212,24 +1230,27 @@
       const ms = a.manual_sign || {};
       const ind = a.indicators || {};
       const early = a.early_setup || {};
+      const sInfo = getSignalSideInfo(a);
       const tBadge = getEntryTimingBadge(a.symbol, a.timeframe);
 
       document.getElementById("singleAnalysisBox").innerHTML = `
         <div style="display:flex; flex-wrap:wrap; justify-content:space-between; gap:8px; margin-bottom:8px;">
           <div>
             <strong>${a.bingx_name}</strong> (${a.symbol}) • <span class="pill blue">${a.timeframe}</span>
+            <span class="pill ${sInfo.isShort ? "red" : "green"}" style="margin-left:6px;">${sInfo.icon} ${sInfo.actionLabel}</span>
             <span class="${tBadge.cls}" style="margin-left:6px;" title="${tBadge.title}">${tBadge.text}</span>
             <span class="candle-badge live-candle-badge" data-tf="${a.timeframe}" style="display:inline-flex; margin-left:6px;">🕯️ ${a.timeframe}</span>
           </div>
           <div>
-            <span class="pill green">${ms.badge || a.signal}</span>
+            <span class="pill ${sInfo.isShort ? "red" : "green"}">${ms.badge || a.signal}</span>
             <span class="pill">Conf: ${a.confidence}%</span>
           </div>
         </div>
         <div class="muted" style="margin-bottom:8px;">${ms.reason || ""}</div>
         <div class="analysis-detail">
           <div class="subbox">
-            <div><strong>Livelli & Piano TP</strong></div>
+            <div><strong>Direzione, Livelli & Piano TP</strong></div>
+            <div>Direzione: <strong class="${sInfo.isShort ? "neg" : "pos"}">${sInfo.icon} ${sInfo.actionLabel}</strong></div>
             <div>Prezzo: <strong>${a.price}</strong></div>
             <div>Entry: ${lv.entry} | SL: <span class="neg">${lv.sl}</span></div>
             <div>TP1: ${lv.tp1} | TP2: <span class="pos">${lv.tp2}</span> | TP3: <span class="pos">${lv.tp3}</span></div>
