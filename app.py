@@ -415,37 +415,8 @@ def compute_candle_timing(interval: str, klines: list = None, now_ts: float = No
     }
 
 
-def format_signal_full_spec(item: dict) -> str:
-    lv = item.get("levels") or {}
-    rp = item.get("recommended_params") or {}
-    tp_plan = item.get("tp_plan") or {}
-    side_label = (
-        item.get("certain_signal")
-        or item.get("signal")
-        or ((item.get("early_setup") or {}).get("direction"))
-        or "LONG"
-    )
-    entry_px = lv.get("entry", item.get("price", "--"))
-    sl_px = lv.get("sl", "--")
-    tp1_px = lv.get("tp1", "--")
-    tp2_px = lv.get("tp2", "--")
-    tp3_px = lv.get("tp3", "--")
-    lev_val = rp.get("leverage", "--")
-    qty_val = rp.get("qty", 0)
-    plan_lbl = tp_plan.get("label", "")
-
-    spec = (
-        f"{item.get('bingx_name') or item.get('symbol')} {side_label} | "
-        f"Entry: {entry_px} | TP1: {tp1_px} | TP2: {tp2_px} | TP3: {tp3_px} | "
-        f"SL: {sl_px} | Lev: {lev_val}x | Qty: {qty_val}"
-    )
-    if plan_lbl:
-        spec += f" ({plan_lbl})"
-    return spec
-
-
 def record_new_candle_written_alert(interval: str, candle_timing: dict, analyses_map: dict):
-    """Registra un avviso scritto di nuova candela includendo SOLO gli asset liberi da blocchi con Entry, TP1/TP2/TP3, SL e Leva."""
+    """Registra un avviso scritto esatto ogni volta che inizia una nuova candela su un timeframe."""
     if not candle_timing:
         return None
 
@@ -463,29 +434,20 @@ def record_new_candle_written_alert(interval: str, candle_timing: dict, analyses
     AUTO_SCAN_STATE["last_seen_candle_index_by_tf"][interval] = curr_idx
     open_clock = candle_timing.get("open_clock_rome") or time.strftime("%H:%M:%S")
 
-    free_candidates = []
+    candidates = []
     for sym, item in (analyses_map or {}).items():
         if not item:
             continue
         ew = item.get("entry_window") or {}
         sn = item.get("sn_rejection") or {}
         ms = item.get("manual_sign") or {}
-        sess = item.get("session") or {}
-
-        is_blocked = (
-            bool(ew.get("exceeded"))
-            or bool(sn.get("rejected"))
-            or ms.get("status") in ("CANCELLED_REVERSAL", "REJECTED_SN", "OVER_THRESHOLD")
-            or not bool(sess.get("session_ok", True))
-        )
-        if is_blocked:
+        if ew.get("exceeded") or sn.get("rejected") or ms.get("status") == "CANCELLED_REVERSAL":
             continue
-
         dir_str = str(item.get("certain_signal") or (item.get("early_setup") or {}).get("direction") or item.get("signal") or "")
         if "LONG" in dir_str or "SHORT" in dir_str:
-            free_candidates.append(item)
+            candidates.append(item)
 
-    free_candidates.sort(
+    candidates.sort(
         key=lambda x: (
             1 if x.get("certain_signal") else 0,
             float(x.get("confidence") or 0.0)
@@ -493,56 +455,50 @@ def record_new_candle_written_alert(interval: str, candle_timing: dict, analyses
         reverse=True
     )
 
-    if free_candidates:
-        top_items = free_candidates[:3]
-        parts = [format_signal_full_spec(c) for c in top_items]
-
-        best = top_items[0]
-        lv0 = best.get("levels") or {}
-        rp0 = best.get("recommended_params") or {}
-        side0 = best.get("certain_signal") or best.get("signal") or ((best.get("early_setup") or {}).get("direction"))
-
+    if candidates:
+        best = candidates[0]
+        levels = best.get("levels") or {}
+        rp = best.get("recommended_params") or {}
+        side_label = best.get("certain_signal") or best.get("signal") or ((best.get("early_setup") or {}).get("direction"))
         alert_obj = {
             "id": tf_key,
             "time": open_clock,
             "timeframe": interval,
             "blocked": False,
-            "free_count": len(free_candidates),
             "symbol": best.get("bingx_name") or best.get("symbol"),
-            "direction": side0,
-            "entry": lv0.get("entry", best.get("price")),
-            "tp1": lv0.get("tp1", "--"),
-            "tp2": lv0.get("tp2", "--"),
-            "tp3": lv0.get("tp3", "--"),
-            "sl": lv0.get("sl", "--"),
-            "leverage": rp0.get("leverage", "--"),
-            "qty": rp0.get("qty", 0),
-            "text": f"Nuova candela {interval} aperta alle {open_clock} — LIBERI ({len(free_candidates)}): " + " • ".join(parts)
+            "direction": side_label,
+            "entry": levels.get("entry", best.get("price")),
+            "tp2": levels.get("tp2", "--"),
+            "sl": levels.get("sl", "--"),
+            "leverage": rp.get("leverage", "--"),
+            "confidence": best.get("confidence", "--"),
+            "text": (
+                f"Nuova candela {interval} aperta alle {open_clock} — "
+                f"{best.get('bingx_name')} {side_label} | Entry: {levels.get('entry', best.get('price'))} | "
+                f"TP2: {levels.get('tp2', '--')} | SL: {levels.get('sl', '--')} (Lev {rp.get('leverage', '--')}x)"
+            )
         }
     else:
-        sn_count = sum(
-            1 for v in (analyses_map or {}).values()
-            if v and (v.get("sn_rejection") or {}).get("rejected")
+        blocked_item = next(
+            (v for v in (analyses_map or {}).values()
+             if v and ((v.get("entry_window") or {}).get("exceeded") or (v.get("sn_rejection") or {}).get("rejected"))),
+            None
         )
-        over_count = sum(
-            1 for v in (analyses_map or {}).values()
-            if v and (v.get("entry_window") or {}).get("exceeded")
-        )
-        reason_parts = []
-        if sn_count:
-            reason_parts.append(f"{sn_count} rifiutati per SN candela alta opposta")
-        if over_count:
-            reason_parts.append(f"{over_count} oltre soglia")
-        reason = ", ".join(reason_parts) if reason_parts else "nessun asset libero da blocchi"
+        if blocked_item:
+            if (blocked_item.get("sn_rejection") or {}).get("rejected"):
+                reason = (blocked_item.get("sn_rejection") or {}).get("badge") or "RIFIUTO: SN CANDELA ALTA OPPOSTA"
+            else:
+                reason = (blocked_item.get("entry_window") or {}).get("status_badge") or "OLTRE SOGLIA — NON ENTRARE"
+        else:
+            reason = "NESSUN SEGNALE CONFERMATO ALL'APERTURA CANDELA"
 
         alert_obj = {
             "id": tf_key,
             "time": open_clock,
             "timeframe": interval,
             "blocked": True,
-            "free_count": 0,
             "reason": reason,
-            "text": f"Nuova candela {interval} aperta alle {open_clock} — NESSUN ASSET LIBERO ({reason})."
+            "text": f"Nuova candela {interval} aperta alle {open_clock} — NON ENTRARE ({reason})."
         }
 
     AUTO_SCAN_STATE["latest_new_candle_alert"] = alert_obj
@@ -1696,9 +1652,7 @@ def register_sound_alert_if_exact_moment(analysis: dict):
         "price": analysis["price"],
         "limit_price": early.get("limit_price"),
         "sl": analysis["levels"]["sl"],
-        "tp1": analysis["levels"]["tp1"],
-        "tp2": analysis["levels"]["tp2"],
-        "tp3": analysis["levels"]["tp3"]
+        "tp2": analysis["levels"]["tp2"]
     })
     AUTO_SCAN_STATE["audio_alerts"] = AUTO_SCAN_STATE["audio_alerts"][:25]
 
