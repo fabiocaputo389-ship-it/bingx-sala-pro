@@ -70,6 +70,17 @@
       }
     }
 
+    @keyframes vipPulseGold {
+      0%, 100% {
+        box-shadow: 0 0 16px rgba(245, 185, 66, 0.24), 0 14px 36px rgba(0, 0, 0, 0.52);
+        border-color: rgba(245, 185, 66, 0.6);
+      }
+      50% {
+        box-shadow: 0 0 30px rgba(245, 185, 66, 0.5), 0 14px 36px rgba(0, 0, 0, 0.52);
+        border-color: #fde68a;
+      }
+    }
+
     .topbar {
       display: flex;
       flex-wrap: wrap;
@@ -146,6 +157,12 @@
       background: var(--accent-soft);
     }
 
+    .pill.purple {
+      border-color: rgba(167, 139, 250, 0.48);
+      color: #ddd6fe;
+      background: rgba(167, 139, 250, 0.16);
+    }
+
     .container {
       max-width: 1600px;
       margin: 0 auto;
@@ -166,6 +183,12 @@
       gap: 9px;
       color: var(--text);
       box-shadow: var(--shadow-md), var(--glow-gold);
+    }
+
+    .candle-alert-box.prep-entry {
+      background: linear-gradient(120deg, rgba(245, 185, 66, 0.22) 0%, rgba(15, 23, 42, 0.96) 52%, rgba(56, 189, 248, 0.16) 100%);
+      border-left: 5px solid var(--gold);
+      animation: vipPulseGold 1.7s infinite ease-in-out;
     }
 
     .candle-alert-box.enter-now {
@@ -199,6 +222,34 @@
       color: #ffffff;
     }
 
+    .live-radar-strip {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(310px, 1fr));
+      gap: 10px;
+      padding-top: 2px;
+    }
+
+    .radar-alert-tile {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: rgba(9, 14, 26, 0.82);
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      font-size: 11.5px;
+    }
+
+    .radar-alert-tile.profit-loading {
+      border-color: rgba(16, 185, 129, 0.55);
+      background: linear-gradient(135deg, rgba(16, 185, 129, 0.14), rgba(9, 14, 26, 0.88));
+    }
+
+    .radar-alert-tile.entry-prep {
+      border-color: rgba(245, 185, 66, 0.55);
+      background: linear-gradient(135deg, rgba(245, 185, 66, 0.14), rgba(9, 14, 26, 0.88));
+    }
+
     .candle-history {
       display: flex;
       flex-wrap: wrap;
@@ -218,7 +269,7 @@
 
     .top-setups-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(265px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(275px, 1fr));
       gap: 12px;
     }
 
@@ -259,6 +310,18 @@
       padding: 8px 10px;
       border-radius: 10px;
       border: 1px solid rgba(148, 163, 184, 0.12);
+    }
+
+    .score-inline-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      padding: 6px 8px;
+      border-radius: 10px;
+      background: rgba(12, 19, 35, 0.9);
+      border: 1px solid rgba(245, 185, 66, 0.25);
+      font-size: 11px;
     }
 
     .grid-3 {
@@ -543,6 +606,18 @@
       color: #fda4af;
     }
 
+    .timing-pill.prep {
+      background: var(--gold-soft);
+      border-color: rgba(245, 185, 66, 0.55);
+      color: #fde68a;
+    }
+
+    .timing-pill.profit {
+      background: rgba(16, 185, 129, 0.2);
+      border-color: rgba(52, 211, 153, 0.65);
+      color: #6ee7b7;
+    }
+
     .timing-pill.wait {
       background: var(--gold-soft);
       border-color: rgba(245, 185, 66, 0.45);
@@ -627,34 +702,6 @@
     .subbox:nth-child(4) {
       border-left-color: var(--purple);
     }
-
-    .params-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(156px, 1fr));
-      gap: 9px;
-      margin-bottom: 12px;
-    }
-
-    .param-cell {
-      background: rgba(12, 19, 35, 0.88);
-      border: 1px solid rgba(148, 163, 184, 0.16);
-      border-radius: 11px;
-      padding: 8px 10px;
-      display: flex;
-      flex-direction: column;
-      gap: 5px;
-    }
-
-    .param-cell:focus-within {
-      border-color: var(--gold);
-      background: rgba(18, 28, 50, 0.95);
-    }
-
-    .param-cell label {
-      font-size: 11px;
-      font-weight: 700;
-      color: #cbd5e1;
-    }
   </style>
 </head>
 <body>
@@ -662,7 +709,7 @@
     <div class="brand">
       <span>👑 BingX VIP Signal Room</span>
       <span id="monitorPill" class="pill green">Monitor: ATTIVO</span>
-      <span id="profilePill" class="pill amber">Profilo: AUTO</span>
+      <span id="profilePill" class="pill amber">Profilo: AUTO-PRO</span>
     </div>
 
     <div class="controls-row">
@@ -699,22 +746,24 @@
   </div>
 
   <div class="container">
-    <!-- AVVISO SCRITTO PRE-CANDELA / NUOVA CANDELA CON DIREZIONE E TP ESATTI -->
+    <!-- AVVISO SCRITTO PRE-CANDELA / PREPARAZIONE ENTRATA / CANDELA PROFITTO IN CARICAMENTO -->
     <div id="newCandleBanner" class="candle-alert-box">
       <div class="candle-alert-main">
         <span id="newCandleAlertText">🕯️ In attesa dell'apertura della prossima candela...</span>
         <span id="globalTimerBadge" class="pill amber">Prossima candela: --:--</span>
       </div>
+      <div id="liveRadarStrip" class="live-radar-strip"></div>
       <div id="newCandleHistory" class="candle-history"></div>
     </div>
 
-    <!-- CARD DEDICATE AI TOP SETUP VIP DEL MOMENTO -->
+    <!-- CARD DEDICATE AI TOP SETUP VIP DEL MOMENTO (CON SCORE MODIFICABILE AL VOLO) -->
     <div class="card">
       <div class="card-header">
-        <div class="card-title">⚡ Top Setup VIP del Momento</div>
+        <div class="card-title">⚡ Top Setup VIP del Momento (Parametri Auto • Score Modificabile)</div>
         <div class="controls-row">
           <span id="topSetupsBadge" class="pill amber">0 setup</span>
-          <button class="primary" onclick="runManualScan()">Scansiona ora</button>
+          <button class="primary" onclick="applyBestAutoParams(true)">⚡ Auto-Ottimizza Parametri</button>
+          <button onclick="runManualScan()">Scansiona ora</button>
         </div>
       </div>
       <div id="topSetupsGrid" class="top-setups-grid">
@@ -791,74 +840,13 @@
       </div>
     </div>
 
-    <!-- TABELLA PARAMETRI & SCORE ESATTO MODIFICABILE -->
+    <!-- SCORE ESATTO MODIFICABILE PER ASSET (TUTTI GLI ALTRI PARAMETRI SONO IN AUTOMATICO) -->
     <div class="card">
       <div class="card-header">
-        <div class="card-title">🎛️ Tabella Parametri, Anti-FOMO & Score Esatto Modificabile</div>
+        <div class="card-title">🎯 Score Esatto Modificabile per Asset (Altri Parametri Auto-Ottimizzati)</div>
         <div class="controls-row">
-          <label class="toggle-label"><input type="checkbox" id="antiFomoEnabledChk" checked /> Anti-FOMO Attivo</label>
-          <button class="primary" onclick="saveGlobalWeights()">Salva Parametri</button>
-        </div>
-      </div>
-
-      <div class="params-grid">
-        <div class="param-cell">
-          <label>Peso EMA</label>
-          <input id="wEma" type="number" min="0" max="100" step="1" value="35" />
-        </div>
-        <div class="param-cell">
-          <label>Peso Momentum</label>
-          <input id="wMom" type="number" min="0" max="100" step="1" value="30" />
-        </div>
-        <div class="param-cell">
-          <label>Peso Volatilità</label>
-          <input id="wVol" type="number" min="0" max="100" step="1" value="20" />
-        </div>
-        <div class="param-cell">
-          <label>Peso Sentiment</label>
-          <input id="wSent" type="number" min="0" max="100" step="1" value="15" />
-        </div>
-        <div class="param-cell">
-          <label>Confidenza Minima (%)</label>
-          <input id="wMinConf" type="number" min="1" max="99" step="0.5" value="70" />
-        </div>
-        <div class="param-cell">
-          <label>Rischio Trade (%)</label>
-          <input id="wRiskPct" type="number" min="0.1" max="20" step="0.1" value="1.5" />
-        </div>
-        <div class="param-cell">
-          <label>SL Mult (ATR)</label>
-          <input id="wSlMult" type="number" min="0.2" max="10" step="0.1" value="1.5" />
-        </div>
-        <div class="param-cell">
-          <label>TP1 / TP2 / TP3 Mult</label>
-          <div class="controls-row" style="gap:4px;">
-            <input id="wTp1Mult" type="number" min="0.2" max="15" step="0.1" value="2.2" style="width:52px; padding:4px;" />
-            <input id="wTp2Mult" type="number" min="0.2" max="20" step="0.1" value="3.5" style="width:52px; padding:4px;" />
-            <input id="wTp3Mult" type="number" min="0.2" max="30" step="0.1" value="5.0" style="width:52px; padding:4px;" />
-          </div>
-        </div>
-        <div class="param-cell">
-          <label>Max Stretch ATR / |Z|</label>
-          <div class="controls-row" style="gap:4px;">
-            <input id="wMaxAtrStretch" type="number" min="0.2" max="5" step="0.05" value="1.35" style="width:68px; padding:4px;" />
-            <input id="wMaxZAbs" type="number" min="0.5" max="6" step="0.1" value="2.2" style="width:68px; padding:4px;" />
-          </div>
-        </div>
-        <div class="param-cell">
-          <label>Anti-FOMO Max Candela ATR</label>
-          <input id="wFomoCandleAtr" type="number" min="0.5" max="6" step="0.05" value="1.45" />
-        </div>
-        <div class="param-cell">
-          <label>Anti-FOMO Max Vol Mult</label>
-          <input id="wFomoVolMult" type="number" min="1" max="10" step="0.1" value="2.4" />
-        </div>
-        <div class="param-cell">
-          <label>Anti-FOMO RSI (Min / Max)</label>
-          <div class="controls-row" style="gap:4px;">
-            <input id="wFomoRsiOs" type="number" min="5" max="50" step="1" value="28" style="width:65px; padding:4px;" />
-            <input id="wFomoRsiOb" type="number" min="50" max="95" step="1" value="72" style="width:65px; padding:4px;" />
-          </div>
+          <span id="autoParamsSummary" class="pill green">Auto: EMA 40 • Mom 30 • Vol 15 • Sent 15 • Conf 65% • Risk 1.5% • TP 1.8/3.0/4.5x</span>
+          <button class="primary" onclick="applyBestAutoParams(true)">⚡ Reimposta Parametri Auto</button>
         </div>
       </div>
 
@@ -873,7 +861,7 @@
               <th>Sentiment (-100..+100)</th>
               <th>Conf.</th>
               <th>Segnale</th>
-              <th>Anti-FOMO</th>
+              <th>Stato Operativo</th>
               <th>Applica / Reset</th>
             </tr>
           </thead>
@@ -887,13 +875,13 @@
     <!-- POSIZIONI APERTE BINGX -->
     <div class="card">
       <div class="card-header">
-        <div class="card-title">📌 Posizioni Aperte su BingX</div>
+        <div class="card-title">📌 Posizioni Aperte su BingX (Con Avviso Candela Profitto in Caricamento)</div>
         <div class="controls-row">
           <span id="openPosCount" class="pill green">0 aperte</span>
           <button class="red" onclick="closeAllPositions()">Chiudi tutte</button>
         </div>
       </div>
-      <div class="table-wrap" style="max-height:220px;">
+      <div class="table-wrap" style="max-height:240px;">
         <table>
           <thead>
             <tr>
@@ -903,7 +891,7 @@
               <th>Entry</th>
               <th>Mark</th>
               <th>SL / TP2</th>
-              <th>Progresso TP</th>
+              <th>Candela Profitto & TP</th>
               <th>Lev</th>
               <th>PnL</th>
               <th>Azione</th>
@@ -951,7 +939,7 @@
             <button class="primary" onclick="analyzeSingle()">Analizza</button>
           </div>
         </div>
-        <div id="singleAnalysisBox" class="muted">Seleziona o analizza un contratto per vedere dettagli, filtri Anti-FOMO & SN, soglia ingresso e indicatori.</div>
+        <div id="singleAnalysisBox" class="muted">Seleziona o analizza un contratto per vedere dettagli, preparazione entrata, filtri e indicatori.</div>
       </div>
     </div>
 
@@ -998,7 +986,7 @@
 
       <div class="card">
         <div class="card-header">
-          <div class="card-title">🔔 Allarmi Acustici / Setup Rilevati</div>
+          <div class="card-title">🔔 Allarmi Acustici, Preparazione Entrata & Candela Profitto</div>
         </div>
         <div id="audioAlertsBox" class="log-box">
           <div class="muted">Nessun allarme recente.</div>
@@ -1010,6 +998,26 @@
   <script>
     const INTERVAL_SEC = { "1m": 60, "5m": 300, "15m": 900, "1h": 3600, "4h": 14400 };
 
+    const BEST_AUTO_WEIGHTS = {
+      ema_weight: 40,
+      momentum_weight: 30,
+      volatility_weight: 15,
+      sentiment_weight: 15,
+      min_confidence: 65,
+      risk_per_trade_pct: 1.5,
+      sl_mult: 1.35,
+      tp1_mult: 1.8,
+      tp2_mult: 3.0,
+      tp3_mult: 4.5,
+      max_entry_atr_stretch: 1.5,
+      max_entry_z_abs: 2.4,
+      anti_fomo_enabled: true,
+      anti_fomo_max_candle_atr: 1.65,
+      anti_fomo_max_vol_mult: 2.8,
+      anti_fomo_rsi_oversold: 25,
+      anti_fomo_rsi_overbought: 75
+    };
+
     let STATE = {
       markets: [],
       signals: {},
@@ -1020,8 +1028,10 @@
       newCandleHistory: [],
       lastAnnouncedCandleKey: null,
       preWarnedCandleKey: null,
+      lastProfitAlertSignature: null,
       lastAlertId: null,
-      soundEnabled: true
+      soundEnabled: true,
+      autoParamsAppliedOnce: false
     };
 
     function toggleSound() {
@@ -1055,6 +1065,12 @@
       if (!STATE.soundEnabled) return;
       playBeep(660, 120);
       setTimeout(() => playBeep(990, 150), 150);
+    }
+
+    function playProfitCandleBeep() {
+      if (!STATE.soundEnabled) return;
+      playBeep(880, 110);
+      setTimeout(() => playBeep(1174, 160), 130);
     }
 
     function computeLiveCandleClock(interval) {
@@ -1132,6 +1148,62 @@
       return Boolean(s.certain_signal || early.trigger_sound || early.direction || raw.includes("LONG") || raw.includes("SHORT"));
     }
 
+    function isPreparingEntry(s, clk) {
+      if (!s || isSignalBlocked(s)) return false;
+      const early = s.early_setup || {};
+      const ms = s.manual_sign || {};
+      const distPct = Number(early.distance_pct ?? 999);
+      return Boolean(clk.isPre || early.trigger_sound || ms.show_enter_now || Math.abs(distPct) <= 0.8);
+    }
+
+    function getProfitCandleStatus(p, interval) {
+      const tf = interval || document.getElementById("timeframeSelect").value || "15m";
+      const clk = computeLiveCandleClock(tf);
+      const pnl = Number(p.unrealized_pnl || 0);
+      const prog = Number(p.tp_progress_pct || 0);
+      const entry = Number(p.entry_price || 0);
+      const mark = Number(p.mark_price || 0);
+      const tp2 = Number(p.tp_price || 0);
+      const isLong = String(p.side || "").toUpperCase() === "LONG";
+
+      const favorableMove = entry > 0 && mark > 0
+        ? (isLong ? mark > entry : mark < entry)
+        : (pnl > 0 || prog > 0);
+
+      const nearTp = prog >= 35 || (entry > 0 && tp2 > 0 && Math.abs(mark - entry) >= Math.abs(tp2 - entry) * 0.25);
+
+      if (favorableMove && (nearTp || prog > 0)) {
+        return {
+          loading: true,
+          prog,
+          pnl,
+          countdown: clk.countdownStr,
+          badgeText: `🚀 CANDELA PROFITTO IN CARICAMENTO (${prog.toFixed(0)}% TP2 • ${clk.countdownStr})`,
+          summaryText: `${p.bingx_name || p.symbol} (${p.side}) sta caricando la candela verso TP2 (${tp2 || "--"}) • Progresso ${prog.toFixed(0)}% • PnL ${pnl >= 0 ? "+" : ""}${pnl.toFixed(2)} • Fine candela tra ${clk.countdownStr}`
+        };
+      }
+
+      if (favorableMove) {
+        return {
+          loading: true,
+          prog,
+          pnl,
+          countdown: clk.countdownStr,
+          badgeText: `📈 SPINTA PROFITTO (${pnl >= 0 ? "+" : ""}${pnl.toFixed(2)} • ${clk.countdownStr})`,
+          summaryText: `${p.bingx_name || p.symbol} (${p.side}) in spinta positiva (${pnl >= 0 ? "+" : ""}${pnl.toFixed(2)} USDT) • Candela ${tf} chiude tra ${clk.countdownStr}`
+        };
+      }
+
+      return {
+        loading: false,
+        prog,
+        pnl,
+        countdown: clk.countdownStr,
+        badgeText: `${prog.toFixed(0)}% TP2 • ${clk.countdownStr}`,
+        summaryText: `${p.bingx_name || p.symbol} (${p.side}) • Progresso TP2 ${prog.toFixed(0)}% • Candela ${tf} tra ${clk.countdownStr}`
+      };
+    }
+
     function formatSignalFullSpecJs(s) {
       const lv = s.levels || {};
       const rp = s.recommended_params || {};
@@ -1158,15 +1230,65 @@
       return source.sort((a, b) => (b.confidence || 0) - (a.confidence || 0));
     }
 
+    function renderLiveProfitAndPrepStrip(clk, freeList) {
+      const strip = document.getElementById("liveRadarStrip");
+      if (!strip) return;
+
+      const profitPositions = Object.values(STATE.openPositions || {})
+        .map(p => ({ pos: p, st: getProfitCandleStatus(p, clk.interval) }))
+        .filter(x => x.st.loading);
+
+      const prepSignals = freeList.filter(s => isPreparingEntry(s, clk)).slice(0, 2);
+      const tiles = [];
+
+      profitPositions.slice(0, 2).forEach(({ st }) => {
+        tiles.push(`
+          <div class="radar-alert-tile profit-loading">
+            <div><span class="pill green">🚀 CANDELA PROFITTO IN CARICAMENTO</span></div>
+            <div style="color:#ecfdf5; font-weight:700;">${st.summaryText}</div>
+          </div>
+        `);
+      });
+
+      prepSignals.forEach(s => {
+        const sInfo = getSignalSideInfo(s);
+        const lv = s.levels || {};
+        const early = s.early_setup || {};
+        tiles.push(`
+          <div class="radar-alert-tile entry-prep">
+            <div><span class="pill amber">🎯 PREPARAZIONE ALL'ENTRATA (${clk.countdownStr})</span></div>
+            <div style="color:#fef3c7; font-weight:700;">
+              ${s.bingx_name || s.symbol} • ${sInfo.icon} ${sInfo.actionLabel} • Entry ${early.limit_price ?? lv.entry ?? s.price} • TP1 ${lv.tp1 ?? "--"} / TP2 ${lv.tp2 ?? "--"} • SL ${lv.sl ?? "--"}
+            </div>
+          </div>
+        `);
+      });
+
+      if (!tiles.length) {
+        strip.innerHTML = "";
+        return;
+      }
+
+      strip.innerHTML = tiles.join("");
+
+      const profitSig = profitPositions.map(x => `${x.pos.symbol}:${x.st.prog.toFixed(0)}`).join("|");
+      if (profitSig && profitSig !== STATE.lastProfitAlertSignature) {
+        STATE.lastProfitAlertSignature = profitSig;
+        playProfitCandleBeep();
+      }
+    }
+
     function updateBannerUrgencyState(freeList, clk) {
       const banner = document.getElementById("newCandleBanner");
-      banner.classList.remove("enter-now", "enter-now-short");
+      banner.classList.remove("enter-now", "enter-now-short", "prep-entry");
       if (!freeList.length || banner.classList.contains("blocked")) return;
       const top = freeList[0];
       const sInfo = getSignalSideInfo(top);
       const enterNow = Boolean((top.manual_sign && top.manual_sign.show_enter_now) || clk.isPre);
       if (enterNow) {
         banner.classList.add(sInfo.isShort ? "enter-now-short" : "enter-now");
+      } else if (isPreparingEntry(top, clk)) {
+        banner.classList.add("prep-entry");
       }
     }
 
@@ -1178,9 +1300,9 @@
       if (!sig) {
         if (clk.isPre) {
           return {
-            cls: "timing-pill go",
-            text: `🟢 PRE-CANDELA -${clk.rem}s`,
-            title: `Mancano ${clk.rem}s all'apertura della nuova candela ${tf}`
+            cls: "timing-pill prep",
+            text: `🎯 PREPARA ENTRATA -${clk.rem}s`,
+            title: `Preparazione all'apertura della nuova candela ${tf}`
           };
         }
         return {
@@ -1242,6 +1364,13 @@
           title: tpSummary
         };
       }
+      if (isPreparingEntry(sig, clk)) {
+        return {
+          cls: "timing-pill prep",
+          text: `🎯 PREPARA ENTRATA • ${sInfo.icon} ${sInfo.actionLabel} • Entry ${lv.entry ?? sig.price} • TP2 ${lv.tp2 ?? "--"}`,
+          title: tpSummary
+        };
+      }
       return {
         cls: "timing-pill wait",
         text: `🎯 FINESTRA OK • ${sInfo.icon} ${sInfo.actionLabel} • TP1 ${lv.tp1 ?? "--"} / TP2 ${lv.tp2 ?? "--"} / TP3 ${lv.tp3 ?? "--"} • SL ${lv.sl ?? "--"} (${clk.countdownStr})`,
@@ -1278,6 +1407,7 @@
     function tickTimersAndCandleTransition() {
       const interval = document.getElementById("timeframeSelect").value || "15m";
       const clk = computeLiveCandleClock(interval);
+      clk.interval = interval;
 
       const globalBadge = document.getElementById("globalTimerBadge");
       globalBadge.textContent = clk.isPre
@@ -1295,13 +1425,14 @@
       const candleKey = `${interval}_${clk.candleIndex}`;
       const freeList = getFreeSignalsSorted();
       updateBannerUrgencyState(freeList, clk);
+      renderLiveProfitAndPrepStrip(clk, freeList);
 
       if (clk.isPre && clk.rem > 0 && freeList.length > 0) {
         const topParts = freeList.slice(0, 3).map(formatSignalFullSpecJs);
         const banner = document.getElementById("newCandleBanner");
         banner.classList.remove("blocked");
         document.getElementById("newCandleAlertText").textContent =
-          `⏱ PRE-AVVISO -${clk.rem}s (apertura ${clk.nextClock}) — PREPARATI: ${topParts.join(" • ")}`;
+          `🎯 PREPARAZIONE ENTRATA (-${clk.rem}s • apre ${clk.nextClock}): ${topParts.join(" • ")}`;
 
         const warnKey = `${candleKey}_PRE`;
         if (STATE.preWarnedCandleKey !== warnKey) {
@@ -1343,6 +1474,23 @@
       STATE.lastAnnouncedCandleKey = candleKey;
     }
 
+    async function applyBestAutoParams(forceNotify = false) {
+      const r = await fetch("/api/weights", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(BEST_AUTO_WEIGHTS)
+      });
+      const d = await r.json();
+      if (d.status === "ok") {
+        STATE.autoParamsAppliedOnce = true;
+        await analyzeSingle();
+        await pollMonitor();
+        if (forceNotify) {
+          playBeep(1046, 150);
+        }
+      }
+    }
+
     function renderTopSetupsCards() {
       const grid = document.getElementById("topSetupsGrid");
       const badge = document.getElementById("topSetupsBadge");
@@ -1363,6 +1511,11 @@
         const sInfo = getSignalSideInfo(s);
         const blocked = isSignalBlocked(s);
         const cardCls = blocked ? "setup-card" : (sInfo.isShort ? "setup-card short" : "setup-card go");
+        const ov = (STATE.symbolOverrides || {})[s.symbol] || {};
+        const currentScore = ov.score_override !== undefined && ov.score_override !== null
+          ? ov.score_override
+          : (s.composite_score ?? 0);
+        const safeId = `card_${s.symbol.replace(/[^A-Z0-9_-]/gi, "_")}`;
 
         return `
           <div class="${cardCls}">
@@ -1374,8 +1527,13 @@
               <span class="pill ${sInfo.isShort ? "red" : "green"}">${sInfo.icon} ${sInfo.actionLabel}</span>
             </div>
             <div style="display:flex; justify-content:space-between; align-items:center; font-size:11.5px;">
-              <span>Conf: <strong>${s.confidence}%</strong> (${s.composite_score})</span>
-              <span class="pill ${blocked ? "red" : "amber"}">${blocked ? "FILTRATO" : "ATTIVO"}</span>
+              <span>Conf: <strong>${s.confidence}%</strong></span>
+              <span class="pill ${blocked ? "red" : "amber"}">${blocked ? "FILTRATO" : "PRONTO"}</span>
+            </div>
+            <div class="score-inline-bar">
+              <span style="font-weight:700; color:#fde68a;">Score:</span>
+              <input id="${safeId}" type="number" min="-100" max="100" step="0.5" value="${currentScore}" style="width:74px; padding:3px 6px;" />
+              <button class="primary" style="padding:3px 8px;" onclick="applyCardScore('${s.symbol}', '${safeId}')">OK</button>
             </div>
             <div class="setup-levels">
               <div>Entry: <strong>${lv.entry ?? s.price}</strong></div>
@@ -1392,6 +1550,36 @@
           </div>
         `;
       }).join("");
+    }
+
+    async function applyCardScore(symbol, inputId) {
+      const inp = document.getElementById(inputId);
+      if (!inp) return;
+      const scoreOverride = Number(inp.value);
+      const ov = (STATE.symbolOverrides || {})[symbol] || {};
+      const sentiment = ov.sentiment !== undefined && ov.sentiment !== null ? Number(ov.sentiment) : 0;
+      const interval = document.getElementById("timeframeSelect").value;
+
+      const r = await fetch("/api/symbol_override", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          symbol,
+          interval,
+          score_override: scoreOverride,
+          sentiment
+        })
+      });
+      const d = await r.json();
+      if (d.status === "ok") {
+        STATE.symbolOverrides = d.symbol_overrides || STATE.symbolOverrides;
+        if (d.data && isActionableSignal(d.data)) {
+          STATE.signals[d.data.symbol] = d.data;
+        }
+        renderTopSetupsCards();
+        renderSignalsTable();
+        renderScoreParamsTable();
+      }
     }
 
     async function loadKeysStatus() {
@@ -1513,9 +1701,10 @@
           : (sig ? sig.sentiment : 0);
         const confTxt = sig ? `${sig.confidence}%` : "--";
         const sigTxt = sig ? `${sig.signal}` : "--";
-        const fomoTxt = sig && sig.anti_fomo
-          ? `<span class="${sig.anti_fomo.fomo_blocked ? "neg" : "pos"}">${sig.anti_fomo.fomo_blocked ? "BLOCCATO" : "OK"}</span>`
-          : `<span class="pill blue">ATTIVO</span>`;
+        const blocked = sig ? isSignalBlocked(sig) : false;
+        const statusTxt = sig
+          ? `<span class="${blocked ? "neg" : "pos"}">${blocked ? "FILTRATO" : "PRONTO"}</span>`
+          : `<span class="pill blue">AUTO</span>`;
 
         const safeId = m.symbol.replace(/[^A-Z0-9_-]/gi, "_");
         return `
@@ -1524,14 +1713,14 @@
             <td><span class="pill">${m.category}</span></td>
             <td><strong>${m.lastPrice}</strong></td>
             <td>
-              <input id="sc_${safeId}" type="number" min="-100" max="100" step="0.5" value="${scoreVal}" style="width:76px; padding:4px 6px;" />
+              <input id="sc_${safeId}" type="number" min="-100" max="100" step="0.5" value="${scoreVal}" style="width:82px; padding:4px 6px;" />
             </td>
             <td>
               <input id="sn_${safeId}" type="number" min="-100" max="100" step="1" value="${sentVal}" style="width:76px; padding:4px 6px;" />
             </td>
             <td><strong>${confTxt}</strong></td>
             <td>${sigTxt}</td>
-            <td>${fomoTxt}</td>
+            <td>${statusTxt}</td>
             <td>
               <button class="primary" onclick="applySymbolScore('${m.symbol}', '${safeId}')">Applica</button>
               <button onclick="resetSymbolScore('${m.symbol}')">Reset</button>
@@ -1589,61 +1778,6 @@
       if (d.status === "ok") {
         STATE.symbolOverrides = d.symbol_overrides || STATE.symbolOverrides;
         await pollMonitor();
-      }
-    }
-
-    function populateWeightsInputs(w) {
-      if (!w) return;
-      document.getElementById("wEma").value = w.ema_weight ?? 35;
-      document.getElementById("wMom").value = w.momentum_weight ?? 30;
-      document.getElementById("wVol").value = w.volatility_weight ?? 20;
-      document.getElementById("wSent").value = w.sentiment_weight ?? 15;
-      document.getElementById("wMinConf").value = w.min_confidence ?? 70;
-      document.getElementById("wRiskPct").value = w.risk_per_trade_pct ?? 1.5;
-      document.getElementById("wSlMult").value = w.sl_mult ?? 1.5;
-      document.getElementById("wTp1Mult").value = w.tp1_mult ?? 2.2;
-      document.getElementById("wTp2Mult").value = w.tp2_mult ?? 3.5;
-      document.getElementById("wTp3Mult").value = w.tp3_mult ?? 5.0;
-      document.getElementById("wMaxAtrStretch").value = w.max_entry_atr_stretch ?? 1.35;
-      document.getElementById("wMaxZAbs").value = w.max_entry_z_abs ?? 2.2;
-      document.getElementById("wFomoCandleAtr").value = w.anti_fomo_max_candle_atr ?? 1.45;
-      document.getElementById("wFomoVolMult").value = w.anti_fomo_max_vol_mult ?? 2.4;
-      document.getElementById("wFomoRsiOs").value = w.anti_fomo_rsi_oversold ?? 28;
-      document.getElementById("wFomoRsiOb").value = w.anti_fomo_rsi_overbought ?? 72;
-      document.getElementById("antiFomoEnabledChk").checked = Boolean(w.anti_fomo_enabled ?? true);
-    }
-
-    async function saveGlobalWeights() {
-      const payload = {
-        ema_weight: Number(document.getElementById("wEma").value || 35),
-        momentum_weight: Number(document.getElementById("wMom").value || 30),
-        volatility_weight: Number(document.getElementById("wVol").value || 20),
-        sentiment_weight: Number(document.getElementById("wSent").value || 15),
-        min_confidence: Number(document.getElementById("wMinConf").value || 70),
-        risk_per_trade_pct: Number(document.getElementById("wRiskPct").value || 1.5),
-        sl_mult: Number(document.getElementById("wSlMult").value || 1.5),
-        tp1_mult: Number(document.getElementById("wTp1Mult").value || 2.2),
-        tp2_mult: Number(document.getElementById("wTp2Mult").value || 3.5),
-        tp3_mult: Number(document.getElementById("wTp3Mult").value || 5.0),
-        max_entry_atr_stretch: Number(document.getElementById("wMaxAtrStretch").value || 1.35),
-        max_entry_z_abs: Number(document.getElementById("wMaxZAbs").value || 2.2),
-        anti_fomo_enabled: document.getElementById("antiFomoEnabledChk").checked,
-        anti_fomo_max_candle_atr: Number(document.getElementById("wFomoCandleAtr").value || 1.45),
-        anti_fomo_max_vol_mult: Number(document.getElementById("wFomoVolMult").value || 2.4),
-        anti_fomo_rsi_oversold: Number(document.getElementById("wFomoRsiOs").value || 28),
-        anti_fomo_rsi_overbought: Number(document.getElementById("wFomoRsiOb").value || 72)
-      };
-
-      const r = await fetch("/api/weights", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      });
-      const d = await r.json();
-      if (d.status === "ok") {
-        populateWeightsInputs(d.weights);
-        await analyzeSingle();
-        renderScoreParamsTable();
       }
     }
 
@@ -1712,6 +1846,7 @@
 
     function renderPositionsTable() {
       const posList = Object.values(STATE.openPositions || {});
+      const tf = document.getElementById("timeframeSelect").value || "15m";
       document.getElementById("openPosCount").textContent = `${posList.length} aperte`;
       const tbody = document.getElementById("positionsBody");
       if (!posList.length) {
@@ -1722,6 +1857,7 @@
       tbody.innerHTML = posList.map(p => {
         const pnl = Number(p.unrealized_pnl || 0);
         const cls = pnl >= 0 ? "pos" : "neg";
+        const prof = getProfitCandleStatus(p, tf);
         return `
           <tr>
             <td><strong>${p.bingx_name || p.symbol}</strong></td>
@@ -1730,7 +1866,11 @@
             <td>${p.entry_price}</td>
             <td>${p.mark_price}</td>
             <td style="font-size:11px;">SL ${p.sl_price} / TP2 ${p.tp_price}</td>
-            <td>${p.tp_progress_pct}%</td>
+            <td>
+              <span class="${prof.loading ? "timing-pill profit" : "timing-pill wait"}" title="${prof.summaryText}">
+                ${prof.badgeText}
+              </span>
+            </td>
             <td>${p.leverage}x</td>
             <td class="${cls}">${pnl >= 0 ? "+" : ""}${pnl.toFixed(2)}</td>
             <td>
@@ -1771,18 +1911,33 @@
       }
 
       const alertsBox = document.getElementById("audioAlertsBox");
-      if (!STATE.audioAlerts.length) {
+      const tf = document.getElementById("timeframeSelect").value || "15m";
+      const clk = computeLiveCandleClock(tf);
+      const profitLines = Object.values(STATE.openPositions || {})
+        .map(p => getProfitCandleStatus(p, tf))
+        .filter(x => x.loading)
+        .map(x => `<div class="log-item pos">[LIVE • ${tf}] 🚀 ${x.summaryText}</div>`);
+
+      const prepLines = getFreeSignalsSorted()
+        .filter(s => isPreparingEntry(s, clk))
+        .slice(0, 3)
+        .map(s => `<div class="log-item" style="color:#fde68a;">[PREP • ${clk.countdownStr}] 🎯 ${formatSignalFullSpecJs(s)}</div>`);
+
+      const histLines = (STATE.audioAlerts || []).map(a => `
+        <div class="log-item">
+          [${a.time}] <strong>${a.symbol}</strong> — ${a.title} (${a.order_type}) @ ${a.price} | SL ${a.sl} | TP1 ${a.tp1 ?? "--"} / TP2 ${a.tp2} / TP3 ${a.tp3 ?? "--"}
+        </div>
+      `);
+
+      const combined = [...profitLines, ...prepLines, ...histLines];
+      if (!combined.length) {
         alertsBox.innerHTML = `<div class="muted">Nessun allarme recente.</div>`;
       } else {
-        if (STATE.audioAlerts[0].id !== STATE.lastAlertId) {
+        if (STATE.audioAlerts.length && STATE.audioAlerts[0].id !== STATE.lastAlertId) {
           STATE.lastAlertId = STATE.audioAlerts[0].id;
           playBeep(740, 160);
         }
-        alertsBox.innerHTML = STATE.audioAlerts.map(a => `
-          <div class="log-item">
-            [${a.time}] <strong>${a.symbol}</strong> — ${a.title} (${a.order_type}) @ ${a.price} | SL ${a.sl} | TP1 ${a.tp1 ?? "--"} / TP2 ${a.tp2} / TP3 ${a.tp3 ?? "--"}
-          </div>
-        `).join("");
+        alertsBox.innerHTML = combined.join("");
       }
     }
 
@@ -1823,10 +1978,6 @@
 
       if (d.last_run) {
         document.getElementById("lastScanText").textContent = `Ultimo scan: ${d.last_run}`;
-      }
-
-      if (d.weights) {
-        populateWeightsInputs(d.weights);
       }
 
       const bal = d.balance_info || {};
@@ -1982,7 +2133,7 @@
             <div>Setup: ${early.setup_type || "--"}</div>
           </div>
           <div class="subbox">
-            <div><strong>Anti-FOMO, Finestra & SN</strong></div>
+            <div><strong>Preparazione, Anti-FOMO & SN</strong></div>
             <div>${af.badge || "--"}</div>
             <div class="muted" style="font-size:11px;">${af.reason || ""}</div>
             <div style="margin-top:4px;">${ew.status_badge || "--"}</div>
@@ -2073,6 +2224,7 @@
     setInterval(pollMonitor, 6000);
 
     (async function init() {
+      await applyBestAutoParams(false);
       await refreshAll(true);
       await analyzeSingle();
     })();
