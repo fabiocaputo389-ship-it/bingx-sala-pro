@@ -393,7 +393,6 @@
   </div>
 
   <div class="container">
-    <!-- AVVISO SCRITTO PRE-CANDELA / NUOVA CANDELA CON DIREZIONE E TP ESATTI -->
     <div id="newCandleBanner" class="candle-alert-box">
       <div class="candle-alert-main">
         <span id="newCandleAlertText">🕯️ In attesa di segnali forti o apertura della prossima candela...</span>
@@ -402,7 +401,6 @@
       <div id="newCandleHistory" class="candle-history"></div>
     </div>
 
-    <!-- SALDO, CHIAVI API E CONTROLLI AUTO-CLOSE -->
     <div class="grid-3">
       <div class="card">
         <div class="card-header">
@@ -461,7 +459,6 @@
       </div>
     </div>
 
-    <!-- POSIZIONI APERTE BINGX -->
     <div class="card">
       <div class="card-header">
         <div class="card-title">📌 Posizioni Aperte su BingX</div>
@@ -490,11 +487,10 @@
       </div>
     </div>
 
-    <!-- RADAR SEGNALI FORTI & ANALISI DETTAGLIATA -->
     <div class="grid-2">
       <div class="card">
         <div class="card-header">
-          <div class="card-title">🔥 Radar Segnali Forti (Conf ≥ 78% • ADX ≥ 22)</div>
+          <div class="card-title">🔥 Radar Segnali Forti (Conf ≥ 75% • ADX ≥ 19)</div>
           <span id="radarCount" class="pill blue">0 segnali</span>
         </div>
         <div class="table-wrap">
@@ -529,7 +525,6 @@
       </div>
     </div>
 
-    <!-- TUTTI I MERCATI BINGX -->
     <div class="card">
       <div class="card-header">
         <div class="card-title">🌐 Tutti i Contratti BingX Disponibili</div>
@@ -559,7 +554,6 @@
       </div>
     </div>
 
-    <!-- LOG ORDINI & AVVISI -->
     <div class="grid-2">
       <div class="card">
         <div class="card-header">
@@ -702,7 +696,7 @@
       const expR = Number(rp.expectancy_r || 0);
       const sigStr = String(s.signal || "").toUpperCase();
       const hasStrong = Boolean(s.certain_signal) || sigStr.includes("STRONG");
-      return hasStrong && conf >= 78 && adx >= 22 && expR >= 0.25;
+      return hasStrong && conf >= 75 && adx >= 19 && expR >= 0.18;
     }
 
     function formatSignalFullSpecJs(s) {
