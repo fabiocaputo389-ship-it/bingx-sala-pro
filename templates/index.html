@@ -3,30 +3,49 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>BingX HFT & Multi-Market Signal Terminal</title>
+  <title>BingX VIP Quant & HFT Signal Room</title>
   <style>
     :root {
-      --bg: #ffffff;
-      --panel: #ffffff;
-      --panel-2: #ffffff;
-      --border: #000000;
-      --text: #000000;
-      --muted: #000000;
-      --accent: #0052cc;
-      --green: #16a34a;
-      --red: #dc2626;
-      --amber: #0052cc;
-      --purple: #0052cc;
+      --bg: #070b14;
+      --bg-elevated: #0c1220;
+      --surface: #10182b;
+      --surface-alt: #16213a;
+      --panel: rgba(15, 23, 42, 0.88);
+      --panel-2: rgba(20, 30, 54, 0.92);
+      --border: rgba(148, 163, 184, 0.18);
+      --border-strong: rgba(245, 185, 66, 0.36);
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --gold: #f5b942;
+      --gold-soft: rgba(245, 185, 66, 0.14);
+      --accent: #38bdf8;
+      --accent-soft: rgba(56, 189, 248, 0.14);
+      --green: #10b981;
+      --green-soft: rgba(16, 185, 129, 0.16);
+      --red: #f43f5e;
+      --red-soft: rgba(244, 63, 94, 0.16);
+      --amber: #f5b942;
+      --purple: #a78bfa;
+      --shadow-sm: 0 6px 20px rgba(0, 0, 0, 0.35);
+      --shadow-md: 0 14px 36px rgba(0, 0, 0, 0.52);
+      --glow-gold: 0 0 24px rgba(245, 185, 66, 0.14);
     }
 
     * { box-sizing: border-box; }
+
     body {
       margin: 0;
-      background: var(--bg);
+      background:
+        radial-gradient(ellipse 75% 45% at 12% -5%, rgba(245, 185, 66, 0.14), transparent 60%),
+        radial-gradient(ellipse 65% 40% at 88% 0%, rgba(56, 189, 248, 0.13), transparent 60%),
+        radial-gradient(ellipse 60% 50% at 50% 100%, rgba(16, 185, 129, 0.07), transparent 65%),
+        var(--bg);
       color: var(--text);
       font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       font-size: 13px;
-      line-height: 1.4;
+      line-height: 1.45;
+      font-variant-numeric: tabular-nums;
+      min-height: 100vh;
     }
 
     .topbar {
@@ -34,10 +53,12 @@
       flex-wrap: wrap;
       align-items: center;
       justify-content: space-between;
-      gap: 10px;
-      padding: 10px 16px;
-      background: var(--panel);
-      border-bottom: 1px solid var(--border);
+      gap: 12px;
+      padding: 12px 22px;
+      background: rgba(9, 14, 26, 0.88);
+      backdrop-filter: blur(14px);
+      border-bottom: 1px solid var(--border-strong);
+      box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
       position: sticky;
       top: 0;
       z-index: 50;
@@ -45,54 +66,91 @@
 
     .brand {
       display: flex;
+      flex-wrap: wrap;
       align-items: center;
       gap: 10px;
-      font-weight: 700;
-      font-size: 15px;
+      font-weight: 800;
+      font-size: 15.5px;
+      letter-spacing: -0.02em;
       color: var(--text);
+    }
+
+    .brand > span:first-child {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 5px 12px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, rgba(245, 185, 66, 0.2), rgba(56, 189, 248, 0.12));
+      border: 1px solid rgba(245, 185, 66, 0.5);
+      color: #fde68a;
+      box-shadow: var(--glow-gold);
     }
 
     .pill {
       display: inline-flex;
       align-items: center;
       gap: 5px;
-      padding: 3px 8px;
+      padding: 4px 10px;
       border-radius: 999px;
       font-size: 11px;
-      font-weight: 600;
-      background: var(--panel-2);
+      font-weight: 700;
+      background: var(--surface);
       border: 1px solid var(--border);
       color: var(--text);
     }
 
-    .pill.green { border-color: var(--green); color: var(--green); background: var(--bg); }
-    .pill.red { border-color: var(--red); color: var(--red); background: var(--bg); }
-    .pill.amber { border-color: var(--accent); color: var(--accent); background: var(--bg); }
-    .pill.blue { border-color: var(--accent); color: var(--accent); background: var(--bg); }
+    .pill.green {
+      border-color: rgba(16, 185, 129, 0.45);
+      color: #6ee7b7;
+      background: var(--green-soft);
+    }
+
+    .pill.red {
+      border-color: rgba(244, 63, 94, 0.45);
+      color: #fda4af;
+      background: var(--red-soft);
+    }
+
+    .pill.amber {
+      border-color: rgba(245, 185, 66, 0.5);
+      color: #fde68a;
+      background: var(--gold-soft);
+    }
+
+    .pill.blue {
+      border-color: rgba(56, 189, 248, 0.45);
+      color: #7dd3fc;
+      background: var(--accent-soft);
+    }
 
     .container {
-      max-width: 1560px;
+      max-width: 1600px;
       margin: 0 auto;
-      padding: 14px 16px 36px;
+      padding: 18px 22px 48px;
       display: flex;
       flex-direction: column;
-      gap: 14px;
+      gap: 16px;
     }
 
     .candle-alert-box {
-      background: var(--bg);
-      border: 1px solid var(--accent);
-      border-radius: 10px;
-      padding: 10px 14px;
+      background: linear-gradient(120deg, rgba(245, 185, 66, 0.14) 0%, rgba(15, 23, 42, 0.95) 42%, rgba(16, 185, 129, 0.13) 100%);
+      border: 1px solid rgba(245, 185, 66, 0.42);
+      border-left: 5px solid var(--gold);
+      border-radius: 16px;
+      padding: 14px 18px;
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 9px;
       color: var(--text);
+      box-shadow: var(--shadow-md), var(--glow-gold);
     }
 
     .candle-alert-box.blocked {
-      background: var(--bg);
-      border-color: var(--red);
+      background: linear-gradient(120deg, rgba(244, 63, 94, 0.16) 0%, rgba(15, 23, 42, 0.96) 55%);
+      border-color: rgba(244, 63, 94, 0.45);
+      border-left: 5px solid var(--red);
+      box-shadow: var(--shadow-md);
     }
 
     .candle-alert-main {
@@ -100,45 +158,54 @@
       flex-wrap: wrap;
       align-items: center;
       justify-content: space-between;
-      gap: 8px;
-      font-weight: 600;
-      font-size: 13px;
-      color: var(--text);
+      gap: 10px;
+      font-weight: 700;
+      font-size: 13.5px;
+      color: #ffffff;
     }
 
     .candle-history {
       display: flex;
       flex-wrap: wrap;
-      gap: 6px;
+      gap: 7px;
       font-size: 11px;
       color: var(--muted);
     }
 
     .candle-history span {
-      background: var(--bg);
-      border: 1px solid var(--border);
-      padding: 2px 7px;
-      border-radius: 6px;
-      color: var(--text);
+      background: rgba(9, 14, 26, 0.78);
+      border: 1px solid rgba(148, 163, 184, 0.22);
+      padding: 4px 10px;
+      border-radius: 999px;
+      color: #e2e8f0;
+      font-weight: 600;
     }
 
     .grid-3 {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
-      gap: 12px;
+      gap: 15px;
     }
 
     .grid-2 {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(460px, 1fr));
-      gap: 12px;
+      gap: 15px;
     }
 
     .card {
       background: var(--panel);
+      backdrop-filter: blur(10px);
       border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 12px 14px;
+      border-radius: 16px;
+      padding: 15px 17px;
+      box-shadow: var(--shadow-sm);
+      transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+    }
+
+    .card:hover {
+      border-color: rgba(245, 185, 66, 0.32);
+      box-shadow: var(--shadow-md);
     }
 
     .card-header {
@@ -147,18 +214,19 @@
       align-items: center;
       justify-content: space-between;
       gap: 8px;
-      margin-bottom: 10px;
-      padding-bottom: 8px;
-      border-bottom: 1px solid var(--border);
+      margin-bottom: 12px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.14);
     }
 
     .card-title {
-      font-weight: 700;
-      font-size: 13px;
+      font-weight: 800;
+      font-size: 13.5px;
+      letter-spacing: -0.01em;
       display: flex;
       align-items: center;
-      gap: 6px;
-      color: var(--text);
+      gap: 7px;
+      color: #ffffff;
     }
 
     .controls-row {
@@ -169,53 +237,135 @@
     }
 
     input, select, button {
-      background: var(--panel-2);
+      background: var(--surface);
       color: var(--text);
-      border: 1px solid var(--border);
-      border-radius: 7px;
-      padding: 6px 10px;
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      border-radius: 9px;
+      padding: 7px 11px;
       font-size: 12px;
+      transition: all 0.15s ease;
+    }
+
+    input::placeholder {
+      color: #64748b;
     }
 
     input:focus, select:focus {
       outline: none;
-      border-color: var(--accent);
+      border-color: var(--gold);
+      box-shadow: 0 0 0 3px rgba(245, 185, 66, 0.18);
+      background: var(--surface-alt);
     }
 
     button {
       cursor: pointer;
-      font-weight: 600;
-      transition: filter .15s ease, transform .08s ease;
+      font-weight: 700;
+      background: linear-gradient(180deg, #17223b 0%, #10182b 100%);
+      border-color: rgba(148, 163, 184, 0.28);
+      color: #f8fafc;
     }
 
-    button:hover { filter: brightness(0.95); }
-    button:active { transform: scale(0.99); }
+    button:hover {
+      background: linear-gradient(180deg, #1f2e4f 0%, #16213a 100%);
+      border-color: var(--gold);
+      color: #fde68a;
+      transform: translateY(-1px);
+    }
 
-    button.primary { background: var(--accent); border-color: var(--accent); color: var(--bg); }
-    button.green { background: var(--green); border-color: var(--green); color: var(--bg); }
-    button.red { background: var(--red); border-color: var(--red); color: var(--bg); }
+    button:active {
+      transform: translateY(0) scale(0.99);
+    }
+
+    button.primary {
+      background: linear-gradient(135deg, #f5b942 0%, #d97706 100%);
+      border-color: #fbbf24;
+      color: #090d16;
+      font-weight: 800;
+      box-shadow: 0 4px 14px rgba(245, 185, 66, 0.28);
+    }
+
+    button.primary:hover {
+      background: linear-gradient(135deg, #fcd34d 0%, #f59e0b 100%);
+      color: #090d16;
+    }
+
+    button.green {
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      border-color: #34d399;
+      color: #04130d;
+      font-weight: 800;
+      box-shadow: 0 4px 14px rgba(16, 185, 129, 0.25);
+    }
+
+    button.green:hover {
+      background: linear-gradient(135deg, #34d399 0%, #10b981 100%);
+      color: #04130d;
+    }
+
+    button.red {
+      background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%);
+      border-color: #fb7185;
+      color: #ffffff;
+      font-weight: 800;
+      box-shadow: 0 4px 14px rgba(244, 63, 94, 0.25);
+    }
+
+    button.red:hover {
+      background: linear-gradient(135deg, #fb7185 0%, #f43f5e 100%);
+      color: #ffffff;
+    }
 
     .kpi-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(125px, 1fr));
-      gap: 8px;
+      grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
+      gap: 9px;
     }
 
     .kpi {
-      background: var(--panel-2);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 8px 10px;
+      background: linear-gradient(160deg, rgba(22, 33, 58, 0.85) 0%, rgba(11, 17, 31, 0.95) 100%);
+      border: 1px solid rgba(148, 163, 184, 0.16);
+      border-top: 2.5px solid var(--gold);
+      border-radius: 12px;
+      padding: 10px 11px;
     }
 
-    .kpi .label { font-size: 11px; color: var(--muted); }
-    .kpi .val { font-size: 15px; font-weight: 700; margin-top: 2px; color: var(--text); }
-    .kpi .sub { font-size: 10px; margin-top: 2px; color: var(--text); }
+    .kpi:nth-child(2n) {
+      border-top-color: var(--accent);
+    }
+
+    .kpi:nth-child(3n) {
+      border-top-color: var(--green);
+    }
+
+    .kpi .label {
+      font-size: 10.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+    }
+
+    .kpi .val {
+      font-size: 16px;
+      font-weight: 800;
+      margin-top: 4px;
+      color: #ffffff;
+    }
+
+    .kpi .sub {
+      font-size: 10.5px;
+      font-weight: 600;
+      margin-top: 3px;
+      color: #cbd5e1;
+    }
 
     .table-wrap {
       overflow-x: auto;
       max-height: 460px;
       overflow-y: auto;
+      border: 1px solid rgba(148, 163, 184, 0.16);
+      border-radius: 12px;
+      background: rgba(9, 14, 26, 0.82);
     }
 
     table {
@@ -225,8 +375,8 @@
     }
 
     th, td {
-      padding: 7px 8px;
-      border-bottom: 1px solid var(--border);
+      padding: 8.5px 10px;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.11);
       text-align: left;
       white-space: nowrap;
       color: var(--text);
@@ -235,19 +385,28 @@
     th {
       position: sticky;
       top: 0;
-      background: var(--panel-2);
-      color: var(--muted);
-      font-size: 11px;
+      background: #111a2e;
+      color: #fde68a;
+      font-size: 10.5px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
       text-transform: uppercase;
+      border-bottom: 1px solid rgba(245, 185, 66, 0.32);
       z-index: 2;
     }
 
-    tr:hover td { background: var(--bg); }
+    tbody tr:nth-child(even) td {
+      background: rgba(15, 23, 42, 0.45);
+    }
+
+    tbody tr:hover td {
+      background: rgba(245, 185, 66, 0.09);
+    }
 
     .asset-cell {
       display: flex;
       flex-direction: column;
-      gap: 3px;
+      gap: 4px;
     }
 
     .asset-main {
@@ -262,19 +421,21 @@
       align-items: center;
       gap: 4px;
       font-size: 10px;
-      padding: 1px 6px;
-      border-radius: 5px;
-      background: var(--bg);
-      border: 1px solid var(--accent);
-      color: var(--accent);
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      color: #7dd3fc;
       width: fit-content;
     }
 
     .candle-badge.pre {
-      background: var(--bg);
-      border-color: var(--green);
-      color: var(--green);
-      font-weight: 700;
+      background: var(--green-soft);
+      border-color: rgba(16, 185, 129, 0.55);
+      color: #6ee7b7;
+      font-weight: 800;
+      box-shadow: 0 0 12px rgba(16, 185, 129, 0.22);
     }
 
     .timing-pill {
@@ -282,112 +443,146 @@
       align-items: center;
       gap: 4px;
       font-size: 10px;
-      font-weight: 700;
-      padding: 2px 7px;
-      border-radius: 6px;
-      border: 1px solid var(--border);
-      background: var(--panel-2);
+      font-weight: 800;
+      padding: 2px 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.28);
+      background: var(--surface);
       color: var(--text);
     }
 
     .timing-pill.go {
-      background: var(--bg);
-      border-color: var(--green);
-      color: var(--green);
+      background: var(--green-soft);
+      border-color: rgba(16, 185, 129, 0.55);
+      color: #6ee7b7;
     }
 
     .timing-pill.go-short {
-      background: var(--bg);
-      border-color: var(--red);
-      color: var(--red);
+      background: var(--red-soft);
+      border-color: rgba(244, 63, 94, 0.55);
+      color: #fda4af;
     }
 
     .timing-pill.wait {
-      background: var(--bg);
-      border-color: var(--accent);
-      color: var(--accent);
+      background: var(--gold-soft);
+      border-color: rgba(245, 185, 66, 0.45);
+      color: #fde68a;
     }
 
     .timing-pill.stop {
-      background: var(--bg);
-      border-color: var(--red);
-      color: var(--red);
+      background: var(--red-soft);
+      border-color: rgba(244, 63, 94, 0.55);
+      color: #fda4af;
     }
 
-    .pos { color: var(--green); font-weight: 700; }
-    .neg { color: var(--red); font-weight: 700; }
+    .pos { color: #34d399; font-weight: 800; }
+    .neg { color: #fb7185; font-weight: 800; }
     .muted { color: var(--muted); }
 
     .toggle-label {
       display: inline-flex;
       align-items: center;
-      gap: 5px;
+      gap: 6px;
+      padding: 5px 10px;
+      border-radius: 9px;
+      background: var(--surface);
+      border: 1px solid rgba(148, 163, 184, 0.2);
       font-size: 12px;
+      font-weight: 600;
       cursor: pointer;
       user-select: none;
-      color: var(--text);
+      color: #e2e8f0;
+    }
+
+    .toggle-label:hover {
+      border-color: var(--gold);
+      background: var(--surface-alt);
     }
 
     .log-box {
-      max-height: 210px;
+      max-height: 220px;
       overflow-y: auto;
       font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
       font-size: 11px;
-      background: var(--bg);
-      color: var(--text);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 8px 10px;
+      background: rgba(7, 11, 20, 0.92);
+      color: #e2e8f0;
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      border-radius: 12px;
+      padding: 10px 12px;
     }
 
     .log-item {
-      padding: 4px 0;
-      border-bottom: 1px dashed var(--border);
+      padding: 5.5px 0;
+      border-bottom: 1px dashed rgba(148, 163, 184, 0.15);
+    }
+
+    .log-item:last-child {
+      border-bottom: none;
     }
 
     .analysis-detail {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
       gap: 10px;
-      margin-top: 8px;
+      margin-top: 10px;
     }
 
     .subbox {
-      background: var(--panel-2);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 8px 10px;
+      background: linear-gradient(165deg, rgba(22, 33, 58, 0.72) 0%, rgba(10, 16, 30, 0.92) 100%);
+      border: 1px solid rgba(148, 163, 184, 0.16);
+      border-left: 3.5px solid var(--gold);
+      border-radius: 12px;
+      padding: 10px 12px;
       color: var(--text);
+    }
+
+    .subbox:nth-child(2) {
+      border-left-color: var(--accent);
+    }
+
+    .subbox:nth-child(3) {
+      border-left-color: var(--green);
+    }
+
+    .subbox:nth-child(4) {
+      border-left-color: var(--purple);
     }
 
     .params-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-      gap: 8px;
-      margin-bottom: 10px;
+      grid-template-columns: repeat(auto-fit, minmax(156px, 1fr));
+      gap: 9px;
+      margin-bottom: 12px;
     }
 
     .param-cell {
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 6px 8px;
+      background: rgba(12, 19, 35, 0.88);
+      border: 1px solid rgba(148, 163, 184, 0.16);
+      border-radius: 11px;
+      padding: 8px 10px;
       display: flex;
       flex-direction: column;
-      gap: 4px;
+      gap: 5px;
+    }
+
+    .param-cell:focus-within {
+      border-color: var(--gold);
+      background: rgba(18, 28, 50, 0.95);
     }
 
     .param-cell label {
       font-size: 11px;
-      font-weight: 600;
+      font-weight: 700;
+      color: #cbd5e1;
     }
   </style>
 </head>
 <body>
   <div class="topbar">
     <div class="brand">
-      <span>⚡ BingX HFT Signal Terminal</span>
+      <span>👑 BingX VIP Signal Room</span>
       <span id="monitorPill" class="pill green">Monitor: ATTIVO</span>
-      <span id="profilePill" class="pill blue">Profilo: AUTO</span>
+      <span id="profilePill" class="pill amber">Profilo: AUTO</span>
     </div>
 
     <div class="controls-row">
@@ -428,7 +623,7 @@
     <div id="newCandleBanner" class="candle-alert-box">
       <div class="candle-alert-main">
         <span id="newCandleAlertText">🕯️ In attesa dell'apertura della prossima candela...</span>
-        <span id="globalTimerBadge" class="pill blue">Prossima candela: --:--</span>
+        <span id="globalTimerBadge" class="pill amber">Prossima candela: --:--</span>
       </div>
       <div id="newCandleHistory" class="candle-history"></div>
     </div>
@@ -437,8 +632,8 @@
     <div class="grid-3">
       <div class="card">
         <div class="card-header">
-          <div class="card-title">💼 Conto & Win Rate BingX Live</div>
-          <span id="balSyncBadge" class="pill">Sync: --:--:--</span>
+          <div class="card-title">💎 Conto & Win Rate BingX VIP</div>
+          <span id="balSyncBadge" class="pill blue">Sync: --:--:--</span>
         </div>
         <div class="kpi-grid">
           <div class="kpi">
@@ -472,7 +667,7 @@
 
       <div class="card">
         <div class="card-header">
-          <div class="card-title">🔑 Chiavi API BingX</div>
+          <div class="card-title">🔐 Chiavi API BingX</div>
           <span id="keysStatusBadge" class="pill">Verifica...</span>
         </div>
         <div class="controls-row" style="margin-bottom:8px;">
@@ -505,7 +700,7 @@
     <!-- TABELLA PARAMETRI & SCORE ESATTO MODIFICABILE -->
     <div class="card">
       <div class="card-header">
-        <div class="card-title">⚙️ Tabella Parametri, Anti-FOMO & Score Esatto Modificabile</div>
+        <div class="card-title">🎛️ Tabella Parametri, Anti-FOMO & Score Esatto Modificabile</div>
         <div class="controls-row">
           <label class="toggle-label"><input type="checkbox" id="antiFomoEnabledChk" checked /> Anti-FOMO Attivo</label>
           <button class="primary" onclick="saveGlobalWeights()">Salva Parametri</button>
@@ -599,7 +794,7 @@
     <div class="card">
       <div class="card-header">
         <div class="card-title">📌 Posizioni Aperte su BingX</div>
-        <span id="openPosCount" class="pill">0 aperte</span>
+        <span id="openPosCount" class="pill green">0 aperte</span>
       </div>
       <div class="table-wrap" style="max-height:220px;">
         <table>
@@ -628,8 +823,8 @@
     <div class="grid-2">
       <div class="card">
         <div class="card-header">
-          <div class="card-title">🎯 Radar Segnali Certi / Anticipo</div>
-          <span id="radarCount" class="pill blue">0 segnali</span>
+          <div class="card-title">🎯 Radar Segnali VIP Certi / Anticipo</div>
+          <span id="radarCount" class="pill amber">0 segnali</span>
         </div>
         <div class="table-wrap">
           <table>
@@ -653,7 +848,7 @@
 
       <div class="card">
         <div class="card-header">
-          <div class="card-title">🔬 Analisi Matematica Singolo Asset</div>
+          <div class="card-title">🔬 Analisi Quantitativa Singolo Asset</div>
           <div class="controls-row">
             <input id="analyzeSymbolInput" type="text" value="BTC-USDT" placeholder="Es. BTC-USDT, GOLD(XAU), NDX-USDT" style="width:165px;" />
             <button class="primary" onclick="analyzeSingle()">Analizza</button>
@@ -669,7 +864,7 @@
         <div class="card-title">🌐 Tutti i Contratti BingX Disponibili (Cripto, Materie Prime, Forex, Indici)</div>
         <div class="controls-row">
           <input id="marketSearchInput" type="text" placeholder="Filtra asset (es. GOLD, BTC, SOL, EUR)..." oninput="renderMarketsTable()" style="width:220px;" />
-          <span id="marketsCount" class="pill">0 mercati</span>
+          <span id="marketsCount" class="pill blue">0 mercati</span>
         </div>
       </div>
       <div class="table-wrap">
@@ -959,7 +1154,7 @@
       globalBadge.textContent = clk.isPre
         ? `⏱ PRE-CANDELA ${interval}: -${clk.rem}s (apre ${clk.nextClock})`
         : `Prossima candela ${interval}: ${clk.countdownStr} (alle ${clk.nextClock})`;
-      globalBadge.className = clk.isPre ? "pill green" : "pill blue";
+      globalBadge.className = clk.isPre ? "pill green" : "pill amber";
 
       document.querySelectorAll(".live-candle-badge").forEach(el => {
         const tf = el.getAttribute("data-tf") || interval;
@@ -1571,7 +1766,7 @@
           </div>
           <div>
             <span class="pill ${sInfo.isShort ? "red" : "green"}">${ms.badge || a.signal}</span>
-            <span class="pill">Score: ${a.composite_score} • Conf: ${a.confidence}%</span>
+            <span class="pill amber">Score: ${a.composite_score} • Conf: ${a.confidence}%</span>
           </div>
         </div>
         <div class="muted" style="margin-bottom:8px;">${ms.reason || ""}</div>
