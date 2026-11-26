@@ -1,4 +1,3 @@
-
 import os
 import json
 import time
@@ -6,7 +5,7 @@ import hmac
 import hashlib
 import threading
 import urllib.parse
-from datetime import datetime
+from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 import requests
 import numpy as np
@@ -234,7 +233,9 @@ BRAIN_WEIGHTS = {
     "account_capital": 0.0,
     "risk_per_trade_pct": 1.5,
     "max_entry_atr_stretch": 1.55,
-    "max_entry_z_abs": 2.60
+    "max_entry_z_abs": 2.60,
+    "anti_fomo_enabled": True,
+    "power_charge_threshold_pct": 62.0
 }
 
 BALANCE_STATE = {
@@ -242,6 +243,10 @@ BALANCE_STATE = {
     "available_usdt": 0.0,
     "unrealized_pnl_usdt": 0.0,
     "equity_usdt": 0.0,
+    "daily_pnl_usdt": 0.0,
+    "daily_pnl_pct": 0.0,
+    "monthly_pnl_usdt": 0.0,
+    "monthly_pnl_pct": 0.0,
     "source": "init",
     "last_sync": None,
     "last_error": None
@@ -312,7 +317,7 @@ BINGX_NAME_TO_API = {
     "JTOUSDT": ["JTO-USDT"],
     "PEOPLEUSDT": ["PEOPLEUSDT"],
     "SUIUSDT": ["SUI-USDT"],
-    "PENDLEUSDT": ["PENDLE-USDT"]
+    "PENDLEUSDT": ["PENDLEUSDT"]
 }
 
 CONTRACTS_CACHE = {
@@ -416,6 +421,167 @@ def compute_candle_timing(interval: str, klines: list = None, now_ts: float = No
     }
 
 
+def compute_candle_flow_and_power(opens, highs, lows, closes, volumes, atr, candle_timing):
+    """Studia la candela precedente e quella attuale per stimare verso, potenza di caricamento e pre-avviso."""
+    prev_o, prev_h, prev_l, prev_c, prev_v = opens[-2], highs[-2], lows[-2], closes[-2], volumes[-2]
+    curr_o, curr_h, curr_l, curr_c, curr_v = opens[-1], highs[-1], lows[-1], closes[-1], volumes[-1]
+
+    prev_range = max(prev_h - prev_l, 1e-9)
+    prev_body = prev_c - prev_o
+    prev_body_abs = abs(prev_body)
+    prev_upper_wick = prev_h - max(prev_o, prev_c)
+    prev_lower_wick = min(prev_o, prev_c) - prev_l
+
+    vol_avg20 = float(np.mean(volumes[-21:-1])) if len(volumes) >= 21 else float(np.mean(volumes))
+    vol_avg20 = max(vol_avg20, 1e-9)
+    prev_vol_ratio = float(prev_v / vol_avg20)
+    curr_vol_ratio = float(curr_v / vol_avg20)
+
+    # Pressione direzionale della candela precedente (-100 .. +100)
+    prev_bull_wick_push = (prev_lower_wick / prev_range) * 45.0
+    prev_bear_wick_push = (prev_upper_wick / prev_range) * 45.0
+    prev_body_push = float(np.clip((prev_body / (atr + 1e-9)) * 55.0, -65.0, 65.0))
+    prev_flow_score = float(np.clip(prev_body_push + prev_bull_wick_push - prev_bear_wick_push, -100.0, 100.0))
+
+    # Pressione della candela in corso
+    curr_body_push = float(np.clip(((curr_c - curr_o) / (atr + 1e-9)) * 45.0, -50.0, 50.0))
+    flow_score = float(np.clip(prev_flow_score * 0.65 + curr_body_push * 0.35, -100.0, 100.0))
+
+    flow_direction = "LONG" if flow_score >= 0 else "SHORT"
+    flow_certainty_pct = round(float(np.clip(52.0 + abs(flow_score) * 0.45 + min(prev_vol_ratio, 2.5) * 3.0, 52.0, 99.2)), 1)
+
+    # Caricamento potenza sulla candela precedente per esplodere sulla prossima
+    prev_body_ratio = prev_body_abs / prev_range
+    compression_factor = 1.0 - float(np.clip(prev_range / (2.2 * atr + 1e-9), 0.0, 0.7))
+    absorption_factor = float(np.clip((prev_lower_wick + prev_upper_wick) / prev_range, 0.0, 1.0))
+    vol_charge = float(np.clip((prev_vol_ratio * 0.65 + curr_vol_ratio * 0.35) / 1.8, 0.0, 1.0))
+
+    power_charge_pct = round(
+        float(np.clip(
+            (abs(prev_flow_score) * 0.42)
+            + (vol_charge * 30.0)
+            + (compression_factor * 16.0)
+            + (absorption_factor * 12.0),
+            5.0,
+            99.0
+        )),
+        1
+    )
+
+    charge_threshold = float(BRAIN_WEIGHTS.get("power_charge_threshold_pct", 62.0))
+    is_power_charging = power_charge_pct >= charge_threshold
+    pre_close_active = bool(candle_timing.get("before_next_candle", False))
+    rem_sec = int(candle_timing.get("seconds_to_next_candle", 0) or 0)
+
+    if pre_close_active and is_power_charging:
+        banner_state = "GET_READY"
+        banner_label = f"🟡 TIENITI PRONTO • {flow_direction} (-{rem_sec}s)"
+        banner_message = (
+            f"TIENITI PRONTO [{candle_timing.get('timeframe')}]: potenza caricata al {power_charge_pct}% "
+            f"sulla candela precedente — verso atteso {flow_direction} ({flow_certainty_pct}% certezza) tra {rem_sec}s."
+        )
+    elif is_power_charging:
+        banner_state = "CHARGING"
+        banner_label = f"⚡ CARICA POTENZA {power_charge_pct}% • {flow_direction}"
+        banner_message = (
+            f"Caricamento potenza in corso ({power_charge_pct}%) verso {flow_direction} "
+            f"({flow_certainty_pct}% certezza) • Prossima candela tra {candle_timing.get('countdown_str')}."
+        )
+    else:
+        banner_state = "WATCHING"
+        banner_label = f"🕯️ FLUSSO {flow_direction} ({flow_certainty_pct}%)"
+        banner_message = (
+            f"Flusso candela {flow_direction} ({flow_certainty_pct}% certezza) • Potenza {power_charge_pct}% "
+            f"• Corpo prec. {prev_body_ratio*100:.0f}% • Vol {prev_vol_ratio:.2f}x."
+        )
+
+    return {
+        "flow_direction": flow_direction,
+        "flow_score": round(flow_score, 1),
+        "flow_certainty_pct": flow_certainty_pct,
+        "prev_flow_score": round(prev_flow_score, 1),
+        "prev_vol_ratio": round(prev_vol_ratio, 2),
+        "curr_vol_ratio": round(curr_vol_ratio, 2),
+        "power_charge_pct": power_charge_pct,
+        "is_power_charging": is_power_charging,
+        "pre_close_warning": pre_close_active,
+        "banner_state": banner_state,
+        "banner_label": banner_label,
+        "banner_message": banner_message
+    }
+
+
+def evaluate_anti_fomo_bank(
+    direction: str,
+    current_price: float,
+    ref_price: float,
+    atr: float,
+    z_score: float,
+    rsi: float,
+    entry_window: dict,
+    sn_rejection: dict,
+    candle_flow: dict
+):
+    """Banca Anti-FOMO: blocca ingressi su spike tardivi, RSI estremo, FOMO o muro SN opposto."""
+    if not BRAIN_WEIGHTS.get("anti_fomo_enabled", True):
+        return {
+            "blocked": False,
+            "score_risk": 0,
+            "badge": "🛡️ ANTI-FOMO: DISATTIVATO",
+            "reason": "Filtro Anti-FOMO disattivato dall'utente."
+        }
+
+    reasons = []
+    risk_pts = 0
+
+    if (sn_rejection or {}).get("rejected"):
+        risk_pts += 50
+        reasons.append("muro SN candela alta sul lato opposto")
+
+    if (entry_window or {}).get("exceeded"):
+        risk_pts += 45
+        reasons.append(f"prezzo oltre soglia {entry_window.get('threshold_price')}")
+
+    curr_vol_ratio = float((candle_flow or {}).get("curr_vol_ratio", 1.0) or 1.0)
+    if curr_vol_ratio >= 2.6:
+        risk_pts += 25
+        reasons.append(f"spike volumi tardivo ({curr_vol_ratio:.1f}x media)")
+
+    if direction == "LONG" and rsi >= 76:
+        risk_pts += 25
+        reasons.append(f"RSI ipercomprato ({rsi:.1f})")
+    elif direction == "SHORT" and rsi <= 24:
+        risk_pts += 25
+        reasons.append(f"RSI ipervenduto ({rsi:.1f})")
+
+    if abs(z_score) >= float(BRAIN_WEIGHTS.get("max_entry_z_abs", 2.60)):
+        risk_pts += 20
+        reasons.append(f"deviazione statistica estrema (Z={z_score:+.2f}σ)")
+
+    blocked = risk_pts >= 45
+    if blocked:
+        return {
+            "blocked": True,
+            "score_risk": min(100, risk_pts),
+            "badge": "🛡️ ANTI-FOMO: BLOCCATO",
+            "reason": "Blocco Anti-FOMO attivo: " + ", ".join(reasons) + "."
+        }
+    if risk_pts >= 20:
+        return {
+            "blocked": False,
+            "score_risk": min(100, risk_pts),
+            "badge": "🛡️ ANTI-FOMO: CAUTELA",
+            "reason": "Attenzione Anti-FOMO: " + ", ".join(reasons) + ". Valuta size ridotta."
+        }
+
+    return {
+        "blocked": False,
+        "score_risk": risk_pts,
+        "badge": "🛡️ ANTI-FOMO: APPROVATO",
+        "reason": "Nessun segnale di FOMO o inseguimento: ingresso disciplinato consentito."
+    }
+
+
 def format_signal_full_spec(item: dict) -> str:
     lv = item.get("levels") or {}
     rp = item.get("recommended_params") or {}
@@ -475,11 +641,13 @@ def record_new_candle_written_alert(interval: str, candle_timing: dict, analyses
         sn = item.get("sn_rejection") or {}
         ms = item.get("manual_sign") or {}
         sess = item.get("session") or {}
+        fomo = item.get("anti_fomo") or {}
 
         is_blocked = (
             bool(ew.get("exceeded"))
             or bool(sn.get("rejected"))
-            or ms.get("status") in ("CANCELLED_REVERSAL", "REJECTED_SN", "OVER_THRESHOLD")
+            or bool(fomo.get("blocked"))
+            or ms.get("status") in ("CANCELLED_REVERSAL", "REJECTED_SN", "OVER_THRESHOLD", "ANTI_FOMO_BLOCKED")
             or not bool(sess.get("session_ok", True))
         )
         if is_blocked:
@@ -521,7 +689,7 @@ def record_new_candle_written_alert(interval: str, candle_timing: dict, analyses
             "sl": lv0.get("sl", "--"),
             "leverage": rp0.get("leverage", "--"),
             "qty": rp0.get("qty", 0),
-            "text": f"Nuova candela {interval} aperta alle {open_clock} — LIBERI ({len(free_candidates)}): " + " • ".join(parts)
+            "text": f"Nuova candela {interval} aperta alle {open_clock} — ENTRA ORA ({len(free_candidates)} LIBERI): " + " • ".join(parts)
         }
     else:
         sn_count = sum(
@@ -532,7 +700,13 @@ def record_new_candle_written_alert(interval: str, candle_timing: dict, analyses
             1 for v in (analyses_map or {}).values()
             if v and (v.get("entry_window") or {}).get("exceeded")
         )
+        fomo_count = sum(
+            1 for v in (analyses_map or {}).values()
+            if v and (v.get("anti_fomo") or {}).get("blocked")
+        )
         reason_parts = []
+        if fomo_count:
+            reason_parts.append(f"{fomo_count} bloccati da Anti-FOMO")
         if sn_count:
             reason_parts.append(f"{sn_count} rifiutati per SN candela alta opposta")
         if over_count:
@@ -777,6 +951,78 @@ def bingx_private_post(endpoint: str, params: dict):
         return {"code": -1, "msg": str(e)}
 
 
+def compute_daily_and_monthly_pnl_pct(equity_usdt: float, unrealized_pnl: float) -> dict:
+    """Calcola PnL e percentuale esatta giornaliera (00:00 CET) e mensile (giorno 1 00:00 CET) su BingX."""
+    now_rome = datetime.now(ROME_TZ)
+    start_day_rome = now_rome.replace(hour=0, minute=0, second=0, microsecond=0)
+    start_month_rome = now_rome.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+    start_day_ms = int(start_day_rome.astimezone(timezone.utc).timestamp() * 1000)
+    start_month_ms = int(start_month_rome.astimezone(timezone.utc).timestamp() * 1000)
+    now_ms = int(time.time() * 1000)
+
+    realized_month = 0.0
+    realized_day = 0.0
+
+    # Recupera fino a 2 pagine di income history dal mese
+    for page_idx in (1, 2):
+        inc_data = bingx_private_get("/openApi/swap/v2/user/income", {
+            "startTime": start_month_ms,
+            "endTime": now_ms,
+            "limit": 1000,
+            "pageIndex": page_idx
+        })
+        records = []
+        if isinstance(inc_data, list):
+            records = inc_data
+        elif isinstance(inc_data, dict):
+            if isinstance(inc_data.get("incomeList"), list):
+                records = inc_data["incomeList"]
+            elif isinstance(inc_data.get("data"), list):
+                records = inc_data["data"]
+
+        if not records:
+            break
+
+        for r in records:
+            if not isinstance(r, dict):
+                continue
+            asset = str(r.get("asset", "USDT")).upper()
+            if asset and asset != "USDT":
+                continue
+            inc_type = str(r.get("incomeType", "")).upper()
+            if inc_type in ("TRANSFER", "INTERNAL_TRANSFER"):
+                continue
+            try:
+                amt = float(r.get("income") or r.get("amount") or 0.0)
+                ts_val = int(r.get("time") or r.get("timestamp") or 0)
+            except Exception:
+                continue
+            realized_month += amt
+            if ts_val >= start_day_ms:
+                realized_day += amt
+
+        if len(records) < 1000:
+            break
+
+    daily_total_usdt = round(realized_day + float(unrealized_pnl or 0.0), 4)
+    monthly_total_usdt = round(realized_month + float(unrealized_pnl or 0.0), 4)
+
+    # Capitale iniziale stimato prima del PnL del periodo per percentuale esatta
+    day_base_cap = max(equity_usdt - daily_total_usdt, 1e-6) if equity_usdt > 0 else 0.0
+    month_base_cap = max(equity_usdt - monthly_total_usdt, 1e-6) if equity_usdt > 0 else 0.0
+
+    daily_pct = round((daily_total_usdt / day_base_cap) * 100.0, 2) if day_base_cap > 0 else 0.0
+    monthly_pct = round((monthly_total_usdt / month_base_cap) * 100.0, 2) if month_base_cap > 0 else 0.0
+
+    return {
+        "daily_pnl_usdt": daily_total_usdt,
+        "daily_pnl_pct": daily_pct,
+        "monthly_pnl_usdt": monthly_total_usdt,
+        "monthly_pnl_pct": monthly_pct
+    }
+
+
 def sync_bingx_balance_realtime() -> dict:
     now_str = time.strftime("%H:%M:%S")
     raw_bal = bingx_private_get("/openApi/swap/v3/user/balance")
@@ -823,11 +1069,17 @@ def sync_bingx_balance_realtime() -> dict:
     unrealized_pnl = round(unrealized_pnl, 4)
     equity_usdt = round(max(0.0, equity_usdt), 4)
 
+    pnl_stats = compute_daily_and_monthly_pnl_pct(equity_usdt, unrealized_pnl)
+
     BALANCE_STATE.update({
         "balance_usdt": balance_usdt,
         "available_usdt": available_usdt,
         "unrealized_pnl_usdt": unrealized_pnl,
         "equity_usdt": equity_usdt,
+        "daily_pnl_usdt": pnl_stats["daily_pnl_usdt"],
+        "daily_pnl_pct": pnl_stats["daily_pnl_pct"],
+        "monthly_pnl_usdt": pnl_stats["monthly_pnl_usdt"],
+        "monthly_pnl_pct": pnl_stats["monthly_pnl_pct"],
         "source": "bingx_live",
         "last_sync": now_str,
         "last_error": None
@@ -1489,7 +1741,7 @@ def evaluate_profit_math_and_entry(
     symbol, signal, confidence, rr_ratio, adx, r_squared, z_score, rsi,
     min_conf, capital, risk_pct, stop_dist, price, rec_leverage,
     ema_dir, mom_dir, vol_dir, final_sentiment, session_info, early_setup,
-    entry_window, candle_timing, sn_rejection
+    entry_window, candle_timing, sn_rejection, anti_fomo, candle_flow
 ):
     p_win = float(np.clip(0.48 + (confidence - 50.0) * 0.0045 + (r_squared - 0.25) * 0.14, 0.38, 0.78))
     p_loss = 1.0 - p_win
@@ -1511,7 +1763,9 @@ def evaluate_profit_math_and_entry(
     is_early_active = bool(early_setup.get("trigger_sound") and early_dir)
     window_exceeded = bool((entry_window or {}).get("exceeded", False))
     sn_rejected = bool((sn_rejection or {}).get("rejected", False))
+    fomo_blocked = bool((anti_fomo or {}).get("blocked", False))
     before_next_candle = bool((candle_timing or {}).get("before_next_candle", False))
+    power_charging = bool((candle_flow or {}).get("is_power_charging", False))
     rem_sec = int((candle_timing or {}).get("seconds_to_next_candle", 0) or 0)
 
     side_verb = "VENDI (SHORT)" if early_dir == "SHORT" else "COMPRA (LONG)"
@@ -1549,14 +1803,29 @@ def evaluate_profit_math_and_entry(
 
     manual_sign = {
         "show_enter_now": False,
+        "show_get_ready": False,
         "status": "ACTIVE_SIGNAL",
         "badge": f"📊 SEGNALE ATTIVO {side_icon} {side_verb}",
         "reason": f"{side_verb} ({signal}, {confidence}%) • Prossima candela tra {candle_timing.get('countdown_str')}."
     }
 
-    if sn_rejected:
+    if fomo_blocked:
         manual_sign = {
             "show_enter_now": False,
+            "show_get_ready": False,
+            "status": "ANTI_FOMO_BLOCKED",
+            "badge": f"{anti_fomo.get('badge', '🛡️ ANTI-FOMO: BLOCCATO')} • {side_verb}",
+            "reason": anti_fomo.get("reason", "Ingresso bloccato dalla Banca Anti-FOMO.")
+        }
+        entry_rule = {
+            "action": "ANTI-FOMO BLOCK",
+            "badge": manual_sign["badge"],
+            "reason": manual_sign["reason"]
+        }
+    elif sn_rejected:
+        manual_sign = {
+            "show_enter_now": False,
+            "show_get_ready": False,
             "status": "REJECTED_SN",
             "badge": f"{sn_rejection.get('badge', '🛑 RIFIUTO: SN CANDELA ALTA OPPOSTA')} • {side_verb}",
             "reason": sn_rejection.get("reason", "Rifiuto per livello SN con candela alta sul lato opposto.")
@@ -1569,6 +1838,7 @@ def evaluate_profit_math_and_entry(
     elif window_exceeded:
         manual_sign = {
             "show_enter_now": False,
+            "show_get_ready": False,
             "status": "OVER_THRESHOLD",
             "badge": f"{entry_window.get('status_badge', '🛑 OLTRE SOGLIA — NON ENTRARE')} • {side_verb}",
             "reason": entry_window.get("reason", "Soglia massima di ingresso superata: non entrare.")
@@ -1581,6 +1851,7 @@ def evaluate_profit_math_and_entry(
     elif reversed_against_dir:
         manual_sign = {
             "show_enter_now": False,
+            "show_get_ready": False,
             "status": "CANCELLED_REVERSAL",
             "badge": f"❌ SEGNALE ANNULLATO (INVERSIONE) • {side_verb}",
             "reason": f"Direzione {side_verb} annullata per inversione del momentum/struttura."
@@ -1593,11 +1864,12 @@ def evaluate_profit_math_and_entry(
     elif certain_signal and before_next_candle:
         manual_sign = {
             "show_enter_now": True,
+            "show_get_ready": False,
             "status": "ENTER_NOW_PRE_CANDLE",
             "badge": f"🟢 ENTRA ORA • {side_icon} {side_verb} (PRE-CANDELA -{rem_sec}s)",
             "reason": (
-                f"{side_verb} ({certain_signal}): mancano {rem_sec}s all'inizio della prossima candela {candle_timing.get('timeframe')}, "
-                f"entro soglia {entry_window.get('threshold_price')} e SN libero."
+                f"ENTRA ORA — {side_verb} ({certain_signal}): mancano {rem_sec}s alla prossima candela "
+                f"{candle_timing.get('timeframe')} • Potenza {candle_flow.get('power_charge_pct')}% • Anti-FOMO OK."
             )
         }
         entry_rule = {
@@ -1605,24 +1877,26 @@ def evaluate_profit_math_and_entry(
             "badge": manual_sign["badge"],
             "reason": manual_sign["reason"]
         }
-    elif certain_signal and not before_next_candle:
+    elif (before_next_candle and power_charging) or (certain_signal and not before_next_candle):
         manual_sign = {
             "show_enter_now": False,
-            "status": "ARMED_WAIT_PRE_CANDLE",
-            "badge": f"⏳ SEGNALE CERTO {side_icon} {side_verb} • ATTESA PRE-CANDELA ({candle_timing.get('countdown_str')})",
+            "show_get_ready": True,
+            "status": "GET_READY_POWER_CHARGE",
+            "badge": f"🟡 TIENITI PRONTO • {side_icon} {side_verb} (-{rem_sec}s)",
             "reason": (
-                f"{side_verb} ({certain_signal}) attivo: il cartello ENTRA ORA scatterà negli ultimi "
-                f"{candle_timing.get('pre_close_window_sec')}s prima della nuova candela (tra {candle_timing.get('countdown_str')})."
+                f"TIENITI PRONTO — Carica potenza {candle_flow.get('power_charge_pct')}% • Verso {side_verb} "
+                f"({candle_flow.get('flow_certainty_pct')}% certezza) • Nuova candela tra {candle_timing.get('countdown_str')}."
             )
         }
         entry_rule = {
-            "action": "SIGNAL ACTIVE",
+            "action": "GET READY",
             "badge": manual_sign["badge"],
             "reason": manual_sign["reason"]
         }
     elif is_early_active:
         manual_sign = {
             "show_enter_now": False,
+            "show_get_ready": power_charging,
             "status": "EARLY_SETUP",
             "badge": f"🎯 ANTICIPO {side_icon} {side_verb} ({early_setup.get('setup_type')})",
             "reason": f"{side_verb} • {early_setup.get('setup_type')} • Prossima candela tra {candle_timing.get('countdown_str')}."
@@ -1678,7 +1952,8 @@ def register_sound_alert_if_exact_moment(analysis: dict):
     certain = analysis.get("certain_signal")
     ew = analysis.get("entry_window", {})
     sn_rej = analysis.get("sn_rejection", {})
-    if ew.get("exceeded") or sn_rej.get("rejected"):
+    fomo = analysis.get("anti_fomo", {})
+    if ew.get("exceeded") or sn_rej.get("rejected") or fomo.get("blocked"):
         return
     if not (early.get("trigger_sound") or certain):
         return
@@ -1832,6 +2107,8 @@ def analyze_symbol_math(symbol: str, interval: str = "15m", custom_sentiment: fl
     decimals = len(str(price).split(".")[1]) if "." in str(price) else 2
     decimals = min(max(decimals, 2), 6)
 
+    candle_flow = compute_candle_flow_and_power(opens, highs, lows, closes, volumes, atr, candle_timing)
+
     early_setup = detect_early_entry_setup(
         opens, highs, lows, closes, volumes, ema20, ema50, e200, atr_series, rsi, z_score
     )
@@ -1897,6 +2174,18 @@ def analyze_symbol_math(symbol: str, interval: str = "15m", custom_sentiment: fl
         closes=closes
     )
 
+    anti_fomo = evaluate_anti_fomo_bank(
+        direction=ref_dir,
+        current_price=float(price),
+        ref_price=ref_entry_price,
+        atr=atr,
+        z_score=float(z_score),
+        rsi=float(rsi),
+        entry_window=entry_window,
+        sn_rejection=sn_rejection,
+        candle_flow=candle_flow
+    )
+
     stop_dist = max(abs(entry - sl), 1e-9)
     rr_ratio = round(abs(tp2 - entry) / stop_dist, 2)
     tp_plan = compute_tp_timeframe_plan(interval, adx)
@@ -1914,7 +2203,8 @@ def analyze_symbol_math(symbol: str, interval: str = "15m", custom_sentiment: fl
         stop_dist=stop_dist, price=price, rec_leverage=rec_lev,
         ema_dir=ema_dir, mom_dir=mom_dir, vol_dir=vol_dir, final_sentiment=final_sentiment,
         session_info=session_info, early_setup=early_setup, entry_window=entry_window,
-        candle_timing=candle_timing, sn_rejection=sn_rejection
+        candle_timing=candle_timing, sn_rejection=sn_rejection,
+        anti_fomo=anti_fomo, candle_flow=candle_flow
     )
 
     result_obj = {
@@ -1924,9 +2214,11 @@ def analyze_symbol_math(symbol: str, interval: str = "15m", custom_sentiment: fl
         "category": category,
         "session": session_info,
         "candle_timing": candle_timing,
+        "candle_flow": candle_flow,
         "early_setup": early_setup,
         "entry_window": entry_window,
         "sn_rejection": sn_rejection,
+        "anti_fomo": anti_fomo,
         "manual_sign": manual_sign,
         "timeframe": interval,
         "applied_profile": applied_profile,
@@ -1978,6 +2270,8 @@ def maybe_auto_execute_trade(analysis: dict):
     if analysis.get("entry_window", {}).get("exceeded"):
         return
     if analysis.get("sn_rejection", {}).get("rejected"):
+        return
+    if analysis.get("anti_fomo", {}).get("blocked"):
         return
 
     bal = float(BALANCE_STATE.get("balance_usdt", 0.0) or 0.0)
@@ -2175,6 +2469,8 @@ def api_auto_monitor_status():
             BRAIN_WEIGHTS["auto_close_on_candle_end"] = bool(data["auto_close_on_candle_end"])
         if "auto_close_on_candle_signal" in data:
             BRAIN_WEIGHTS["auto_close_on_candle_signal"] = bool(data["auto_close_on_candle_signal"])
+        if "anti_fomo_enabled" in data:
+            BRAIN_WEIGHTS["anti_fomo_enabled"] = bool(data["anti_fomo_enabled"])
         if "active_category" in data:
             AUTO_SCAN_STATE["active_category"] = data["active_category"] or "ALL"
         if "only_certain_and_early" in data:
@@ -2203,6 +2499,7 @@ def api_auto_monitor_status():
         "auto_close_on_tp": BRAIN_WEIGHTS.get("auto_close_on_tp", True),
         "auto_close_on_candle_end": BRAIN_WEIGHTS.get("auto_close_on_candle_end", True),
         "auto_close_on_candle_signal": BRAIN_WEIGHTS.get("auto_close_on_candle_signal", True),
+        "anti_fomo_enabled": BRAIN_WEIGHTS.get("anti_fomo_enabled", True),
         "active_category": AUTO_SCAN_STATE.get("active_category", "ALL"),
         "only_certain_and_early": AUTO_SCAN_STATE.get("only_certain_and_early", False),
         "last_run": AUTO_SCAN_STATE["last_run"],
@@ -2292,7 +2589,7 @@ def api_weights():
         data = request.json or {}
         for k in BRAIN_WEIGHTS:
             if k in data:
-                if k in ("auto_monitor_enabled", "auto_trade_enabled", "auto_close_on_tp", "auto_close_on_candle_end", "auto_close_on_candle_signal"):
+                if k in ("auto_monitor_enabled", "auto_trade_enabled", "auto_close_on_tp", "auto_close_on_candle_end", "auto_close_on_candle_signal", "anti_fomo_enabled"):
                     BRAIN_WEIGHTS[k] = bool(data[k])
                 else:
                     BRAIN_WEIGHTS[k] = float(data[k])
@@ -2308,6 +2605,10 @@ def api_account_balance():
         "available": info["available_usdt"],
         "unrealized_pnl": info["unrealized_pnl_usdt"],
         "equity": info["equity_usdt"],
+        "daily_pnl_usdt": info["daily_pnl_usdt"],
+        "daily_pnl_pct": info["daily_pnl_pct"],
+        "monthly_pnl_usdt": info["monthly_pnl_usdt"],
+        "monthly_pnl_pct": info["monthly_pnl_pct"],
         "last_sync": info["last_sync"],
         "error": info.get("last_error")
     })
