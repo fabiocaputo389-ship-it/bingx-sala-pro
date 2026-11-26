@@ -10,10 +10,10 @@
       --bg-elevated: #0c1220;
       --surface: #10182b;
       --surface-alt: #16213a;
-      --panel: rgba(15, 23, 42, 0.88);
-      --panel-2: rgba(20, 30, 54, 0.92);
+      --panel: rgba(15, 23, 42, 0.9);
+      --panel-2: rgba(20, 30, 54, 0.94);
       --border: rgba(148, 163, 184, 0.18);
-      --border-strong: rgba(245, 185, 66, 0.36);
+      --border-strong: rgba(245, 185, 66, 0.38);
       --text: #f8fafc;
       --muted: #94a3b8;
       --gold: #f5b942;
@@ -28,7 +28,7 @@
       --purple: #a78bfa;
       --shadow-sm: 0 6px 20px rgba(0, 0, 0, 0.35);
       --shadow-md: 0 14px 36px rgba(0, 0, 0, 0.52);
-      --glow-gold: 0 0 24px rgba(245, 185, 66, 0.14);
+      --glow-gold: 0 0 24px rgba(245, 185, 66, 0.16);
     }
 
     * { box-sizing: border-box; }
@@ -46,6 +46,28 @@
       line-height: 1.45;
       font-variant-numeric: tabular-nums;
       min-height: 100vh;
+    }
+
+    @keyframes vipPulseGreen {
+      0%, 100% {
+        box-shadow: 0 0 18px rgba(16, 185, 129, 0.25), 0 14px 36px rgba(0, 0, 0, 0.52);
+        border-color: rgba(16, 185, 129, 0.65);
+      }
+      50% {
+        box-shadow: 0 0 34px rgba(16, 185, 129, 0.55), 0 14px 36px rgba(0, 0, 0, 0.52);
+        border-color: #34d399;
+      }
+    }
+
+    @keyframes vipPulseRed {
+      0%, 100% {
+        box-shadow: 0 0 18px rgba(244, 63, 94, 0.25), 0 14px 36px rgba(0, 0, 0, 0.52);
+        border-color: rgba(244, 63, 94, 0.65);
+      }
+      50% {
+        box-shadow: 0 0 34px rgba(244, 63, 94, 0.55), 0 14px 36px rgba(0, 0, 0, 0.52);
+        border-color: #fb7185;
+      }
     }
 
     .topbar {
@@ -81,7 +103,7 @@
       gap: 7px;
       padding: 5px 12px;
       border-radius: 10px;
-      background: linear-gradient(135deg, rgba(245, 185, 66, 0.2), rgba(56, 189, 248, 0.12));
+      background: linear-gradient(135deg, rgba(245, 185, 66, 0.22), rgba(56, 189, 248, 0.14));
       border: 1px solid rgba(245, 185, 66, 0.5);
       color: #fde68a;
       box-shadow: var(--glow-gold);
@@ -146,11 +168,24 @@
       box-shadow: var(--shadow-md), var(--glow-gold);
     }
 
+    .candle-alert-box.enter-now {
+      background: linear-gradient(120deg, rgba(16, 185, 129, 0.22) 0%, rgba(15, 23, 42, 0.96) 52%, rgba(245, 185, 66, 0.16) 100%);
+      border-left: 5px solid var(--green);
+      animation: vipPulseGreen 1.6s infinite ease-in-out;
+    }
+
+    .candle-alert-box.enter-now-short {
+      background: linear-gradient(120deg, rgba(244, 63, 94, 0.22) 0%, rgba(15, 23, 42, 0.96) 52%, rgba(245, 185, 66, 0.14) 100%);
+      border-left: 5px solid var(--red);
+      animation: vipPulseRed 1.6s infinite ease-in-out;
+    }
+
     .candle-alert-box.blocked {
       background: linear-gradient(120deg, rgba(244, 63, 94, 0.16) 0%, rgba(15, 23, 42, 0.96) 55%);
       border-color: rgba(244, 63, 94, 0.45);
       border-left: 5px solid var(--red);
       box-shadow: var(--shadow-md);
+      animation: none;
     }
 
     .candle-alert-main {
@@ -159,7 +194,7 @@
       align-items: center;
       justify-content: space-between;
       gap: 10px;
-      font-weight: 700;
+      font-weight: 800;
       font-size: 13.5px;
       color: #ffffff;
     }
@@ -179,6 +214,51 @@
       border-radius: 999px;
       color: #e2e8f0;
       font-weight: 600;
+    }
+
+    .top-setups-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(265px, 1fr));
+      gap: 12px;
+    }
+
+    .setup-card {
+      background: linear-gradient(160deg, rgba(22, 33, 58, 0.9) 0%, rgba(10, 16, 30, 0.96) 100%);
+      border: 1px solid rgba(245, 185, 66, 0.28);
+      border-radius: 14px;
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .setup-card.go {
+      border-color: rgba(16, 185, 129, 0.55);
+      box-shadow: 0 0 20px rgba(16, 185, 129, 0.14);
+    }
+
+    .setup-card.short {
+      border-color: rgba(244, 63, 94, 0.55);
+      box-shadow: 0 0 20px rgba(244, 63, 94, 0.14);
+    }
+
+    .setup-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .setup-levels {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 4px 10px;
+      font-size: 11.5px;
+      background: rgba(7, 11, 20, 0.65);
+      padding: 8px 10px;
+      border-radius: 10px;
+      border: 1px solid rgba(148, 163, 184, 0.12);
     }
 
     .grid-3 {
@@ -628,6 +708,20 @@
       <div id="newCandleHistory" class="candle-history"></div>
     </div>
 
+    <!-- CARD DEDICATE AI TOP SETUP VIP DEL MOMENTO -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">⚡ Top Setup VIP del Momento</div>
+        <div class="controls-row">
+          <span id="topSetupsBadge" class="pill amber">0 setup</span>
+          <button class="primary" onclick="runManualScan()">Scansiona ora</button>
+        </div>
+      </div>
+      <div id="topSetupsGrid" class="top-setups-grid">
+        <div class="muted">Scansione setup in corso...</div>
+      </div>
+    </div>
+
     <!-- SALDO, WIN RATE LIVE, CHIAVI API E CONTROLLI AUTO-CLOSE -->
     <div class="grid-3">
       <div class="card">
@@ -794,7 +888,10 @@
     <div class="card">
       <div class="card-header">
         <div class="card-title">📌 Posizioni Aperte su BingX</div>
-        <span id="openPosCount" class="pill green">0 aperte</span>
+        <div class="controls-row">
+          <span id="openPosCount" class="pill green">0 aperte</span>
+          <button class="red" onclick="closeAllPositions()">Chiudi tutte</button>
+        </div>
       </div>
       <div class="table-wrap" style="max-height:220px;">
         <table>
@@ -1012,6 +1109,29 @@
       };
     }
 
+    function isSignalBlocked(s) {
+      if (!s) return true;
+      const ew = s.entry_window || {};
+      const sn = s.sn_rejection || {};
+      const af = s.anti_fomo || {};
+      const ms = s.manual_sign || {};
+      const sess = s.session || {};
+      return (
+        Boolean(ew.exceeded)
+        || Boolean(sn.rejected)
+        || Boolean(af.fomo_blocked)
+        || ["CANCELLED_REVERSAL", "REJECTED_SN", "OVER_THRESHOLD", "ANTI_FOMO_BLOCK"].includes(ms.status)
+        || sess.session_ok === false
+      );
+    }
+
+    function isActionableSignal(s) {
+      if (!s) return false;
+      const early = s.early_setup || {};
+      const raw = String(s.signal || "").toUpperCase();
+      return Boolean(s.certain_signal || early.trigger_sound || early.direction || raw.includes("LONG") || raw.includes("SHORT"));
+    }
+
     function formatSignalFullSpecJs(s) {
       const lv = s.levels || {};
       const rp = s.recommended_params || {};
@@ -1022,23 +1142,32 @@
 
     function getFreeSignalsSorted() {
       return Object.values(STATE.signals || {})
-        .filter(s => {
-          if (!s) return false;
-          const ew = s.entry_window || {};
-          const sn = s.sn_rejection || {};
-          const af = s.anti_fomo || {};
-          const ms = s.manual_sign || {};
-          const sess = s.session || {};
-          const blocked = (
-            Boolean(ew.exceeded)
-            || Boolean(sn.rejected)
-            || Boolean(af.fomo_blocked)
-            || ["CANCELLED_REVERSAL", "REJECTED_SN", "OVER_THRESHOLD", "ANTI_FOMO_BLOCK"].includes(ms.status)
-            || sess.session_ok === false
-          );
-          return !blocked;
-        })
+        .filter(s => s && !isSignalBlocked(s))
         .sort((a, b) => (b.confidence || 0) - (a.confidence || 0));
+    }
+
+    function getDisplaySignalsList() {
+      const onlyCE = document.getElementById("onlyCertainEarlyChk").checked;
+      const all = Object.values(STATE.signals || {}).filter(s => {
+        if (!s) return false;
+        if (onlyCE) return isActionableSignal(s);
+        return true;
+      });
+      const free = all.filter(s => !isSignalBlocked(s));
+      const source = free.length > 0 ? free : all;
+      return source.sort((a, b) => (b.confidence || 0) - (a.confidence || 0));
+    }
+
+    function updateBannerUrgencyState(freeList, clk) {
+      const banner = document.getElementById("newCandleBanner");
+      banner.classList.remove("enter-now", "enter-now-short");
+      if (!freeList.length || banner.classList.contains("blocked")) return;
+      const top = freeList[0];
+      const sInfo = getSignalSideInfo(top);
+      const enterNow = Boolean((top.manual_sign && top.manual_sign.show_enter_now) || clk.isPre);
+      if (enterNow) {
+        banner.classList.add(sInfo.isShort ? "enter-now-short" : "enter-now");
+      }
     }
 
     function getEntryTimingBadge(symbol, interval) {
@@ -1165,6 +1294,7 @@
 
       const candleKey = `${interval}_${clk.candleIndex}`;
       const freeList = getFreeSignalsSorted();
+      updateBannerUrgencyState(freeList, clk);
 
       if (clk.isPre && clk.rem > 0 && freeList.length > 0) {
         const topParts = freeList.slice(0, 3).map(formatSignalFullSpecJs);
@@ -1211,6 +1341,57 @@
         }
       }
       STATE.lastAnnouncedCandleKey = candleKey;
+    }
+
+    function renderTopSetupsCards() {
+      const grid = document.getElementById("topSetupsGrid");
+      const badge = document.getElementById("topSetupsBadge");
+      if (!grid || !badge) return;
+
+      const list = getDisplaySignalsList().slice(0, 4);
+      badge.textContent = `${list.length} setup`;
+
+      if (!list.length) {
+        grid.innerHTML = `<div class="muted">Nessun setup rilevato al momento. Premi "Scansiona ora" oppure verifica i filtri.</div>`;
+        return;
+      }
+
+      grid.innerHTML = list.map(s => {
+        const lv = s.levels || {};
+        const rp = s.recommended_params || {};
+        const early = s.early_setup || {};
+        const sInfo = getSignalSideInfo(s);
+        const blocked = isSignalBlocked(s);
+        const cardCls = blocked ? "setup-card" : (sInfo.isShort ? "setup-card short" : "setup-card go");
+
+        return `
+          <div class="${cardCls}">
+            <div class="setup-top">
+              <div>
+                <strong>${s.bingx_name || s.symbol}</strong>
+                <span class="muted" style="font-size:11px;">${s.timeframe || ""}</span>
+              </div>
+              <span class="pill ${sInfo.isShort ? "red" : "green"}">${sInfo.icon} ${sInfo.actionLabel}</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; font-size:11.5px;">
+              <span>Conf: <strong>${s.confidence}%</strong> (${s.composite_score})</span>
+              <span class="pill ${blocked ? "red" : "amber"}">${blocked ? "FILTRATO" : "ATTIVO"}</span>
+            </div>
+            <div class="setup-levels">
+              <div>Entry: <strong>${lv.entry ?? s.price}</strong></div>
+              <div>SL: <span class="neg">${lv.sl ?? "--"}</span></div>
+              <div>TP1: <span class="pos">${lv.tp1 ?? "--"}</span></div>
+              <div>TP2: <span class="pos">${lv.tp2 ?? "--"}</span></div>
+            </div>
+            <div class="controls-row" style="justify-content:space-between; margin-top:2px;">
+              <button onclick="selectAndAnalyze('${s.symbol}')">Analisi</button>
+              <button class="${sInfo.side === "BUY" ? "green" : "red"}" onclick="executeFromAnalysis('${s.symbol}', '${sInfo.side}', ${rp.qty || 0}, ${lv.sl || 0}, ${lv.tp2 || 0}, ${rp.leverage || 10}, ${s.price}, ${early.candle_id || 0}, ${(s.candle_timing && s.candle_timing.candle_index) || 0}, ${lv.tp1 || 0}, ${lv.tp3 || 0})">
+                ${sInfo.side === "BUY" ? "COMPRA" : "VENDI"}
+              </button>
+            </div>
+          </div>
+        `;
+      }).join("");
     }
 
     async function loadKeysStatus() {
@@ -1381,13 +1562,14 @@
       if (d.status === "ok") {
         STATE.symbolOverrides = d.symbol_overrides || STATE.symbolOverrides;
         if (d.data) {
-          if (d.data.certain_signal || (d.data.early_setup && (d.data.early_setup.trigger_sound || d.data.early_setup.direction)) || String(d.data.signal || "").includes("LONG") || String(d.data.signal || "").includes("SHORT")) {
+          if (isActionableSignal(d.data)) {
             STATE.signals[d.data.symbol] = d.data;
           }
           if (document.getElementById("analyzeSymbolInput").value.trim().toUpperCase() === symbol.toUpperCase()) {
             renderSingleAnalysis(d.data);
           }
         }
+        renderTopSetupsCards();
         renderSignalsTable();
         renderMarketsTable();
         renderScoreParamsTable();
@@ -1467,18 +1649,12 @@
 
     function renderSignalsTable() {
       const tf = document.getElementById("timeframeSelect").value || "15m";
-      const onlyCE = document.getElementById("onlyCertainEarlyChk").checked;
-      const list = Object.values(STATE.signals || {}).filter(s => {
-        if (!s) return false;
-        if (onlyCE) {
-          const early = s.early_setup || {};
-          const sig = String(s.signal || "");
-          return Boolean(s.certain_signal || early.trigger_sound || early.direction || sig.includes("LONG") || sig.includes("SHORT"));
-        }
-        return true;
-      });
+      const list = getDisplaySignalsList();
+      const freeCount = Object.values(STATE.signals || {}).filter(s => s && !isSignalBlocked(s)).length;
 
-      document.getElementById("radarCount").textContent = `${list.length} segnali`;
+      document.getElementById("radarCount").textContent = freeCount > 0
+        ? `${freeCount} liberi`
+        : `${list.length} filtrati`;
       const tbody = document.getElementById("signalsBody");
       if (!list.length) {
         tbody.innerHTML = `<tr><td colspan="7" class="muted">Nessun segnale attivo per i filtri correnti.</td></tr>`;
@@ -1563,6 +1739,23 @@
           </tr>
         `;
       }).join("");
+    }
+
+    async function closeAllPositions() {
+      const posList = Object.values(STATE.openPositions || {});
+      if (!posList.length) {
+        alert("Nessuna posizione aperta da chiudere.");
+        return;
+      }
+      if (!confirm(`Vuoi chiudere tutte le ${posList.length} posizioni aperte su BingX?`)) return;
+      for (const p of posList) {
+        await fetch("/api/close_position", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ symbol: p.symbol, side: p.side, quantity: p.size })
+        });
+      }
+      await pollMonitor();
     }
 
     function renderLogsAndAlerts() {
@@ -1672,6 +1865,7 @@
         pushNewCandleWrittenAlert(d.latest_new_candle_alert);
       }
 
+      renderTopSetupsCards();
       renderSignalsTable();
       renderMarketsTable();
       renderScoreParamsTable();
@@ -1712,6 +1906,7 @@
         if (d.latest_new_candle_alert) {
           pushNewCandleWrittenAlert(d.latest_new_candle_alert);
         }
+        renderTopSetupsCards();
         renderSignalsTable();
         renderMarketsTable();
         renderScoreParamsTable();
@@ -1866,6 +2061,7 @@
 
     ["timeframeSelect", "categorySelect", "onlyCertainEarlyChk", "autoTradeChk"].forEach(id => {
       document.getElementById(id).addEventListener("change", () => {
+        renderTopSetupsCards();
         renderMarketsTable();
         renderScoreParamsTable();
         renderSignalsTable();
