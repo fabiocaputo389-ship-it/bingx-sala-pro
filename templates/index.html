@@ -68,6 +68,7 @@
     .pill.red { border-color: rgba(239,68,68,.45); color: #fca5a5; background: rgba(239,68,68,.12); }
     .pill.amber { border-color: rgba(245,158,11,.45); color: #fcd34d; background: rgba(245,158,11,.12); }
     .pill.blue { border-color: rgba(56,189,248,.45); color: #7dd3fc; background: rgba(56,189,248,.12); }
+    .pill.purple { border-color: rgba(168,85,247,.45); color: #d8b4fe; background: rgba(168,85,247,.14); }
 
     @keyframes pulseGlow {
       0%, 100% { box-shadow: 0 0 0 rgba(34,197,94,0); }
@@ -372,8 +373,90 @@
       color: #fca5a5;
     }
 
+    .tp-prog-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      min-width: 128px;
+    }
+
+    .tp-prog-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .tp-track {
+      width: 100%;
+      height: 8px;
+      border-radius: 999px;
+      background: rgba(8,12,20,.85);
+      border: 1px solid var(--border);
+      overflow: hidden;
+    }
+
+    .tp-fill {
+      height: 100%;
+      border-radius: 999px;
+      transition: width .35s ease;
+    }
+
+    .tp-fill.pos { background: linear-gradient(90deg, #16a34a, #4ade80); }
+    .tp-fill.neg { background: linear-gradient(90deg, #dc2626, #f87171); }
+    .tp-fill.pwr { background: linear-gradient(90deg, #d97706, #facc15, #38bdf8); }
+
+    .live-positions-strip {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(275px, 1fr));
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .live-pos-card {
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .live-pos-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      font-weight: 700;
+    }
+
+    .live-pos-meta {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .smart-score-box {
+      background: rgba(168,85,247,.08);
+      border: 1px solid rgba(168,85,247,.35);
+      border-radius: 8px;
+      padding: 8px 10px;
+      margin-top: 8px;
+      font-size: 11px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
     .pos { color: #4ade80; font-weight: 700; }
     .neg { color: #f87171; font-weight: 700; }
+    .pwr-txt { color: #fde047; font-weight: 700; }
     .muted { color: var(--muted); }
 
     .toggle-label {
@@ -422,6 +505,7 @@
       <span>⚡ BingX HFT Signal Terminal</span>
       <span id="monitorPill" class="pill green">Monitor: ATTIVO</span>
       <span id="profilePill" class="pill blue">Profilo: AUTO</span>
+      <span id="smartScorePill" class="pill purple">Score Auto: --</span>
     </div>
 
     <div class="controls-row">
@@ -445,6 +529,11 @@
       <label class="toggle-label">
         <input type="checkbox" id="onlyCertainEarlyChk" />
         Solo Certi / Anticipo
+      </label>
+
+      <label class="toggle-label">
+        <input type="checkbox" id="smartScoreChk" checked onchange="onSmartScoreToggle()" />
+        Score Auto Smart
       </label>
 
       <label class="toggle-label">
@@ -473,6 +562,10 @@
         <span id="signGetReady" class="luminous-sign get-ready">🟡 TIENITI PRONTO: In attesa carica potenza</span>
         <span id="signEnterNow" class="luminous-sign enter-now">🟢 ENTRA ORA: Attesa finestra valida</span>
         <span id="signAntiFomo" class="luminous-sign anti-fomo">🛡️ ANTI-FOMO: Attivo</span>
+      </div>
+      <div id="smartScoreDiagBar" class="smart-score-box">
+        <span id="smartScoreSummaryText">🧠 Score Smart: calcolo dinamico soglia e filtro Anti-FOMO in corso...</span>
+        <span id="fomoBlockStatsBadge" class="pill">FOMO Bloccati: 0</span>
       </div>
       <div id="newCandleHistory" class="candle-history"></div>
     </div>
@@ -540,13 +633,17 @@
       </div>
     </div>
 
-    <!-- POSIZIONI APERTE BINGX -->
+    <!-- OPERAZIONI APERTE SU BINGX: AVANZAMENTO % VERSO TP & POTENZA CANDELA -->
     <div class="card">
       <div class="card-header">
-        <div class="card-title">📌 Posizioni Aperte su BingX</div>
-        <span id="openPosCount" class="pill">0 aperte</span>
+        <div class="card-title">📌 Operazioni Aperte su BingX • Avanzamento % verso TP & Potenza Candela</div>
+        <div class="controls-row">
+          <span id="liveTotalPnlBadge" class="pill">Guadagno Live: +0.00 USDT</span>
+          <span id="openPosCount" class="pill">0 aperte</span>
+        </div>
       </div>
-      <div class="table-wrap" style="max-height:220px;">
+      <div id="livePositionsStrip" class="live-positions-strip"></div>
+      <div class="table-wrap" style="max-height:260px;">
         <table>
           <thead>
             <tr>
@@ -556,14 +653,15 @@
               <th>Entry</th>
               <th>Mark</th>
               <th>SL / TP2</th>
-              <th>Progresso TP</th>
+              <th>Avanzamento verso TP (%)</th>
+              <th>Potenza Candela</th>
               <th>Lev</th>
-              <th>PnL</th>
+              <th>Guadagno Live</th>
               <th>Azione</th>
             </tr>
           </thead>
           <tbody id="positionsBody">
-            <tr><td colspan="10" class="muted">Nessuna posizione aperta al momento.</td></tr>
+            <tr><td colspan="11" class="muted">Nessuna operazione aperta al momento su BingX.</td></tr>
           </tbody>
         </table>
       </div>
@@ -582,7 +680,7 @@
               <tr>
                 <th>Asset, Avviso & Candela</th>
                 <th>Direzione / Stato</th>
-                <th>Conf.</th>
+                <th>Score Smart</th>
                 <th>Prezzo / Limite</th>
                 <th>SL / TP1 / TP2 / TP3</th>
                 <th>Piano / Lev</th>
@@ -604,7 +702,7 @@
             <button class="primary" onclick="analyzeSingle()">Analizza</button>
           </div>
         </div>
-        <div id="singleAnalysisBox" class="muted">Seleziona o analizza un contratto per vedere dettagli, flusso candela, Banca Anti-FOMO, TP/SL e indicatori.</div>
+        <div id="singleAnalysisBox" class="muted">Seleziona o analizza un contratto per vedere dettagli, flusso candela, Score Smart, Banca Anti-FOMO, TP/SL e indicatori.</div>
       </div>
     </div>
 
@@ -673,8 +771,139 @@
       lastAnnouncedCandleKey: null,
       preWarnedCandleKey: null,
       lastAlertId: null,
-      soundEnabled: true
+      soundEnabled: true,
+      balanceInfo: {}
     };
+
+    function getSmartRegime() {
+      const bal = STATE.balanceInfo || {};
+      const dPct = Number(bal.daily_pnl_pct || 0);
+      const mPct = Number(bal.monthly_pnl_pct || 0);
+      const balance = Number(bal.balance_usdt || 0);
+
+      let minThreshold = 68;
+      let modeLabel = "EQUILIBRATO";
+      let pillCls = "pill purple";
+      let fomoStrictness = 1.0;
+
+      if (dPct <= -35 || mPct <= -50 || (balance > 0 && balance < 5)) {
+        minThreshold = 78;
+        modeLabel = "DIFENSIVO DRAWDOWN";
+        pillCls = "pill red";
+        fomoStrictness = 1.25;
+      } else if (dPct <= -10 || mPct <= -15) {
+        minThreshold = 72;
+        modeLabel = "PRUDENTE";
+        pillCls = "pill amber";
+        fomoStrictness = 1.1;
+      } else if (dPct >= 5 && mPct >= 10) {
+        minThreshold = 62;
+        modeLabel = "AGGRESSIVO CONTROLLATO";
+        pillCls = "pill green";
+        fomoStrictness = 0.85;
+      }
+
+      return { minThreshold, modeLabel, pillCls, fomoStrictness, dPct, mPct };
+    }
+
+    function evaluateSmartSignal(sig) {
+      const smartEnabled = document.getElementById("smartScoreChk")?.checked ?? true;
+      const antiFomoEnabled = document.getElementById("antiFomoChk")?.checked ?? true;
+      const reg = getSmartRegime();
+
+      const baseConf = Number(sig.confidence || 0);
+      const flow = sig.candle_flow || {};
+      const flowCert = Number(flow.flow_certainty_pct || 50);
+      const powerPct = Number(flow.power_charge_pct || 50);
+      const ew = sig.entry_window || {};
+      const sn = sig.sn_rejection || {};
+      const ms = sig.manual_sign || {};
+      const sess = sig.session || {};
+      const fomo = sig.anti_fomo || {};
+
+      let delta = 0;
+      if (flowCert >= 70) delta += 6;
+      else if (flowCert < 45) delta -= 7;
+
+      if (powerPct >= 75) delta += 5;
+      else if (powerPct < 35) delta -= 5;
+
+      const hardBlock = Boolean(
+        ew.exceeded
+        || sn.rejected
+        || ["CANCELLED_REVERSAL", "REJECTED_SN", "OVER_THRESHOLD"].includes(ms.status)
+        || sess.session_ok === false
+      );
+
+      let fomoBlocked = Boolean(fomo.blocked);
+      let smartFomoOverride = false;
+
+      if (!antiFomoEnabled) {
+        fomoBlocked = false;
+      } else if (smartEnabled && fomoBlocked && !hardBlock) {
+        const highQualitySetup = baseConf >= 82 && flowCert >= 68 && powerPct >= 65 && reg.fomoStrictness <= 1.1;
+        if (highQualitySetup) {
+          fomoBlocked = false;
+          smartFomoOverride = true;
+          delta += 3;
+        } else {
+          delta -= 12;
+        }
+      } else if (fomoBlocked) {
+        delta -= 12;
+      }
+
+      const smartScore = Math.max(0, Math.min(100, Math.round(baseConf + delta)));
+      const passesThreshold = !hardBlock && !fomoBlocked && smartScore >= reg.minThreshold;
+
+      return {
+        smartEnabled,
+        smartScore,
+        minThreshold: reg.minThreshold,
+        modeLabel: reg.modeLabel,
+        hardBlock,
+        fomoBlocked,
+        smartFomoOverride,
+        passesThreshold
+      };
+    }
+
+    function updateSmartScoreUI() {
+      const smartEnabled = document.getElementById("smartScoreChk")?.checked ?? true;
+      const reg = getSmartRegime();
+      const pill = document.getElementById("smartScorePill");
+      const summaryEl = document.getElementById("smartScoreSummaryText");
+      const fomoStatsEl = document.getElementById("fomoBlockStatsBadge");
+
+      const allSigs = Object.values(STATE.signals || {});
+      const rawFomoCount = allSigs.filter(s => s && s.anti_fomo && s.anti_fomo.blocked).length;
+      const evals = allSigs.map(evaluateSmartSignal);
+      const activeFomoCount = evals.filter(e => e.fomoBlocked).length;
+      const overriddenCount = evals.filter(e => e.smartFomoOverride).length;
+      const validCount = evals.filter(e => e.passesThreshold).length;
+
+      if (!smartEnabled) {
+        pill.textContent = "Score Auto: OFF";
+        pill.className = "pill";
+        summaryEl.textContent = "🧠 Score Auto Smart disattivato: viene usata solo la confidenza grezza.";
+      } else {
+        pill.textContent = `Score Auto: ${reg.minThreshold}/100 (${reg.modeLabel})`;
+        pill.className = reg.pillCls;
+        summaryEl.textContent =
+          `🧠 Score Smart [${reg.modeLabel}]: soglia dinamica ${reg.minThreshold}/100 (Giornaliero ${reg.dPct >= 0 ? "+" : ""}${reg.dPct.toFixed(1)}%, Mensile ${reg.mPct >= 0 ? "+" : ""}${reg.mPct.toFixed(1)}%) • Segnali validi: ${validCount}/${allSigs.length}` +
+          (overriddenCount > 0 ? ` • Sbloccati Smart: ${overriddenCount}` : "");
+      }
+
+      fomoStatsEl.textContent = `FOMO Attivi: ${activeFomoCount} / Grezzi: ${rawFomoCount}`;
+      fomoStatsEl.className = activeFomoCount > 0 ? "pill red" : "pill green";
+    }
+
+    function onSmartScoreToggle() {
+      updateSmartScoreUI();
+      renderSignalsTable();
+      renderMarketsTable();
+      tickTimersAndCandleTransition();
+    }
 
     function toggleSound() {
       STATE.soundEnabled = !STATE.soundEnabled;
@@ -766,28 +995,18 @@
       const rp = s.recommended_params || {};
       const plan = (s.tp_plan && s.tp_plan.label) ? ` (${s.tp_plan.label})` : "";
       const sInfo = getSignalSideInfo(s);
-      return `${s.bingx_name || s.symbol} [${sInfo.icon} ${sInfo.actionLabel}] | Entry: ${lv.entry ?? s.price} | TP1: ${lv.tp1 ?? "--"} | TP2: ${lv.tp2 ?? "--"} | TP3: ${lv.tp3 ?? "--"} | SL: ${lv.sl ?? "--"} | Lev: ${rp.leverage ?? "--"}x | Qty: ${rp.qty ?? 0}${plan}`;
+      const ev = evaluateSmartSignal(s);
+      return `${s.bingx_name || s.symbol} [${sInfo.icon} ${sInfo.actionLabel} • Score ${ev.smartScore}] | Entry: ${lv.entry ?? s.price} | TP1: ${lv.tp1 ?? "--"} | TP2: ${lv.tp2 ?? "--"} | TP3: ${lv.tp3 ?? "--"} | SL: ${lv.sl ?? "--"} | Lev: ${rp.leverage ?? "--"}x | Qty: ${rp.qty ?? 0}${plan}`;
     }
 
     function getFreeSignalsSorted() {
       return Object.values(STATE.signals || {})
         .filter(s => {
           if (!s) return false;
-          const ew = s.entry_window || {};
-          const sn = s.sn_rejection || {};
-          const ms = s.manual_sign || {};
-          const sess = s.session || {};
-          const fomo = s.anti_fomo || {};
-          const blocked = (
-            Boolean(ew.exceeded)
-            || Boolean(sn.rejected)
-            || Boolean(fomo.blocked)
-            || ["CANCELLED_REVERSAL", "REJECTED_SN", "OVER_THRESHOLD", "ANTI_FOMO_BLOCKED"].includes(ms.status)
-            || sess.session_ok === false
-          );
-          return !blocked;
+          const ev = evaluateSmartSignal(s);
+          return !ev.hardBlock && !ev.fomoBlocked;
         })
-        .sort((a, b) => (b.confidence || 0) - (a.confidence || 0));
+        .sort((a, b) => evaluateSmartSignal(b).smartScore - evaluateSmartSignal(a).smartScore);
     }
 
     function updateLuminousSigns(freeList, clk) {
@@ -801,7 +1020,7 @@
         || allSigs.find(s => s && s.candle_flow && s.candle_flow.is_power_charging);
       const enterSig = freeList.find(s => s && s.manual_sign && s.manual_sign.show_enter_now)
         || (clk.isPre && freeList.length > 0 ? freeList[0] : null);
-      const fomoBlockedSig = allSigs.find(s => s && s.anti_fomo && s.anti_fomo.blocked);
+      const fomoBlockedSig = allSigs.find(s => s && evaluateSmartSignal(s).fomoBlocked);
 
       if (readySig) {
         const sInfo = getSignalSideInfo(readySig);
@@ -866,9 +1085,10 @@
       const lv = sig.levels || {};
       const rp = sig.recommended_params || {};
       const sInfo = getSignalSideInfo(sig);
-      const tpSummary = `${sInfo.actionLabel} • Entry ${lv.entry ?? sig.price} • TP1 ${lv.tp1 ?? "--"} • TP2 ${lv.tp2 ?? "--"} • TP3 ${lv.tp3 ?? "--"} • SL ${lv.sl ?? "--"} • Lev ${rp.leverage ?? "--"}x`;
+      const ev = evaluateSmartSignal(sig);
+      const tpSummary = `${sInfo.actionLabel} • Score ${ev.smartScore}/${ev.minThreshold} • Entry ${lv.entry ?? sig.price} • TP1 ${lv.tp1 ?? "--"} • TP2 ${lv.tp2 ?? "--"} • TP3 ${lv.tp3 ?? "--"} • SL ${lv.sl ?? "--"} • Lev ${rp.leverage ?? "--"}x`;
 
-      if (fomo.blocked) {
+      if (ev.fomoBlocked) {
         return {
           cls: "timing-pill stop",
           text: `🛡️ ANTI-FOMO BLOCCATO • ${sInfo.icon} ${sInfo.actionLabel}`,
@@ -901,6 +1121,13 @@
           cls: "timing-pill wait",
           text: `🟡 FUORI ORARIO • ${sInfo.icon} ${sInfo.actionLabel} • TP2 ${lv.tp2 ?? "--"}`,
           title: `${sess.session_name || "Fuori orario"} | ${tpSummary}`
+        };
+      }
+      if (ev.smartFomoOverride) {
+        return {
+          cls: sInfo.isShort ? "timing-pill go-short" : "timing-pill go",
+          text: `⚡ SBLOCCATO SMART • ${sInfo.icon} ${sInfo.actionLabel} • Score ${ev.smartScore}`,
+          title: `Sbloccato dallo Score Smart per alta qualità | ${tpSummary}`
         };
       }
       if (ms.show_enter_now || clk.isPre) {
@@ -967,6 +1194,8 @@
         el.className = c.isPre ? "candle-badge live-candle-badge pre" : "candle-badge live-candle-badge";
       });
 
+      updateSmartScoreUI();
+
       const candleKey = `${interval}_${clk.candleIndex}`;
       const freeList = getFreeSignalsSorted();
       updateLuminousSigns(freeList, clk);
@@ -998,7 +1227,7 @@
           playBeep(980, 220);
         } else {
           const sigList = Object.values(STATE.signals || {});
-          const fomoCnt = sigList.filter(s => s && s.anti_fomo && s.anti_fomo.blocked).length;
+          const fomoCnt = sigList.filter(s => s && evaluateSmartSignal(s).fomoBlocked).length;
           const snCnt = sigList.filter(s => s && s.sn_rejection && s.sn_rejection.rejected).length;
           const overCnt = sigList.filter(s => s && s.entry_window && s.entry_window.exceeded).length;
           const reasons = [];
@@ -1139,8 +1368,12 @@
         const early = s.early_setup || {};
         const ms = s.manual_sign || {};
         const sInfo = getSignalSideInfo(s);
-        const badgeText = ms.badge || s.certain_signal || s.signal;
+        const ev = evaluateSmartSignal(s);
+        const badgeText = ev.smartFomoOverride
+          ? "⚡ SBLOCCATO SMART"
+          : (ms.badge || s.certain_signal || s.signal);
         const tBadge = getEntryTimingBadge(s.symbol, s.timeframe || tf);
+        const scorePillCls = ev.passesThreshold ? "pill green" : (ev.fomoBlocked || ev.hardBlock ? "pill red" : "pill amber");
 
         return `
           <tr>
@@ -1158,7 +1391,10 @@
               <div style="margin-top:3px;"><strong>${badgeText}</strong></div>
               <div class="muted" style="font-size:11px;">${early.setup_type || ""}</div>
             </td>
-            <td><strong>${s.confidence}%</strong></td>
+            <td>
+              <div><span class="${scorePillCls}">${ev.smartScore}/100</span></div>
+              <div class="muted" style="font-size:10px;">Base ${s.confidence}% • Soglia ${ev.minThreshold}</div>
+            </td>
             <td>
               <div>${s.price}</div>
               <div class="muted" style="font-size:11px;">Lim: ${early.limit_price ?? "--"}</div>
@@ -1182,18 +1418,123 @@
       }).join("");
     }
 
+    function computeCandlePowerForPosition(p) {
+      const sig = (STATE.signals || {})[p.symbol] || {};
+      const flow = sig.candle_flow || {};
+      const directPower = p.candle_power_pct ?? p.power_charge_pct;
+      if (directPower !== undefined && directPower !== null && !Number.isNaN(Number(directPower))) {
+        const val = Math.max(0, Math.min(100, Number(directPower)));
+        return { pct: val, label: flow.banner_label || (val >= 70 ? "⚡ Spinta Alta" : "🕯️ Carica") };
+      }
+      if (flow.power_charge_pct !== undefined && flow.power_charge_pct !== null) {
+        const val = Math.max(0, Math.min(100, Number(flow.power_charge_pct)));
+        return { pct: val, label: flow.banner_label || (val >= 70 ? "⚡ Spinta Alta" : "🕯️ Carica") };
+      }
+      if (flow.flow_certainty_pct !== undefined && flow.flow_certainty_pct !== null) {
+        const val = Math.max(0, Math.min(100, Number(flow.flow_certainty_pct)));
+        return { pct: val, label: "🕯️ Flusso" };
+      }
+      const tf = document.getElementById("timeframeSelect")?.value || "15m";
+      const clk = computeLiveCandleClock(tf);
+      const secPerCandle = INTERVAL_SEC[tf] || 900;
+      const elapsedPct = Math.round(((secPerCandle - clk.rem) / secPerCandle) * 100);
+      return { pct: Math.max(5, Math.min(100, elapsedPct)), label: `⏱ Ciclo ${tf}` };
+    }
+
+    function computePositionLiveMetrics(p) {
+      const pnl = Number(p.unrealized_pnl || 0);
+      const size = Number(p.size || 0);
+      const entry = Number(p.entry_price || 0);
+      const mark = Number(p.mark_price || entry);
+      const tp = Number(p.tp_price || 0);
+      const lev = Math.max(1, Number(p.leverage || 1));
+      const notional = size * entry;
+      const estMargin = notional > 0 ? (notional / lev) : 0;
+      const roiPct = estMargin > 0 ? (pnl / estMargin) * 100 : 0;
+
+      let rawProg = Number(p.tp_progress_pct);
+      if (Number.isNaN(rawProg)) {
+        if (entry > 0 && tp > 0 && tp !== entry) {
+          const isShort = String(p.side || "").toUpperCase() === "SHORT";
+          const totalDist = isShort ? (entry - tp) : (tp - entry);
+          const movedDist = isShort ? (entry - mark) : (mark - entry);
+          rawProg = (movedDist / totalDist) * 100;
+        } else {
+          rawProg = roiPct * 2;
+        }
+      }
+
+      const clampedProg = Math.max(0, Math.min(100, rawProg));
+      const isProfit = pnl >= 0 || rawProg > 0;
+      const candlePwr = computeCandlePowerForPosition(p);
+
+      return {
+        pnl,
+        roiPct,
+        rawProg,
+        clampedProg,
+        isProfit,
+        candlePwr
+      };
+    }
+
     function renderPositionsTable() {
       const posList = Object.values(STATE.openPositions || {});
       document.getElementById("openPosCount").textContent = `${posList.length} aperte`;
+
+      const totalLivePnl = posList.reduce((acc, p) => acc + Number(p.unrealized_pnl || 0), 0);
+      const liveTotalBadge = document.getElementById("liveTotalPnlBadge");
+      liveTotalBadge.textContent = `Guadagno Live: ${totalLivePnl >= 0 ? "+" : ""}${totalLivePnl.toFixed(2)} USDT`;
+      liveTotalBadge.className = `pill ${totalLivePnl >= 0 ? "green" : "red"}`;
+
+      const strip = document.getElementById("livePositionsStrip");
       const tbody = document.getElementById("positionsBody");
+
       if (!posList.length) {
-        tbody.innerHTML = `<tr><td colspan="10" class="muted">Nessuna posizione aperta al momento.</td></tr>`;
+        strip.innerHTML = "";
+        tbody.innerHTML = `<tr><td colspan="11" class="muted">Nessuna operazione aperta al momento su BingX.</td></tr>`;
         return;
       }
 
+      strip.innerHTML = posList.map(p => {
+        const m = computePositionLiveMetrics(p);
+        const cls = m.isProfit ? "pos" : "neg";
+        return `
+          <div class="live-pos-card">
+            <div class="live-pos-head">
+              <span>${p.bingx_name || p.symbol} <span class="pill ${p.side === "LONG" ? "green" : "red"}">${p.side}</span></span>
+              <span class="${cls}">${m.pnl >= 0 ? "+" : ""}${m.pnl.toFixed(2)} USDT (${m.roiPct >= 0 ? "+" : ""}${m.roiPct.toFixed(1)}%)</span>
+            </div>
+            <div class="live-pos-meta">
+              <span>Entry: ${p.entry_price}</span>
+              <span>Mark: ${p.mark_price}</span>
+              <span>TP2: ${p.tp_price}</span>
+            </div>
+            <div class="tp-prog-wrap">
+              <div class="tp-prog-top">
+                <span class="muted">Avanzamento verso TP</span>
+                <span class="${cls}">${m.rawProg.toFixed(1)}%</span>
+              </div>
+              <div class="tp-track">
+                <div class="tp-fill ${m.isProfit ? "pos" : "neg"}" style="width:${m.clampedProg}%;"></div>
+              </div>
+            </div>
+            <div class="tp-prog-wrap">
+              <div class="tp-prog-top">
+                <span class="muted">Potenza Candela (${m.candlePwr.label})</span>
+                <span class="pwr-txt">${m.candlePwr.pct.toFixed(0)}%</span>
+              </div>
+              <div class="tp-track">
+                <div class="tp-fill pwr" style="width:${m.candlePwr.pct}%;"></div>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join("");
+
       tbody.innerHTML = posList.map(p => {
-        const pnl = Number(p.unrealized_pnl || 0);
-        const cls = pnl >= 0 ? "pos" : "neg";
+        const m = computePositionLiveMetrics(p);
+        const cls = m.isProfit ? "pos" : "neg";
         return `
           <tr>
             <td><strong>${p.bingx_name || p.symbol}</strong></td>
@@ -1202,9 +1543,33 @@
             <td>${p.entry_price}</td>
             <td>${p.mark_price}</td>
             <td style="font-size:11px;">SL ${p.sl_price} / TP2 ${p.tp_price}</td>
-            <td>${p.tp_progress_pct}%</td>
+            <td>
+              <div class="tp-prog-wrap">
+                <div class="tp-prog-top">
+                  <span class="${cls}">${m.rawProg.toFixed(1)}% verso TP</span>
+                  <span class="muted">${m.clampedProg.toFixed(0)}%</span>
+                </div>
+                <div class="tp-track">
+                  <div class="tp-fill ${m.isProfit ? "pos" : "neg"}" style="width:${m.clampedProg}%;"></div>
+                </div>
+              </div>
+            </td>
+            <td>
+              <div class="tp-prog-wrap">
+                <div class="tp-prog-top">
+                  <span class="pwr-txt">⚡ ${m.candlePwr.pct.toFixed(0)}%</span>
+                  <span class="muted" style="font-size:10px;">${m.candlePwr.label}</span>
+                </div>
+                <div class="tp-track">
+                  <div class="tp-fill pwr" style="width:${m.candlePwr.pct}%;"></div>
+                </div>
+              </div>
+            </td>
             <td>${p.leverage}x</td>
-            <td class="${cls}">${pnl >= 0 ? "+" : ""}${pnl.toFixed(2)}</td>
+            <td class="${cls}">
+              <div>${m.pnl >= 0 ? "+" : ""}${m.pnl.toFixed(2)} USDT</div>
+              <div style="font-size:11px;">(${m.roiPct >= 0 ? "+" : ""}${m.roiPct.toFixed(1)}%)</div>
+            </td>
             <td>
               <button class="red" onclick="closePosition('${p.symbol}', '${p.side}', ${p.size})">Chiudi</button>
             </td>
@@ -1286,6 +1651,7 @@
       }
 
       const bal = d.balance_info || {};
+      STATE.balanceInfo = bal;
       document.getElementById("balSyncBadge").textContent = `Sync: ${bal.last_sync || "--:--:--"}`;
       document.getElementById("kpiBalance").textContent = Number(bal.balance_usdt || 0).toFixed(2);
       document.getElementById("kpiAvailableSub").textContent = `Disp: ${Number(bal.available_usdt || 0).toFixed(2)}`;
@@ -1319,6 +1685,7 @@
         pushNewCandleWrittenAlert(d.latest_new_candle_alert);
       }
 
+      updateSmartScoreUI();
       renderSignalsTable();
       renderMarketsTable();
       renderPositionsTable();
@@ -1359,6 +1726,7 @@
         if (d.latest_new_candle_alert) {
           pushNewCandleWrittenAlert(d.latest_new_candle_alert);
         }
+        updateSmartScoreUI();
         renderSignalsTable();
         renderMarketsTable();
         renderLogsAndAlerts();
@@ -1399,8 +1767,8 @@
       const flow = a.candle_flow || {};
       const ms = a.manual_sign || {};
       const ind = a.indicators || {};
-      const early = a.early_setup || {};
       const sInfo = getSignalSideInfo(a);
+      const ev = evaluateSmartSignal(a);
       const tBadge = getEntryTimingBadge(a.symbol, a.timeframe);
 
       document.getElementById("singleAnalysisBox").innerHTML = `
@@ -1413,7 +1781,7 @@
           </div>
           <div>
             <span class="pill ${sInfo.isShort ? "red" : "green"}">${ms.badge || a.signal}</span>
-            <span class="pill">Conf: ${a.confidence}%</span>
+            <span class="pill purple">Score Smart: ${ev.smartScore}/100 (Base ${a.confidence}%)</span>
           </div>
         </div>
         <div class="muted" style="margin-bottom:8px;">${ms.reason || ""}</div>
@@ -1433,8 +1801,8 @@
             <div>Piano: ${(a.tp_plan && a.tp_plan.label) || "--"} (R:R ${lv.rr})</div>
           </div>
           <div class="subbox">
-            <div><strong>Banca Anti-FOMO, Finestra & SN</strong></div>
-            <div><strong>${fomo.badge || "--"}</strong></div>
+            <div><strong>Score Smart, Anti-FOMO & SN</strong></div>
+            <div><strong>${ev.fomoBlocked ? "🛡️ ANTI-FOMO ATTIVO" : (ev.smartFomoOverride ? "⚡ SBLOCCATO SMART" : (fomo.badge || "--"))}</strong></div>
             <div class="muted" style="font-size:11px;">${fomo.reason || ""}</div>
             <div style="margin-top:4px;">${ew.status_badge || "--"} • ${sn.badge || "--"}</div>
           </div>
