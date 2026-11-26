@@ -189,6 +189,7 @@
     button.primary { background: #0284c7; border-color: #38bdf8; color: #fff; }
     button.green { background: #15803d; border-color: #22c55e; color: #fff; }
     button.red { background: #b91c1c; border-color: #ef4444; color: #fff; }
+    button.amber { background: #b45309; border-color: #f59e0b; color: #fff; }
 
     .kpi-grid {
       display: grid;
@@ -270,43 +271,6 @@
       font-weight: 700;
     }
 
-    .timing-pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      font-size: 10px;
-      font-weight: 700;
-      padding: 2px 7px;
-      border-radius: 6px;
-      border: 1px solid var(--border);
-      background: var(--panel-2);
-      color: var(--text);
-    }
-
-    .timing-pill.go {
-      background: rgba(34, 197, 94, .16);
-      border-color: rgba(34, 197, 94, .65);
-      color: #86efac;
-    }
-
-    .timing-pill.go-short {
-      background: rgba(239, 68, 68, .16);
-      border-color: rgba(239, 68, 68, .65);
-      color: #fca5a5;
-    }
-
-    .timing-pill.wait {
-      background: rgba(245, 158, 11, .14);
-      border-color: rgba(245, 158, 11, .55);
-      color: #fcd34d;
-    }
-
-    .timing-pill.stop {
-      background: rgba(239, 68, 68, .15);
-      border-color: rgba(239, 68, 68, .6);
-      color: #fca5a5;
-    }
-
     .pos { color: #4ade80; font-weight: 700; }
     .neg { color: #f87171; font-weight: 700; }
     .muted { color: var(--muted); }
@@ -356,7 +320,7 @@
     <div class="brand">
       <span>⚡ BingX HFT Signal Terminal</span>
       <span id="monitorPill" class="pill green">Monitor: ATTIVO</span>
-      <span id="profilePill" class="pill blue">Profilo: PRO</span>
+      <span id="profilePill" class="pill blue">Profilo: AUTO</span>
     </div>
 
     <div class="controls-row">
@@ -378,8 +342,8 @@
       </select>
 
       <label class="toggle-label">
-        <input type="checkbox" id="onlyCertainEarlyChk" checked />
-        Solo Segnali Forti
+        <input type="checkbox" id="onlyCertainEarlyChk" />
+        Solo Certi / Anticipo
       </label>
 
       <label class="toggle-label">
@@ -393,14 +357,16 @@
   </div>
 
   <div class="container">
+    <!-- AVVISO SCRITTO NUOVA CANDELA -->
     <div id="newCandleBanner" class="candle-alert-box">
       <div class="candle-alert-main">
-        <span id="newCandleAlertText">🕯️ In attesa di segnali forti o apertura della prossima candela...</span>
+        <span id="newCandleAlertText">🕯️ In attesa dell'apertura della prossima candela...</span>
         <span id="globalTimerBadge" class="pill blue">Prossima candela: --:--</span>
       </div>
       <div id="newCandleHistory" class="candle-history"></div>
     </div>
 
+    <!-- SALDO, CHIAVI API E CONTROLLI AUTO-CLOSE -->
     <div class="grid-3">
       <div class="card">
         <div class="card-header">
@@ -459,6 +425,7 @@
       </div>
     </div>
 
+    <!-- POSIZIONI APERTE BINGX -->
     <div class="card">
       <div class="card-header">
         <div class="card-title">📌 Posizioni Aperte su BingX</div>
@@ -487,27 +454,28 @@
       </div>
     </div>
 
+    <!-- RADAR SEGNALI & ANALISI DETTAGLIATA -->
     <div class="grid-2">
       <div class="card">
         <div class="card-header">
-          <div class="card-title">🔥 Radar Segnali Forti (Conf ≥ 75% • ADX ≥ 19)</div>
+          <div class="card-title">🎯 Radar Segnali Certi / Anticipo</div>
           <span id="radarCount" class="pill blue">0 segnali</span>
         </div>
         <div class="table-wrap">
           <table>
             <thead>
               <tr>
-                <th>Asset, Avviso & Candela</th>
-                <th>Direzione / Stato</th>
+                <th>Asset & Candela</th>
+                <th>Segnale / Stato</th>
                 <th>Conf.</th>
                 <th>Prezzo / Limite</th>
-                <th>SL / TP1 / TP2 / TP3</th>
+                <th>SL / TP1 / TP2</th>
                 <th>Piano / Lev</th>
                 <th>Azione</th>
               </tr>
             </thead>
             <tbody id="signalsBody">
-              <tr><td colspan="7" class="muted">In attesa di segnali forti...</td></tr>
+              <tr><td colspan="7" class="muted">In attesa di segnali...</td></tr>
             </tbody>
           </table>
         </div>
@@ -525,6 +493,7 @@
       </div>
     </div>
 
+    <!-- TUTTI I MERCATI BINGX -->
     <div class="card">
       <div class="card-header">
         <div class="card-title">🌐 Tutti i Contratti BingX Disponibili</div>
@@ -537,7 +506,7 @@
         <table>
           <thead>
             <tr>
-              <th>Asset, Avviso & Candela</th>
+              <th>Asset & Candela</th>
               <th>Categoria</th>
               <th>Sessione</th>
               <th>Prezzo</th>
@@ -554,6 +523,7 @@
       </div>
     </div>
 
+    <!-- LOG ORDINI & AVVISI -->
     <div class="grid-2">
       <div class="card">
         <div class="card-header">
@@ -566,7 +536,7 @@
 
       <div class="card">
         <div class="card-header">
-          <div class="card-title">🔔 Allarmi Acustici / Setup Forti Rilevati</div>
+          <div class="card-title">🔔 Allarmi Acustici / Setup Rilevati</div>
         </div>
         <div id="audioAlertsBox" class="log-box">
           <div class="muted">Nessun allarme recente.</div>
@@ -586,7 +556,6 @@
       audioAlerts: [],
       newCandleHistory: [],
       lastAnnouncedCandleKey: null,
-      preWarnedCandleKey: null,
       lastAlertId: null,
       soundEnabled: true
     };
@@ -618,12 +587,6 @@
       } catch (_) {}
     }
 
-    function playPreCandleBeep() {
-      if (!STATE.soundEnabled) return;
-      playBeep(660, 120);
-      setTimeout(() => playBeep(990, 150), 150);
-    }
-
     function computeLiveCandleClock(interval) {
       const secPerCandle = INTERVAL_SEC[interval] || 900;
       const nowSec = Math.floor(Date.now() / 1000);
@@ -636,151 +599,7 @@
       const mins = Math.floor((rem % 3600) / 60);
       const secs = rem % 60;
       const countdownStr = hrs > 0
-        ? `${String(hrs).padStart(2, "0")}:${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`
-        : `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
-
-      const preWindow = Math.min(45, Math.max(15, Math.floor(secPerCandle * 0.25)));
-      const isPre = rem <= preWindow;
-
-      const openClock = new Date(startSec * 1000).toLocaleTimeString("it-IT", {
-        timeZone: "Europe/Rome", hour12: false
-      });
-      const nextClock = new Date(nextSec * 1000).toLocaleTimeString("it-IT", {
-        timeZone: "Europe/Rome", hour12: false
-      });
-
-      return {
-        candleIndex,
-        countdownStr,
-        rem,
-        isPre,
-        openClock,
-        nextClock,
-        label: isPre
-          ? `⏱ PRE-CANDELA -${rem}s (apre ${nextClock})`
-          : `🕯️ ${interval} in ${countdownStr} (apre ${nextClock})`
-      };
-    }
-
-    function getSignalSideInfo(sig) {
-      if (!sig) return { side: "", actionLabel: "", dirLabel: "", icon: "", isShort: false };
-      const early = sig.early_setup || {};
-      const raw = String(sig.certain_signal || early.direction || sig.signal || "").toUpperCase();
-      const isShort = raw.includes("SHORT") || raw.includes("SELL");
-      return {
-        side: isShort ? "SELL" : "BUY",
-        actionLabel: isShort ? "VENDI (SHORT)" : "COMPRA (LONG)",
-        dirLabel: isShort ? "SHORT" : "LONG",
-        icon: isShort ? "📉" : "📈",
-        isShort
-      };
-    }
-
-    function isStrongSignalJs(s) {
-      if (!s) return false;
-      const ew = s.entry_window || {};
-      const sn = s.sn_rejection || {};
-      const ms = s.manual_sign || {};
-      const sess = s.session || {};
-      const rp = s.recommended_params || {};
-      const ind = s.indicators || {};
-      const blocked = (
-        Boolean(ew.exceeded)
-        || Boolean(sn.rejected)
-        || ["CANCELLED_REVERSAL", "REJECTED_SN", "OVER_THRESHOLD", "WEAK_SIGNAL"].includes(ms.status)
-        || sess.session_ok === false
-      );
-      if (blocked) return false;
-      const conf = Number(s.confidence || 0);
-      const adx = Number(ind.adx || 0);
-      const expR = Number(rp.expectancy_r || 0);
-      const sigStr = String(s.signal || "").toUpperCase();
-      const hasStrong = Boolean(s.certain_signal) || sigStr.includes("STRONG");
-      return hasStrong && conf >= 75 && adx >= 19 && expR >= 0.18;
-    }
-
-    function formatSignalFullSpecJs(s) {
-      const lv = s.levels || {};
-      const rp = s.recommended_params || {};
-      const plan = (s.tp_plan && s.tp_plan.label) ? ` (${s.tp_plan.label})` : "";
-      const sInfo = getSignalSideInfo(s);
-      return `${s.bingx_name || s.symbol} [${sInfo.icon} ${sInfo.actionLabel} • Conf ${s.confidence}%] | Entry: ${lv.entry ?? s.price} | TP1: ${lv.tp1 ?? "--"} | TP2: ${lv.tp2 ?? "--"} | TP3: ${lv.tp3 ?? "--"} | SL: ${lv.sl ?? "--"} | Lev: ${rp.leverage ?? "--"}x | Qty: ${rp.qty ?? 0}${plan}`;
-    }
-
-    function getFreeSignalsSorted() {
-      return Object.values(STATE.signals || {})
-        .filter(isStrongSignalJs)
-        .sort((a, b) => (b.confidence || 0) - (a.confidence || 0));
-    }
-
-    function getEntryTimingBadge(symbol, interval) {
-      const tf = interval || document.getElementById("timeframeSelect").value || "15m";
-      const clk = computeLiveCandleClock(tf);
-      const sig = (STATE.signals || {})[symbol];
-
-      if (!sig) {
-        return {
-          cls: "timing-pill wait",
-          text: `⏳ ATTESA SETUP FORTE (${clk.countdownStr})`,
-          title: `Nessun segnale forte attivo su ${symbol} • Prossima candela tra ${clk.countdownStr}`
-        };
-      }
-
-      const ew = sig.entry_window || {};
-      const sn = sig.sn_rejection || {};
-      const ms = sig.manual_sign || {};
-      const sess = sig.session || {};
-      const lv = sig.levels || {};
-      const rp = sig.recommended_params || {};
-      const sInfo = getSignalSideInfo(sig);
-      const tpSummary = `${sInfo.actionLabel} • Conf ${sig.confidence}% • Entry ${lv.entry ?? sig.price} • TP1 ${lv.tp1 ?? "--"} • TP2 ${lv.tp2 ?? "--"} • TP3 ${lv.tp3 ?? "--"} • SL ${lv.sl ?? "--"} • Lev ${rp.leverage ?? "--"}x`;
-
-      if (sn.rejected) {
-        return {
-          cls: "timing-pill stop",
-          text: `🛑 NON ENTRARE (SN) • ${sInfo.icon} ${sInfo.actionLabel}`,
-          title: `${sn.reason || "Rifiuto SN"} | ${tpSummary}`
-        };
-      }
-      if (ew.exceeded) {
-        return {
-          cls: "timing-pill stop",
-          text: `🛑 NON ENTRARE (SOGLIA) • ${sInfo.icon} ${sInfo.actionLabel}`,
-          title: `${ew.reason || "Oltre soglia"} | ${tpSummary}`
-        };
-      }
-      if (ms.status === "CANCELLED_REVERSAL") {
-        return {
-          cls: "timing-pill stop",
-          text: `❌ ANNULLATO • ${sInfo.icon} ${sInfo.actionLabel}`,
-          title: `${ms.reason || "Inversione"} | ${tpSummary}`
-        };
-      }
-      if (sess.session_ok === false) {
-        return {
-          cls: "timing-pill wait",
-          text: `🟡 FUORI ORARIO • ${sInfo.icon} ${sInfo.actionLabel}`,
-          title: `${sess.session_name || "Fuori orario"} | ${tpSummary}`
-        };
-      }
-      if (!isStrongSignalJs(sig)) {
-        return {
-          cls: "timing-pill wait",
-          text: `⏳ FILTRO FORZA (${sig.confidence}%) • ${sInfo.icon} ${sInfo.actionLabel}`,
-          title: `In attesa di confidenza/trend più forti | ${tpSummary}`
-        };
-      }
-      if (ms.show_enter_now || clk.isPre) {
-        return {
-          cls: sInfo.isShort ? "timing-pill go-short" : "timing-pill go",
-          text: `🔥 ENTRA ORA • ${sInfo.icon} ${sInfo.actionLabel} (-${clk.rem}s) • TP1 ${lv.tp1 ?? "--"} / TP2 ${lv.tp2 ?? "--"} / TP3 ${lv.tp3 ?? "--"} • SL ${lv.sl ?? "--"}`,
-          title: tpSummary
-        };
-      }
-      return {
-        cls: sInfo.isShort ? "timing-pill go-short" : "timing-pill go",
-        text: `⚡ SEGNALE FORTE • ${sInfo.icon} ${sInfo.actionLabel} (${sig.confidence}%) • TP1 ${lv.tp1 ?? "--"} / TP2 ${lv.tp2 ?? "--"} / TP3 ${lv.tp3 ?? "--"} • SL ${lv.sl ?? "--"}`,
-        title: tpSummary
+        ? `${String(hrs).padStart(2, "0")}:${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}` : `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;  const preWindow = Math.min(45, Math.max(15, Math.floor(secPerCandle * 0.25))); const isPre = rem <= preWindow;  const openClock = new Date(startSec * 1000).toLocaleTimeString("it-IT", { timeZone: "Europe/Rome", hour12: false }); const nextClock = new Date(nextSec * 1000).toLocaleTimeString("it-IT", { timeZone: "Europe/Rome", hour12: false });  return { candleIndex, countdownStr, rem, isPre, openClock, nextClock, label: isPre ? `⏱ PRE-CANDELA -${rem}s (apre ${nextClock})` : `🕯️ ${interval} in ${countdownStr} (apre${nextClock})`
       };
     }
 
@@ -788,25 +607,7 @@
       if (!alertObj || !alertObj.text) return;
       const banner = document.getElementById("newCandleBanner");
       const textEl = document.getElementById("newCandleAlertText");
-      textEl.textContent = `🕯️ ${alertObj.text}`;
-      banner.classList.toggle("blocked", Boolean(alertObj.blocked));
-
-      const exists = STATE.newCandleHistory.some(x => x.id === alertObj.id && x.text === alertObj.text);
-      if (!exists) {
-        STATE.newCandleHistory.unshift(alertObj);
-        STATE.newCandleHistory = STATE.newCandleHistory.slice(0, 5);
-        renderCandleHistory();
-      }
-    }
-
-    function renderCandleHistory() {
-      const box = document.getElementById("newCandleHistory");
-      if (!STATE.newCandleHistory.length) {
-        box.innerHTML = "";
-        return;
-      }
-      box.innerHTML = STATE.newCandleHistory
-        .map(item => `<span>${item.text}</span>`)
+      textEl.textContent = `🕯️ ${alertObj.text}`; banner.classList.toggle("blocked", Boolean(alertObj.blocked));  const exists = STATE.newCandleHistory.some(x => x.id === alertObj.id && x.text === alertObj.text); if (!exists) { STATE.newCandleHistory.unshift(alertObj); STATE.newCandleHistory = STATE.newCandleHistory.slice(0, 5); renderCandleHistory(); } }  function renderCandleHistory() { const box = document.getElementById("newCandleHistory"); if (!STATE.newCandleHistory.length) { box.innerHTML = ""; return; } box.innerHTML = STATE.newCandleHistory .map(item => `<span>${item.text}</span>`)
         .join("");
     }
 
@@ -815,9 +616,7 @@
       const clk = computeLiveCandleClock(interval);
 
       const globalBadge = document.getElementById("globalTimerBadge");
-      globalBadge.textContent = clk.isPre
-        ? `⏱ PRE-CANDELA ${interval}: -${clk.rem}s (apre ${clk.nextClock})`
-        : `Prossima candela ${interval}: ${clk.countdownStr} (alle ${clk.nextClock})`;
+      globalBadge.textContent = `Prossima candela ${interval}: ${clk.countdownStr} (alle${clk.nextClock})`;
       globalBadge.className = clk.isPre ? "pill green" : "pill blue";
 
       document.querySelectorAll(".live-candle-badge").forEach(el => {
@@ -828,42 +627,33 @@
       });
 
       const candleKey = `${interval}_${clk.candleIndex}`;
-      const strongList = getFreeSignalsSorted();
-
-      if (clk.isPre && clk.rem > 0 && strongList.length > 0) {
-        const topParts = strongList.slice(0, 3).map(formatSignalFullSpecJs);
-        const banner = document.getElementById("newCandleBanner");
-        banner.classList.remove("blocked");
-        document.getElementById("newCandleAlertText").textContent =
-          `⏱ PRE-AVVISO -${clk.rem}s (apertura ${clk.nextClock}) — SEGNALI FORTI: ${topParts.join(" • ")}`;
-
-        const warnKey = `${candleKey}_PRE`;
-        if (STATE.preWarnedCandleKey !== warnKey) {
-          STATE.preWarnedCandleKey = warnKey;
-          playPreCandleBeep();
-        }
-      }
-
       if (STATE.lastAnnouncedCandleKey && STATE.lastAnnouncedCandleKey !== candleKey) {
-        if (strongList.length > 0) {
-          const topParts = strongList.slice(0, 3).map(formatSignalFullSpecJs);
+        const sigList = Object.values(STATE.signals || {});
+        const validSig = sigList
+          .filter(s => !(s.entry_window && s.entry_window.exceeded) && !(s.sn_rejection && s.sn_rejection.rejected))
+          .sort((a, b) => (b.confidence || 0) - (a.confidence || 0))[0];
+
+        if (validSig) {
+          const dir = validSig.certain_signal || validSig.signal || (validSig.early_setup && validSig.early_setup.direction) || "";
+          const lv = validSig.levels || {};
+          const rp = validSig.recommended_params || {};
           pushNewCandleWrittenAlert({
             id: candleKey,
             time: clk.openClock,
             timeframe: interval,
             blocked: false,
-            text: `Nuova candela ${interval} aperta alle ${clk.openClock} — SEGNALI FORTI (${strongList.length}): ${topParts.join(" • ")}`
+            text: `Nuova candela ${interval} aperta alle${clk.openClock} — ${validSig.bingx_name \vert{}\vert{} validSig.symbol}${dir} | Entry: ${lv.entry ?? validSig.price} \vert{} TP2: ${lv.tp2 ?? "--"} | SL: ${lv.sl ?? "--"} (Lev ${rp.leverage ?? "--"}x)`
           });
-          playBeep(980, 220);
         } else {
           pushNewCandleWrittenAlert({
             id: candleKey,
             time: clk.openClock,
             timeframe: interval,
             blocked: true,
-            text: `Nuova candela ${interval} aperta alle ${clk.openClock} — NESSUN SEGNALE FORTE VALIDO (in attesa di setup ad alta probabilità).`
+            text: `Nuova candela ${interval} aperta alle${clk.openClock} — NON ENTRARE (nessun segnale valido confermato).`
           });
         }
+        playBeep(980, 220);
       }
       STATE.lastAnnouncedCandleKey = candleKey;
     }
@@ -880,7 +670,7 @@
         badge.className = "pill amber";
       }
       document.getElementById("keysMaskText").textContent =
-        `API: ${d.masked_api_key || "--"} | Secret: ${d.masked_secret_key || "--"}`;
+        `API: ${d.masked_api_key \vert{}\vert{} "--"} \vert{} Secret: ${d.masked_secret_key || "--"}`;
     }
 
     async function saveKeys() {
@@ -917,13 +707,7 @@
       const filtered = STATE.markets.filter(m => {
         if (cat !== "ALL" && cat !== "CERTAIN" && m.category !== cat) return false;
         if (q) {
-          const hay = `${m.symbol} ${m.bingxName} ${m.category}`.toUpperCase();
-          if (!hay.includes(q)) return false;
-        }
-        return true;
-      });
-
-      document.getElementById("marketsCount").textContent = `${filtered.length} mercati`;
+          const hay = `${m.symbol}${m.bingxName} ${m.category}`.toUpperCase(); if (!hay.includes(q)) return false; } return true; });  document.getElementById("marketsCount").textContent = `${filtered.length} mercati`;
       const tbody = document.getElementById("marketsBody");
       if (!filtered.length) {
         tbody.innerHTML = `<tr><td colspan="8" class="muted">Nessun contratto trovato con i filtri attuali.</td></tr>`;
@@ -934,7 +718,6 @@
         const chg = Number(m.priceChangePercent || 0);
         const chgCls = chg >= 0 ? "pos" : "neg";
         const sessBadge = (m.session && m.session.badge) || "--";
-        const tBadge = getEntryTimingBadge(m.symbol, tf);
         return `
           <tr>
             <td>
@@ -942,7 +725,6 @@
                 <div class="asset-main">
                   <strong>${m.bingxName}</strong>
                   <span class="muted" style="font-size:11px;">${m.symbol}</span>
-                  <span class="${tBadge.cls}" title="${tBadge.title}">${tBadge.text}</span>
                 </div>
                 <span class="candle-badge live-candle-badge" data-tf="${tf}">🕯️ ${tf}</span>
               </div>
@@ -955,8 +737,8 @@
             <td>${m.maxLeverage}x</td>
             <td>
               <button onclick="selectAndAnalyze('${m.symbol}')">Analizza</button>
-              <button class="green" onclick="quickOrder('${m.symbol}', 'BUY')">COMPRA</button>
-              <button class="red" onclick="quickOrder('${m.symbol}', 'SELL')">VENDI</button>
+              <button class="green" onclick="quickOrder('${m.symbol}', 'BUY')">LONG</button>
+              <button class="red" onclick="quickOrder('${m.symbol}', 'SELL')">SHORT</button>
             </td>
           </tr>
         `;
@@ -968,14 +750,18 @@
       const onlyCE = document.getElementById("onlyCertainEarlyChk").checked;
       const list = Object.values(STATE.signals || {}).filter(s => {
         if (!s) return false;
-        if (onlyCE) return isStrongSignalJs(s);
+        if (onlyCE) {
+          const early = s.early_setup || {};
+          const sig = String(s.signal || "");
+          return Boolean(s.certain_signal || early.trigger_sound || early.direction || sig.includes("LONG") || sig.includes("SHORT"));
+        }
         return true;
       });
 
-      document.getElementById("radarCount").textContent = `${list.length} segnali forti`;
+      document.getElementById("radarCount").textContent = `${list.length} segnali`;
       const tbody = document.getElementById("signalsBody");
       if (!list.length) {
-        tbody.innerHTML = `<tr><td colspan="7" class="muted">Nessun segnale forte attivo al momento (filtrati automaticamente i segnali deboli o bloccati).</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" class="muted">Nessun segnale attivo per i filtri correnti.</td></tr>`;
         return;
       }
 
@@ -984,24 +770,20 @@
         const rp = s.recommended_params || {};
         const early = s.early_setup || {};
         const ms = s.manual_sign || {};
-        const sInfo = getSignalSideInfo(s);
         const badgeText = ms.badge || s.certain_signal || s.signal;
-        const tBadge = getEntryTimingBadge(s.symbol, s.timeframe || tf);
+        const dir = s.certain_signal || early.direction || s.signal || "LONG";
+        const side = String(dir).includes("SHORT") ? "SELL" : "BUY";
 
         return `
           <tr>
             <td>
               <div class="asset-cell">
-                <div class="asset-main">
-                  <strong>${s.bingx_name || s.symbol}</strong>
-                  <span class="${tBadge.cls}" title="${tBadge.title}">${tBadge.text}</span>
-                </div>
-                <span class="candle-badge live-candle-badge" data-tf="${s.timeframe || tf}">🕯️ ${s.timeframe || tf}</span>
+                <strong>${s.bingx_name || s.symbol}</strong>
+                <span class="candle-badge live-candle-badge" data-tf="${s.timeframe \vert{}\vert{} tf}">🕯️ ${s.timeframe || tf}</span>
               </div>
             </td>
             <td>
-              <div><span class="pill ${sInfo.isShort ? "red" : "green"}">${sInfo.icon} ${sInfo.actionLabel}</span></div>
-              <div style="margin-top:3px;"><strong>${badgeText}</strong></div>
+              <div><strong>${badgeText}</strong></div>
               <div class="muted" style="font-size:11px;">${early.setup_type || ""}</div>
             </td>
             <td><strong>${s.confidence}%</strong></td>
@@ -1011,7 +793,7 @@
             </td>
             <td style="font-size:11px;">
               <div>SL: <span class="neg">${lv.sl ?? "--"}</span></div>
-              <div>TP1: ${lv.tp1 ?? "--"} • TP2: <span class="pos">${lv.tp2 ?? "--"}</span> • TP3: <span class="pos">${lv.tp3 ?? "--"}</span></div>
+              <div>TP1: ${lv.tp1 ?? "--"} • TP2: <span class="pos">${lv.tp2 ?? "--"}</span></div>
             </td>
             <td style="font-size:11px;">
               <div>${(s.tp_plan && s.tp_plan.label) || "--"}</div>
@@ -1019,8 +801,8 @@
             </td>
             <td>
               <button onclick="selectAndAnalyze('${s.symbol}')">Dettagli</button>
-              <button class="${sInfo.side === "BUY" ? "green" : "red"}" onclick="executeFromAnalysis('${s.symbol}', '${sInfo.side}', ${rp.qty || 0}, ${lv.sl || 0}, ${lv.tp2 || 0}, ${rp.leverage || 10}, ${s.price}, ${early.candle_id || 0}, ${(s.candle_timing && s.candle_timing.candle_index) || 0}, ${lv.tp1 || 0}, ${lv.tp3 || 0})">
-                ${sInfo.side === "BUY" ? "COMPRA" : "VENDI"}
+              <button class="${side === "BUY" ? "green" : "red"}" onclick="executeFromAnalysis('${s.symbol}', '${side}',${rp.qty || 0}, ${lv.sl \vert{}\vert{} 0},${lv.tp2 || 0}, ${rp.leverage \vert{}\vert{} 10},${s.price}, ${early.candle_id \vert{}\vert{} 0},${(s.candle_timing && s.candle_timing.candle_index) || 0}, ${lv.tp1 \vert{}\vert{} 0},${lv.tp3 || 0})">
+                ${side === "BUY" ? "Compra" : "Vendi"}
               </button>
             </td>
           </tr>
@@ -1043,16 +825,16 @@
         return `
           <tr>
             <td><strong>${p.bingx_name || p.symbol}</strong></td>
-            <td><span class="pill ${p.side === "LONG" ? "green" : "red"}">${p.side === "LONG" ? "📈 LONG" : "📉 SHORT"}</span></td>
+            <td><span class="pill ${p.side === "LONG" ? "green" : "red"}">${p.side}</span></td>
             <td>${p.size}</td>
             <td>${p.entry_price}</td>
             <td>${p.mark_price}</td>
-            <td style="font-size:11px;">SL ${p.sl_price} / TP2 ${p.tp_price}</td>
+            <td style="font-size:11px;">SL ${p.sl_price} / TP2${p.tp_price}</td>
             <td>${p.tp_progress_pct}%</td>
             <td>${p.leverage}x</td>
             <td class="${cls}">${pnl >= 0 ? "+" : ""}${pnl.toFixed(2)}</td>
             <td>
-              <button class="red" onclick="closePosition('${p.symbol}', '${p.side}', ${p.size})">Chiudi</button>
+              <button class="red" onclick="closePosition('${p.symbol}', '${p.side}',${p.size})">Chiudi</button>
             </td>
           </tr>
         `;
@@ -1066,7 +848,7 @@
       } else {
         logsBox.innerHTML = STATE.tradeLogs.map(l => `
           <div class="log-item">
-            [${l.time}] <strong>${l.symbol}</strong> ${l.side} qty=${l.qty} sl=${l.sl} tp=${l.tp} → ${JSON.stringify(l.response)}
+            [${l.time}] <strong>${l.symbol}</strong>${l.side} qty=${l.qty} sl=${l.sl} tp=${l.tp} →${JSON.stringify(l.response)}
           </div>
         `).join("");
       }
@@ -1081,7 +863,7 @@
         }
         alertsBox.innerHTML = STATE.audioAlerts.map(a => `
           <div class="log-item">
-            [${a.time}] <strong>${a.symbol}</strong> — ${a.title} (${a.order_type}) @ ${a.price} | SL ${a.sl} | TP1 ${a.tp1 ?? "--"} / TP2 ${a.tp2} / TP3 ${a.tp3 ?? "--"}
+            [${a.time}] <strong>${a.symbol}</strong> —${a.title} (${a.order_type}) @${a.price} | SL ${a.sl} \vert{} TP2${a.tp2}
           </div>
         `).join("");
       }
@@ -1127,13 +909,7 @@
       }
 
       const bal = d.balance_info || {};
-      document.getElementById("balSyncBadge").textContent = `Sync: ${bal.last_sync || "--:--:--"}`;
-      document.getElementById("kpiBalance").textContent = Number(bal.balance_usdt || 0).toFixed(2);
-      document.getElementById("kpiAvailable").textContent = Number(bal.available_usdt || 0).toFixed(2);
-      const upnl = Number(bal.unrealized_pnl_usdt || 0);
-      const upnlEl = document.getElementById("kpiUnrealized");
-      upnlEl.textContent = `${upnl >= 0 ? "+" : ""}${upnl.toFixed(2)}`;
-      upnlEl.className = `val ${upnl >= 0 ? "pos" : "neg"}`;
+      document.getElementById("balSyncBadge").textContent = `Sync: ${bal.last_sync \vert{}\vert{} "--:--:--"}`; document.getElementById("kpiBalance").textContent = Number(bal.balance_usdt \vert{}\vert{} 0).toFixed(2); document.getElementById("kpiAvailable").textContent = Number(bal.available_usdt \vert{}\vert{} 0).toFixed(2); const upnl = Number(bal.unrealized_pnl_usdt \vert{}\vert{} 0); const upnlEl = document.getElementById("kpiUnrealized"); upnlEl.textContent = `${upnl >= 0 ? "+" : ""}${upnl.toFixed(2)}`; upnlEl.className = `val ${upnl >= 0 ? "pos" : "neg"}`;
       document.getElementById("kpiEquity").textContent = Number(bal.equity_usdt || 0).toFixed(2);
 
       STATE.signals = d.signals || {};
@@ -1146,7 +922,6 @@
       }
 
       renderSignalsTable();
-      renderMarketsTable();
       renderPositionsTable();
       renderLogsAndAlerts();
       tickTimersAndCandleTransition();
@@ -1186,7 +961,6 @@
           pushNewCandleWrittenAlert(d.latest_new_candle_alert);
         }
         renderSignalsTable();
-        renderMarketsTable();
         renderLogsAndAlerts();
         tickTimersAndCandleTransition();
       }
@@ -1224,31 +998,26 @@
       const ms = a.manual_sign || {};
       const ind = a.indicators || {};
       const early = a.early_setup || {};
-      const sInfo = getSignalSideInfo(a);
-      const tBadge = getEntryTimingBadge(a.symbol, a.timeframe);
 
       document.getElementById("singleAnalysisBox").innerHTML = `
         <div style="display:flex; flex-wrap:wrap; justify-content:space-between; gap:8px; margin-bottom:8px;">
           <div>
             <strong>${a.bingx_name}</strong> (${a.symbol}) • <span class="pill blue">${a.timeframe}</span>
-            <span class="pill ${sInfo.isShort ? "red" : "green"}" style="margin-left:6px;">${sInfo.icon} ${sInfo.actionLabel}</span>
-            <span class="${tBadge.cls}" style="margin-left:6px;" title="${tBadge.title}">${tBadge.text}</span>
             <span class="candle-badge live-candle-badge" data-tf="${a.timeframe}" style="display:inline-flex; margin-left:6px;">🕯️ ${a.timeframe}</span>
           </div>
           <div>
-            <span class="pill ${sInfo.isShort ? "red" : "green"}">${ms.badge || a.signal}</span>
+            <span class="pill green">${ms.badge || a.signal}</span>
             <span class="pill">Conf: ${a.confidence}%</span>
           </div>
         </div>
         <div class="muted" style="margin-bottom:8px;">${ms.reason || ""}</div>
         <div class="analysis-detail">
           <div class="subbox">
-            <div><strong>Direzione, Livelli & Piano TP</strong></div>
-            <div>Direzione: <strong class="${sInfo.isShort ? "neg" : "pos"}">${sInfo.icon} ${sInfo.actionLabel}</strong></div>
+            <div><strong>Livelli & Piano TP</strong></div>
             <div>Prezzo: <strong>${a.price}</strong></div>
             <div>Entry: ${lv.entry} | SL: <span class="neg">${lv.sl}</span></div>
-            <div>TP1: ${lv.tp1} | TP2: <span class="pos">${lv.tp2}</span> | TP3: <span class="pos">${lv.tp3}</span></div>
-            <div>R:R: ${lv.rr} | Piano: ${(a.tp_plan && a.tp_plan.label) || "--"}</div>
+            <div>TP1: ${lv.tp1} | TP2: <span class="pos">${lv.tp2}</span> \vert{} TP3:${lv.tp3}</div>
+            <div>R:R: ${lv.rr} \vert{} Piano:${(a.tp_plan && a.tp_plan.label) || "--"}</div>
           </div>
           <div class="subbox">
             <div><strong>Size & Matematica</strong></div>
@@ -1268,7 +1037,7 @@
             <div><strong>Indicatori</strong></div>
             <div>RSI: ${ind.rsi} • ADX: ${ind.adx} • Z: ${ind.z_score}</div>
             <div>EMA200: ${ind.ema200} • ATR: ${ind.atr}</div>
-            <div>OB Imb: ${ind.ob_imbalance}% • Fund: ${ind.funding_rate}%</div>
+            <div>OB Imb: ${ind.ob_imbalance}\% • Fund: ${ind.funding_rate}%</div>
           </div>
         </div>
       `;
