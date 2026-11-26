@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -70,6 +69,47 @@
     .pill.amber { border-color: rgba(245,158,11,.45); color: #fcd34d; background: rgba(245,158,11,.12); }
     .pill.blue { border-color: rgba(56,189,248,.45); color: #7dd3fc; background: rgba(56,189,248,.12); }
 
+    @keyframes pulseGlow {
+      0%, 100% { box-shadow: 0 0 0 rgba(34,197,94,0); }
+      50% { box-shadow: 0 0 14px rgba(34,197,94,.38); }
+    }
+
+    @keyframes amberGlow {
+      0%, 100% { box-shadow: 0 0 0 rgba(245,158,11,0); }
+      50% { box-shadow: 0 0 14px rgba(245,158,11,.38); }
+    }
+
+    .luminous-sign {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 7px;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+    }
+
+    .luminous-sign.enter-now {
+      background: rgba(34,197,94,.22);
+      border: 1px solid #22c55e;
+      color: #bbf7d0;
+      animation: pulseGlow 1.3s infinite;
+    }
+
+    .luminous-sign.get-ready {
+      background: rgba(245,158,11,.22);
+      border: 1px solid #f59e0b;
+      color: #fde68a;
+      animation: amberGlow 1.4s infinite;
+    }
+
+    .luminous-sign.anti-fomo {
+      background: rgba(239,68,68,.20);
+      border: 1px solid #ef4444;
+      color: #fecaca;
+    }
+
     .container {
       max-width: 1560px;
       margin: 0 auto;
@@ -86,7 +126,17 @@
       padding: 10px 14px;
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 8px;
+    }
+
+    .candle-alert-box.ready {
+      background: linear-gradient(90deg, rgba(245,158,11,.18), rgba(56,189,248,.12));
+      border-color: rgba(245,158,11,.65);
+    }
+
+    .candle-alert-box.enter {
+      background: linear-gradient(90deg, rgba(34,197,94,.20), rgba(56,189,248,.12));
+      border-color: rgba(34,197,94,.75);
     }
 
     .candle-alert-box.blocked {
@@ -102,6 +152,13 @@
       gap: 8px;
       font-weight: 600;
       font-size: 13px;
+    }
+
+    .signs-strip {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
     }
 
     .candle-history {
@@ -193,7 +250,7 @@
 
     .kpi-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(125px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(115px, 1fr));
       gap: 8px;
     }
 
@@ -205,7 +262,8 @@
     }
 
     .kpi .label { font-size: 11px; color: var(--muted); }
-    .kpi .val { font-size: 15px; font-weight: 700; margin-top: 2px; }
+    .kpi .val { font-size: 14px; font-weight: 700; margin-top: 2px; }
+    .kpi .sub { font-size: 11px; margin-top: 2px; }
 
     .table-wrap {
       overflow-x: auto;
@@ -265,9 +323,9 @@
     }
 
     .candle-badge.pre {
-      background: rgba(34,197,94,.16);
-      border-color: rgba(34,197,94,.55);
-      color: #86efac;
+      background: rgba(245,158,11,.18);
+      border-color: rgba(245,158,11,.65);
+      color: #fde68a;
       font-weight: 700;
     }
 
@@ -285,26 +343,32 @@
     }
 
     .timing-pill.go {
-      background: rgba(34, 197, 94, .16);
-      border-color: rgba(34, 197, 94, .65);
+      background: rgba(34, 197, 94, .18);
+      border-color: rgba(34, 197, 94, .7);
       color: #86efac;
     }
 
     .timing-pill.go-short {
-      background: rgba(239, 68, 68, .16);
-      border-color: rgba(239, 68, 68, .65);
+      background: rgba(239, 68, 68, .18);
+      border-color: rgba(239, 68, 68, .7);
       color: #fca5a5;
     }
 
+    .timing-pill.ready {
+      background: rgba(245, 158, 11, .20);
+      border-color: rgba(245, 158, 11, .7);
+      color: #fde68a;
+    }
+
     .timing-pill.wait {
-      background: rgba(245, 158, 11, .14);
-      border-color: rgba(245, 158, 11, .55);
-      color: #fcd34d;
+      background: rgba(56, 189, 248, .12);
+      border-color: rgba(56, 189, 248, .45);
+      color: #bae6fd;
     }
 
     .timing-pill.stop {
-      background: rgba(239, 68, 68, .15);
-      border-color: rgba(239, 68, 68, .6);
+      background: rgba(239, 68, 68, .16);
+      border-color: rgba(239, 68, 68, .65);
       color: #fca5a5;
     }
 
@@ -384,6 +448,11 @@
       </label>
 
       <label class="toggle-label">
+        <input type="checkbox" id="antiFomoChk" checked onchange="syncMonitorSettings()" />
+        Banca Anti-FOMO
+      </label>
+
+      <label class="toggle-label">
         <input type="checkbox" id="autoTradeChk" />
         Auto-Trade Reale
       </label>
@@ -394,38 +463,47 @@
   </div>
 
   <div class="container">
-    <!-- AVVISO SCRITTO PRE-CANDELA / NUOVA CANDELA CON DIREZIONE E TP ESATTI -->
+    <!-- CARTELLI LUMINOSI & AVVISO PRE-CANDELA / NUOVA CANDELA -->
     <div id="newCandleBanner" class="candle-alert-box">
       <div class="candle-alert-main">
-        <span id="newCandleAlertText">🕯️ In attesa dell'apertura della prossima candela...</span>
+        <span id="newCandleAlertText">🕯️ Cervello matematico in ascolto del flusso candele...</span>
         <span id="globalTimerBadge" class="pill blue">Prossima candela: --:--</span>
+      </div>
+      <div class="signs-strip">
+        <span id="signGetReady" class="luminous-sign get-ready">🟡 TIENITI PRONTO: In attesa carica potenza</span>
+        <span id="signEnterNow" class="luminous-sign enter-now">🟢 ENTRA ORA: Attesa finestra valida</span>
+        <span id="signAntiFomo" class="luminous-sign anti-fomo">🛡️ ANTI-FOMO: Attivo</span>
       </div>
       <div id="newCandleHistory" class="candle-history"></div>
     </div>
 
-    <!-- SALDO, CHIAVI API E CONTROLLI AUTO-CLOSE -->
+    <!-- SALDO, % GIORNALIERA/MENSILE, CHIAVI API E CONTROLLI -->
     <div class="grid-3">
       <div class="card">
         <div class="card-header">
-          <div class="card-title">💼 Conto BingX Live</div>
+          <div class="card-title">💼 Conto BingX Live & % Rendimento</div>
           <span id="balSyncBadge" class="pill">Sync: --:--:--</span>
         </div>
         <div class="kpi-grid">
           <div class="kpi">
             <div class="label">Balance USDT</div>
             <div id="kpiBalance" class="val">0.00</div>
+            <div id="kpiAvailableSub" class="sub muted">Disp: 0.00</div>
           </div>
           <div class="kpi">
-            <div class="label">Disponibile</div>
-            <div id="kpiAvailable" class="val">0.00</div>
-          </div>
-          <div class="kpi">
-            <div class="label">PnL Non Realizzato</div>
+            <div class="label">PnL Non Real.</div>
             <div id="kpiUnrealized" class="val">0.00</div>
+            <div id="kpiEquitySub" class="sub muted">Eq: 0.00</div>
           </div>
           <div class="kpi">
-            <div class="label">Equity</div>
-            <div id="kpiEquity" class="val">0.00</div>
+            <div class="label">Giornaliero %</div>
+            <div id="kpiDailyPct" class="val">0.00%</div>
+            <div id="kpiDailyUsdt" class="sub muted">0.00 USDT</div>
+          </div>
+          <div class="kpi">
+            <div class="label">Mensile %</div>
+            <div id="kpiMonthlyPct" class="val">0.00%</div>
+            <div id="kpiMonthlyUsdt" class="sub muted">0.00 USDT</div>
           </div>
         </div>
       </div>
@@ -526,7 +604,7 @@
             <button class="primary" onclick="analyzeSingle()">Analizza</button>
           </div>
         </div>
-        <div id="singleAnalysisBox" class="muted">Seleziona o analizza un contratto per vedere dettagli, filtri SN, soglia ingresso e indicatori.</div>
+        <div id="singleAnalysisBox" class="muted">Seleziona o analizza un contratto per vedere dettagli, flusso candela, Banca Anti-FOMO, TP/SL e indicatori.</div>
       </div>
     </div>
 
@@ -699,15 +777,65 @@
           const sn = s.sn_rejection || {};
           const ms = s.manual_sign || {};
           const sess = s.session || {};
+          const fomo = s.anti_fomo || {};
           const blocked = (
             Boolean(ew.exceeded)
             || Boolean(sn.rejected)
-            || ["CANCELLED_REVERSAL", "REJECTED_SN", "OVER_THRESHOLD"].includes(ms.status)
+            || Boolean(fomo.blocked)
+            || ["CANCELLED_REVERSAL", "REJECTED_SN", "OVER_THRESHOLD", "ANTI_FOMO_BLOCKED"].includes(ms.status)
             || sess.session_ok === false
           );
           return !blocked;
         })
         .sort((a, b) => (b.confidence || 0) - (a.confidence || 0));
+    }
+
+    function updateLuminousSigns(freeList, clk) {
+      const signReady = document.getElementById("signGetReady");
+      const signEnter = document.getElementById("signEnterNow");
+      const signFomo = document.getElementById("signAntiFomo");
+      const banner = document.getElementById("newCandleBanner");
+
+      const allSigs = Object.values(STATE.signals || {});
+      const readySig = allSigs.find(s => s && s.manual_sign && s.manual_sign.show_get_ready)
+        || allSigs.find(s => s && s.candle_flow && s.candle_flow.is_power_charging);
+      const enterSig = freeList.find(s => s && s.manual_sign && s.manual_sign.show_enter_now)
+        || (clk.isPre && freeList.length > 0 ? freeList[0] : null);
+      const fomoBlockedSig = allSigs.find(s => s && s.anti_fomo && s.anti_fomo.blocked);
+
+      if (readySig) {
+        const sInfo = getSignalSideInfo(readySig);
+        const pwr = (readySig.candle_flow && readySig.candle_flow.power_charge_pct) ?? "--";
+        signReady.textContent = `🟡 TIENITI PRONTO: ${readySig.bingx_name || readySig.symbol} ${sInfo.icon} ${sInfo.actionLabel} • Potenza ${pwr}% (-${clk.rem}s)`;
+      } else if (clk.isPre) {
+        signReady.textContent = `🟡 TIENITI PRONTO: Chiusura candela tra ${clk.rem}s`;
+      } else {
+        signReady.textContent = `🟡 TIENITI PRONTO: Monitoraggio carica potenza candele`;
+      }
+
+      if (enterSig) {
+        const sInfo = getSignalSideInfo(enterSig);
+        const lv = enterSig.levels || {};
+        signEnter.textContent = `🟢 ENTRA ORA: ${enterSig.bingx_name || enterSig.symbol} ${sInfo.icon} ${sInfo.actionLabel} • TP2 ${lv.tp2 ?? "--"} • SL ${lv.sl ?? "--"}`;
+        banner.classList.remove("ready");
+        banner.classList.add("enter");
+      } else if (readySig || clk.isPre) {
+        signEnter.textContent = `🟢 ENTRA ORA: Attesa conferma apertura / finestra`;
+        banner.classList.remove("enter");
+        banner.classList.add("ready");
+      } else {
+        signEnter.textContent = `🟢 ENTRA ORA: Nessun ingresso immediato libero`;
+        banner.classList.remove("enter", "ready");
+      }
+
+      const fomoEnabled = document.getElementById("antiFomoChk").checked;
+      if (!fomoEnabled) {
+        signFomo.textContent = `🛡️ ANTI-FOMO: Disattivato`;
+      } else if (fomoBlockedSig) {
+        signFomo.textContent = `🛡️ ANTI-FOMO: BLOCCATO (${fomoBlockedSig.bingx_name || fomoBlockedSig.symbol})`;
+      } else {
+        signFomo.textContent = `🛡️ ANTI-FOMO: Attivo & Protetto`;
+      }
     }
 
     function getEntryTimingBadge(symbol, interval) {
@@ -718,8 +846,8 @@
       if (!sig) {
         if (clk.isPre) {
           return {
-            cls: "timing-pill go",
-            text: `🟢 PRE-CANDELA -${clk.rem}s`,
+            cls: "timing-pill ready",
+            text: `🟡 TIENITI PRONTO (-${clk.rem}s)`,
             title: `Mancano ${clk.rem}s all'apertura della nuova candela ${tf}`
           };
         }
@@ -734,11 +862,19 @@
       const sn = sig.sn_rejection || {};
       const ms = sig.manual_sign || {};
       const sess = sig.session || {};
+      const fomo = sig.anti_fomo || {};
       const lv = sig.levels || {};
       const rp = sig.recommended_params || {};
       const sInfo = getSignalSideInfo(sig);
       const tpSummary = `${sInfo.actionLabel} • Entry ${lv.entry ?? sig.price} • TP1 ${lv.tp1 ?? "--"} • TP2 ${lv.tp2 ?? "--"} • TP3 ${lv.tp3 ?? "--"} • SL ${lv.sl ?? "--"} • Lev ${rp.leverage ?? "--"}x`;
 
+      if (fomo.blocked) {
+        return {
+          cls: "timing-pill stop",
+          text: `🛡️ ANTI-FOMO BLOCCATO • ${sInfo.icon} ${sInfo.actionLabel}`,
+          title: `${fomo.reason || "Bloccato da Anti-FOMO"} | ${tpSummary}`
+        };
+      }
       if (sn.rejected) {
         return {
           cls: "timing-pill stop",
@@ -771,6 +907,13 @@
         return {
           cls: sInfo.isShort ? "timing-pill go-short" : "timing-pill go",
           text: `🟢 ENTRA ORA • ${sInfo.icon} ${sInfo.actionLabel} (-${clk.rem}s) • TP1 ${lv.tp1 ?? "--"} / TP2 ${lv.tp2 ?? "--"} / TP3 ${lv.tp3 ?? "--"} • SL ${lv.sl ?? "--"}`,
+          title: tpSummary
+        };
+      }
+      if (ms.show_get_ready) {
+        return {
+          cls: "timing-pill ready",
+          text: `🟡 TIENITI PRONTO • ${sInfo.icon} ${sInfo.actionLabel} • TP2 ${lv.tp2 ?? "--"} • SL ${lv.sl ?? "--"}`,
           title: tpSummary
         };
       }
@@ -813,9 +956,9 @@
 
       const globalBadge = document.getElementById("globalTimerBadge");
       globalBadge.textContent = clk.isPre
-        ? `⏱ PRE-CANDELA ${interval}: -${clk.rem}s (apre ${clk.nextClock})`
+        ? `🟡 TIENITI PRONTO • PRE-CANDELA ${interval}: -${clk.rem}s (apre ${clk.nextClock})`
         : `Prossima candela ${interval}: ${clk.countdownStr} (alle ${clk.nextClock})`;
-      globalBadge.className = clk.isPre ? "pill green" : "pill blue";
+      globalBadge.className = clk.isPre ? "pill amber" : "pill blue";
 
       document.querySelectorAll(".live-candle-badge").forEach(el => {
         const tf = el.getAttribute("data-tf") || interval;
@@ -826,13 +969,14 @@
 
       const candleKey = `${interval}_${clk.candleIndex}`;
       const freeList = getFreeSignalsSorted();
+      updateLuminousSigns(freeList, clk);
 
       if (clk.isPre && clk.rem > 0 && freeList.length > 0) {
         const topParts = freeList.slice(0, 3).map(formatSignalFullSpecJs);
         const banner = document.getElementById("newCandleBanner");
         banner.classList.remove("blocked");
         document.getElementById("newCandleAlertText").textContent =
-          `⏱ PRE-AVVISO -${clk.rem}s (apertura ${clk.nextClock}) — PREPARATI: ${topParts.join(" • ")}`;
+          `🟡 TIENITI PRONTO -${clk.rem}s (apertura ${clk.nextClock}) — VERSO & TP: ${topParts.join(" • ")}`;
 
         const warnKey = `${candleKey}_PRE`;
         if (STATE.preWarnedCandleKey !== warnKey) {
@@ -854,10 +998,12 @@
           playBeep(980, 220);
         } else {
           const sigList = Object.values(STATE.signals || {});
+          const fomoCnt = sigList.filter(s => s && s.anti_fomo && s.anti_fomo.blocked).length;
           const snCnt = sigList.filter(s => s && s.sn_rejection && s.sn_rejection.rejected).length;
           const overCnt = sigList.filter(s => s && s.entry_window && s.entry_window.exceeded).length;
           const reasons = [];
-          if (snCnt) reasons.push(`${snCnt} rifiutati per SN candela alta opposta`);
+          if (fomoCnt) reasons.push(`${fomoCnt} bloccati Anti-FOMO`);
+          if (snCnt) reasons.push(`${snCnt} rifiutati SN candela alta opposta`);
           if (overCnt) reasons.push(`${overCnt} oltre soglia`);
           const reasonTxt = reasons.length ? reasons.join(", ") : "nessun asset libero da blocchi";
           pushNewCandleWrittenAlert({
@@ -1099,6 +1245,7 @@
       const payload = {
         enabled: document.getElementById("monitorEnabledChk").checked,
         auto_trade_enabled: document.getElementById("autoTradeChk").checked,
+        anti_fomo_enabled: document.getElementById("antiFomoChk").checked,
         auto_close_on_tp: document.getElementById("closeTpChk").checked,
         auto_close_on_candle_end: document.getElementById("closeCandleEndChk").checked,
         auto_close_on_candle_signal: document.getElementById("closeCandleSigChk").checked,
@@ -1130,6 +1277,10 @@
         document.getElementById("profilePill").textContent = `Profilo: ${d.profile.profile_name}`;
       }
 
+      if (typeof d.anti_fomo_enabled === "boolean") {
+        document.getElementById("antiFomoChk").checked = d.anti_fomo_enabled;
+      }
+
       if (d.last_run) {
         document.getElementById("lastScanText").textContent = `Ultimo scan: ${d.last_run}`;
       }
@@ -1137,12 +1288,27 @@
       const bal = d.balance_info || {};
       document.getElementById("balSyncBadge").textContent = `Sync: ${bal.last_sync || "--:--:--"}`;
       document.getElementById("kpiBalance").textContent = Number(bal.balance_usdt || 0).toFixed(2);
-      document.getElementById("kpiAvailable").textContent = Number(bal.available_usdt || 0).toFixed(2);
+      document.getElementById("kpiAvailableSub").textContent = `Disp: ${Number(bal.available_usdt || 0).toFixed(2)}`;
+
       const upnl = Number(bal.unrealized_pnl_usdt || 0);
       const upnlEl = document.getElementById("kpiUnrealized");
       upnlEl.textContent = `${upnl >= 0 ? "+" : ""}${upnl.toFixed(2)}`;
       upnlEl.className = `val ${upnl >= 0 ? "pos" : "neg"}`;
-      document.getElementById("kpiEquity").textContent = Number(bal.equity_usdt || 0).toFixed(2);
+      document.getElementById("kpiEquitySub").textContent = `Eq: ${Number(bal.equity_usdt || 0).toFixed(2)}`;
+
+      const dPct = Number(bal.daily_pnl_pct || 0);
+      const dUsdt = Number(bal.daily_pnl_usdt || 0);
+      const dPctEl = document.getElementById("kpiDailyPct");
+      dPctEl.textContent = `${dPct >= 0 ? "+" : ""}${dPct.toFixed(2)}%`;
+      dPctEl.className = `val ${dPct >= 0 ? "pos" : "neg"}`;
+      document.getElementById("kpiDailyUsdt").textContent = `${dUsdt >= 0 ? "+" : ""}${dUsdt.toFixed(2)} USDT`;
+
+      const mPct = Number(bal.monthly_pnl_pct || 0);
+      const mUsdt = Number(bal.monthly_pnl_usdt || 0);
+      const mPctEl = document.getElementById("kpiMonthlyPct");
+      mPctEl.textContent = `${mPct >= 0 ? "+" : ""}${mPct.toFixed(2)}%`;
+      mPctEl.className = `val ${mPct >= 0 ? "pos" : "neg"}`;
+      document.getElementById("kpiMonthlyUsdt").textContent = `${mUsdt >= 0 ? "+" : ""}${mUsdt.toFixed(2)} USDT`;
 
       STATE.signals = d.signals || {};
       STATE.openPositions = d.open_positions || {};
@@ -1229,6 +1395,8 @@
       const rp = a.recommended_params || {};
       const ew = a.entry_window || {};
       const sn = a.sn_rejection || {};
+      const fomo = a.anti_fomo || {};
+      const flow = a.candle_flow || {};
       const ms = a.manual_sign || {};
       const ind = a.indicators || {};
       const early = a.early_setup || {};
@@ -1251,32 +1419,30 @@
         <div class="muted" style="margin-bottom:8px;">${ms.reason || ""}</div>
         <div class="analysis-detail">
           <div class="subbox">
+            <div><strong>Flusso Candela & Potenza</strong></div>
+            <div>Verso: <strong>${flow.flow_direction || sInfo.dirLabel}</strong> (${flow.flow_certainty_pct ?? "--"}%)</div>
+            <div>Carica Potenza: <strong>${flow.power_charge_pct ?? "--"}%</strong></div>
+            <div>Vol Prec / Att: ${flow.prev_vol_ratio ?? "--"}x / ${flow.curr_vol_ratio ?? "--"}x</div>
+            <div>${flow.banner_label || ""}</div>
+          </div>
+          <div class="subbox">
             <div><strong>Direzione, Livelli & Piano TP</strong></div>
             <div>Direzione: <strong class="${sInfo.isShort ? "neg" : "pos"}">${sInfo.icon} ${sInfo.actionLabel}</strong></div>
-            <div>Prezzo: <strong>${a.price}</strong></div>
             <div>Entry: ${lv.entry} | SL: <span class="neg">${lv.sl}</span></div>
             <div>TP1: ${lv.tp1} | TP2: <span class="pos">${lv.tp2}</span> | TP3: <span class="pos">${lv.tp3}</span></div>
-            <div>R:R: ${lv.rr} | Piano: ${(a.tp_plan && a.tp_plan.label) || "--"}</div>
+            <div>Piano: ${(a.tp_plan && a.tp_plan.label) || "--"} (R:R ${lv.rr})</div>
           </div>
           <div class="subbox">
-            <div><strong>Size & Matematica</strong></div>
-            <div>Lev: <strong>${rp.leverage}x</strong> • Size: <strong>${rp.qty}</strong></div>
-            <div>Margine: ${rp.margin_usdt} USDT • Rischio: ${rp.risk_usd} USDT</div>
-            <div>P(Win): ${rp.p_win_pct}% • Exp: ${rp.expectancy_r}R • Kelly: ${rp.half_kelly_pct}%</div>
-            <div>Setup: ${early.setup_type || "--"}</div>
+            <div><strong>Banca Anti-FOMO, Finestra & SN</strong></div>
+            <div><strong>${fomo.badge || "--"}</strong></div>
+            <div class="muted" style="font-size:11px;">${fomo.reason || ""}</div>
+            <div style="margin-top:4px;">${ew.status_badge || "--"} • ${sn.badge || "--"}</div>
           </div>
           <div class="subbox">
-            <div><strong>Filtri Finestra & SN</strong></div>
-            <div>${ew.status_badge || "--"}</div>
-            <div class="muted" style="font-size:11px;">${ew.reason || ""}</div>
-            <div style="margin-top:4px;">${sn.badge || "--"}</div>
-            <div class="muted" style="font-size:11px;">${sn.reason || ""}</div>
-          </div>
-          <div class="subbox">
-            <div><strong>Indicatori</strong></div>
+            <div><strong>Size, Matematica & Indicatori</strong></div>
+            <div>Lev: <strong>${rp.leverage}x</strong> • Size: <strong>${rp.qty}</strong> • Exp: ${rp.expectancy_r}R</div>
             <div>RSI: ${ind.rsi} • ADX: ${ind.adx} • Z: ${ind.z_score}</div>
             <div>EMA200: ${ind.ema200} • ATR: ${ind.atr}</div>
-            <div>OB Imb: ${ind.ob_imbalance}% • Fund: ${ind.funding_rate}%</div>
           </div>
         </div>
       `;
