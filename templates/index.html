@@ -6,17 +6,17 @@
   <title>BingX HFT & Multi-Market Signal Terminal</title>
   <style>
     :root {
-      --bg: #080c14;
-      --panel: #0f1624;
-      --panel-2: #151f32;
-      --border: #233049;
-      --text: #e6edf7;
-      --muted: #8fa1bf;
-      --accent: #38bdf8;
-      --green: #22c55e;
-      --red: #ef4444;
-      --amber: #f59e0b;
-      --purple: #a855f7;
+      --bg: #ffffff;
+      --panel: #ffffff;
+      --panel-2: #ffffff;
+      --border: #000000;
+      --text: #000000;
+      --muted: #000000;
+      --accent: #0052cc;
+      --green: #16a34a;
+      --red: #dc2626;
+      --amber: #0052cc;
+      --purple: #0052cc;
     }
 
     * { box-sizing: border-box; }
@@ -49,6 +49,7 @@
       gap: 10px;
       font-weight: 700;
       font-size: 15px;
+      color: var(--text);
     }
 
     .pill {
@@ -64,10 +65,10 @@
       color: var(--text);
     }
 
-    .pill.green { border-color: rgba(34,197,94,.45); color: #86efac; background: rgba(34,197,94,.12); }
-    .pill.red { border-color: rgba(239,68,68,.45); color: #fca5a5; background: rgba(239,68,68,.12); }
-    .pill.amber { border-color: rgba(245,158,11,.45); color: #fcd34d; background: rgba(245,158,11,.12); }
-    .pill.blue { border-color: rgba(56,189,248,.45); color: #7dd3fc; background: rgba(56,189,248,.12); }
+    .pill.green { border-color: var(--green); color: var(--green); background: var(--bg); }
+    .pill.red { border-color: var(--red); color: var(--red); background: var(--bg); }
+    .pill.amber { border-color: var(--accent); color: var(--accent); background: var(--bg); }
+    .pill.blue { border-color: var(--accent); color: var(--accent); background: var(--bg); }
 
     .container {
       max-width: 1560px;
@@ -79,18 +80,19 @@
     }
 
     .candle-alert-box {
-      background: linear-gradient(90deg, rgba(56,189,248,.14), rgba(168,85,247,.12));
-      border: 1px solid rgba(56,189,248,.45);
+      background: var(--bg);
+      border: 1px solid var(--accent);
       border-radius: 10px;
       padding: 10px 14px;
       display: flex;
       flex-direction: column;
       gap: 6px;
+      color: var(--text);
     }
 
     .candle-alert-box.blocked {
-      background: linear-gradient(90deg, rgba(239,68,68,.16), rgba(245,158,11,.12));
-      border-color: rgba(239,68,68,.5);
+      background: var(--bg);
+      border-color: var(--red);
     }
 
     .candle-alert-main {
@@ -101,6 +103,7 @@
       gap: 8px;
       font-weight: 600;
       font-size: 13px;
+      color: var(--text);
     }
 
     .candle-history {
@@ -112,10 +115,11 @@
     }
 
     .candle-history span {
-      background: rgba(8,12,20,.65);
+      background: var(--bg);
       border: 1px solid var(--border);
       padding: 2px 7px;
       border-radius: 6px;
+      color: var(--text);
     }
 
     .grid-3 {
@@ -154,6 +158,7 @@
       display: flex;
       align-items: center;
       gap: 6px;
+      color: var(--text);
     }
 
     .controls-row {
@@ -183,12 +188,12 @@
       transition: filter .15s ease, transform .08s ease;
     }
 
-    button:hover { filter: brightness(1.12); }
+    button:hover { filter: brightness(0.95); }
     button:active { transform: scale(0.99); }
 
-    button.primary { background: #0284c7; border-color: #38bdf8; color: #fff; }
-    button.green { background: #15803d; border-color: #22c55e; color: #fff; }
-    button.red { background: #b91c1c; border-color: #ef4444; color: #fff; }
+    button.primary { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+    button.green { background: var(--green); border-color: var(--green); color: var(--bg); }
+    button.red { background: var(--red); border-color: var(--red); color: var(--bg); }
 
     .kpi-grid {
       display: grid;
@@ -204,7 +209,8 @@
     }
 
     .kpi .label { font-size: 11px; color: var(--muted); }
-    .kpi .val { font-size: 15px; font-weight: 700; margin-top: 2px; }
+    .kpi .val { font-size: 15px; font-weight: 700; margin-top: 2px; color: var(--text); }
+    .kpi .sub { font-size: 10px; margin-top: 2px; color: var(--text); }
 
     .table-wrap {
       overflow-x: auto;
@@ -220,9 +226,10 @@
 
     th, td {
       padding: 7px 8px;
-      border-bottom: 1px solid rgba(35,48,73,.65);
+      border-bottom: 1px solid var(--border);
       text-align: left;
       white-space: nowrap;
+      color: var(--text);
     }
 
     th {
@@ -235,7 +242,7 @@
       z-index: 2;
     }
 
-    tr:hover td { background: rgba(56,189,248,.05); }
+    tr:hover td { background: var(--bg); }
 
     .asset-cell {
       display: flex;
@@ -257,16 +264,16 @@
       font-size: 10px;
       padding: 1px 6px;
       border-radius: 5px;
-      background: rgba(56,189,248,.12);
-      border: 1px solid rgba(56,189,248,.35);
-      color: #bae6fd;
+      background: var(--bg);
+      border: 1px solid var(--accent);
+      color: var(--accent);
       width: fit-content;
     }
 
     .candle-badge.pre {
-      background: rgba(34,197,94,.16);
-      border-color: rgba(34,197,94,.55);
-      color: #86efac;
+      background: var(--bg);
+      border-color: var(--green);
+      color: var(--green);
       font-weight: 700;
     }
 
@@ -284,31 +291,31 @@
     }
 
     .timing-pill.go {
-      background: rgba(34, 197, 94, .16);
-      border-color: rgba(34, 197, 94, .65);
-      color: #86efac;
+      background: var(--bg);
+      border-color: var(--green);
+      color: var(--green);
     }
 
     .timing-pill.go-short {
-      background: rgba(239, 68, 68, .16);
-      border-color: rgba(239, 68, 68, .65);
-      color: #fca5a5;
+      background: var(--bg);
+      border-color: var(--red);
+      color: var(--red);
     }
 
     .timing-pill.wait {
-      background: rgba(245, 158, 11, .14);
-      border-color: rgba(245, 158, 11, .55);
-      color: #fcd34d;
+      background: var(--bg);
+      border-color: var(--accent);
+      color: var(--accent);
     }
 
     .timing-pill.stop {
-      background: rgba(239, 68, 68, .15);
-      border-color: rgba(239, 68, 68, .6);
-      color: #fca5a5;
+      background: var(--bg);
+      border-color: var(--red);
+      color: var(--red);
     }
 
-    .pos { color: #4ade80; font-weight: 700; }
-    .neg { color: #f87171; font-weight: 700; }
+    .pos { color: var(--green); font-weight: 700; }
+    .neg { color: var(--red); font-weight: 700; }
     .muted { color: var(--muted); }
 
     .toggle-label {
@@ -318,6 +325,7 @@
       font-size: 12px;
       cursor: pointer;
       user-select: none;
+      color: var(--text);
     }
 
     .log-box {
@@ -325,7 +333,8 @@
       overflow-y: auto;
       font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
       font-size: 11px;
-      background: #070b12;
+      background: var(--bg);
+      color: var(--text);
       border: 1px solid var(--border);
       border-radius: 8px;
       padding: 8px 10px;
@@ -333,7 +342,7 @@
 
     .log-item {
       padding: 4px 0;
-      border-bottom: 1px dashed rgba(35,48,73,.55);
+      border-bottom: 1px dashed var(--border);
     }
 
     .analysis-detail {
@@ -348,6 +357,28 @@
       border: 1px solid var(--border);
       border-radius: 8px;
       padding: 8px 10px;
+      color: var(--text);
+    }
+
+    .params-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .param-cell {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 6px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .param-cell label {
+      font-size: 11px;
+      font-weight: 600;
     }
   </style>
 </head>
@@ -402,11 +433,11 @@
       <div id="newCandleHistory" class="candle-history"></div>
     </div>
 
-    <!-- SALDO, CHIAVI API E CONTROLLI AUTO-CLOSE -->
+    <!-- SALDO, WIN RATE LIVE, CHIAVI API E CONTROLLI AUTO-CLOSE -->
     <div class="grid-3">
       <div class="card">
         <div class="card-header">
-          <div class="card-title">💼 Conto BingX Live</div>
+          <div class="card-title">💼 Conto & Win Rate BingX Live</div>
           <span id="balSyncBadge" class="pill">Sync: --:--:--</span>
         </div>
         <div class="kpi-grid">
@@ -425,6 +456,16 @@
           <div class="kpi">
             <div class="label">Equity</div>
             <div id="kpiEquity" class="val">0.00</div>
+          </div>
+          <div class="kpi">
+            <div class="label">Vincite Oggi %</div>
+            <div id="kpiDailyWinRate" class="val">0.0%</div>
+            <div id="kpiDailySub" class="sub">0W / 0L • 0.00 USDT</div>
+          </div>
+          <div class="kpi">
+            <div class="label">Vincite Mese %</div>
+            <div id="kpiMonthlyWinRate" class="val">0.0%</div>
+            <div id="kpiMonthlySub" class="sub">0W / 0L • 0.00 USDT</div>
           </div>
         </div>
       </div>
@@ -458,6 +499,99 @@
           <input id="scanIntervalInput" type="number" min="6" max="120" value="12" style="width:68px;" onchange="syncMonitorSettings()" />
           <button onclick="runManualScan()">Scansiona ora</button>
         </div>
+      </div>
+    </div>
+
+    <!-- TABELLA PARAMETRI & SCORE ESATTO MODIFICABILE -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">⚙️ Tabella Parametri, Anti-FOMO & Score Esatto Modificabile</div>
+        <div class="controls-row">
+          <label class="toggle-label"><input type="checkbox" id="antiFomoEnabledChk" checked /> Anti-FOMO Attivo</label>
+          <button class="primary" onclick="saveGlobalWeights()">Salva Parametri</button>
+        </div>
+      </div>
+
+      <div class="params-grid">
+        <div class="param-cell">
+          <label>Peso EMA</label>
+          <input id="wEma" type="number" min="0" max="100" step="1" value="35" />
+        </div>
+        <div class="param-cell">
+          <label>Peso Momentum</label>
+          <input id="wMom" type="number" min="0" max="100" step="1" value="30" />
+        </div>
+        <div class="param-cell">
+          <label>Peso Volatilità</label>
+          <input id="wVol" type="number" min="0" max="100" step="1" value="20" />
+        </div>
+        <div class="param-cell">
+          <label>Peso Sentiment</label>
+          <input id="wSent" type="number" min="0" max="100" step="1" value="15" />
+        </div>
+        <div class="param-cell">
+          <label>Confidenza Minima (%)</label>
+          <input id="wMinConf" type="number" min="1" max="99" step="0.5" value="70" />
+        </div>
+        <div class="param-cell">
+          <label>Rischio Trade (%)</label>
+          <input id="wRiskPct" type="number" min="0.1" max="20" step="0.1" value="1.5" />
+        </div>
+        <div class="param-cell">
+          <label>SL Mult (ATR)</label>
+          <input id="wSlMult" type="number" min="0.2" max="10" step="0.1" value="1.5" />
+        </div>
+        <div class="param-cell">
+          <label>TP1 / TP2 / TP3 Mult</label>
+          <div class="controls-row" style="gap:4px;">
+            <input id="wTp1Mult" type="number" min="0.2" max="15" step="0.1" value="2.2" style="width:52px; padding:4px;" />
+            <input id="wTp2Mult" type="number" min="0.2" max="20" step="0.1" value="3.5" style="width:52px; padding:4px;" />
+            <input id="wTp3Mult" type="number" min="0.2" max="30" step="0.1" value="5.0" style="width:52px; padding:4px;" />
+          </div>
+        </div>
+        <div class="param-cell">
+          <label>Max Stretch ATR / |Z|</label>
+          <div class="controls-row" style="gap:4px;">
+            <input id="wMaxAtrStretch" type="number" min="0.2" max="5" step="0.05" value="1.35" style="width:68px; padding:4px;" />
+            <input id="wMaxZAbs" type="number" min="0.5" max="6" step="0.1" value="2.2" style="width:68px; padding:4px;" />
+          </div>
+        </div>
+        <div class="param-cell">
+          <label>Anti-FOMO Max Candela ATR</label>
+          <input id="wFomoCandleAtr" type="number" min="0.5" max="6" step="0.05" value="1.45" />
+        </div>
+        <div class="param-cell">
+          <label>Anti-FOMO Max Vol Mult</label>
+          <input id="wFomoVolMult" type="number" min="1" max="10" step="0.1" value="2.4" />
+        </div>
+        <div class="param-cell">
+          <label>Anti-FOMO RSI (Min / Max)</label>
+          <div class="controls-row" style="gap:4px;">
+            <input id="wFomoRsiOs" type="number" min="5" max="50" step="1" value="28" style="width:65px; padding:4px;" />
+            <input id="wFomoRsiOb" type="number" min="50" max="95" step="1" value="72" style="width:65px; padding:4px;" />
+          </div>
+        </div>
+      </div>
+
+      <div class="table-wrap" style="max-height:300px;">
+        <table>
+          <thead>
+            <tr>
+              <th>Asset</th>
+              <th>Categoria</th>
+              <th>Prezzo</th>
+              <th>Score Esatto (-100..+100)</th>
+              <th>Sentiment (-100..+100)</th>
+              <th>Conf.</th>
+              <th>Segnale</th>
+              <th>Anti-FOMO</th>
+              <th>Applica / Reset</th>
+            </tr>
+          </thead>
+          <tbody id="scoreParamsBody">
+            <tr><td colspan="9" class="muted">Caricamento mercati per modifica score...</td></tr>
+          </tbody>
+        </table>
       </div>
     </div>
 
@@ -525,14 +659,14 @@
             <button class="primary" onclick="analyzeSingle()">Analizza</button>
           </div>
         </div>
-        <div id="singleAnalysisBox" class="muted">Seleziona o analizza un contratto per vedere dettagli, filtri SN, soglia ingresso e indicatori.</div>
+        <div id="singleAnalysisBox" class="muted">Seleziona o analizza un contratto per vedere dettagli, filtri Anti-FOMO & SN, soglia ingresso e indicatori.</div>
       </div>
     </div>
 
     <!-- TUTTI I MERCATI BINGX -->
     <div class="card">
       <div class="card-header">
-        <div class="card-title">🌐 Tutti i Contratti BingX Disponibili</div>
+        <div class="card-title">🌐 Tutti i Contratti BingX Disponibili (Cripto, Materie Prime, Forex, Indici)</div>
         <div class="controls-row">
           <input id="marketSearchInput" type="text" placeholder="Filtra asset (es. GOLD, BTC, SOL, EUR)..." oninput="renderMarketsTable()" style="width:220px;" />
           <span id="marketsCount" class="pill">0 mercati</span>
@@ -588,6 +722,7 @@
       markets: [],
       signals: {},
       openPositions: {},
+      symbolOverrides: {},
       tradeLogs: [],
       audioAlerts: [],
       newCandleHistory: [],
@@ -696,12 +831,14 @@
           if (!s) return false;
           const ew = s.entry_window || {};
           const sn = s.sn_rejection || {};
+          const af = s.anti_fomo || {};
           const ms = s.manual_sign || {};
           const sess = s.session || {};
           const blocked = (
             Boolean(ew.exceeded)
             || Boolean(sn.rejected)
-            || ["CANCELLED_REVERSAL", "REJECTED_SN", "OVER_THRESHOLD"].includes(ms.status)
+            || Boolean(af.fomo_blocked)
+            || ["CANCELLED_REVERSAL", "REJECTED_SN", "OVER_THRESHOLD", "ANTI_FOMO_BLOCK"].includes(ms.status)
             || sess.session_ok === false
           );
           return !blocked;
@@ -731,6 +868,7 @@
 
       const ew = sig.entry_window || {};
       const sn = sig.sn_rejection || {};
+      const af = sig.anti_fomo || {};
       const ms = sig.manual_sign || {};
       const sess = sig.session || {};
       const lv = sig.levels || {};
@@ -738,6 +876,13 @@
       const sInfo = getSignalSideInfo(sig);
       const tpSummary = `${sInfo.actionLabel} • Entry ${lv.entry ?? sig.price} • TP1 ${lv.tp1 ?? "--"} • TP2 ${lv.tp2 ?? "--"} • TP3 ${lv.tp3 ?? "--"} • SL ${lv.sl ?? "--"} • Lev ${rp.leverage ?? "--"}x`;
 
+      if (af.fomo_blocked) {
+        return {
+          cls: "timing-pill stop",
+          text: `🛑 ANTI-FOMO • ${sInfo.icon} ${sInfo.actionLabel}`,
+          title: `${af.reason || "Blocco Anti-FOMO"} | ${tpSummary}`
+        };
+      }
       if (sn.rejected) {
         return {
           cls: "timing-pill stop",
@@ -855,7 +1000,9 @@
           const sigList = Object.values(STATE.signals || {});
           const snCnt = sigList.filter(s => s && s.sn_rejection && s.sn_rejection.rejected).length;
           const overCnt = sigList.filter(s => s && s.entry_window && s.entry_window.exceeded).length;
+          const fomoCnt = sigList.filter(s => s && s.anti_fomo && s.anti_fomo.fomo_blocked).length;
           const reasons = [];
+          if (fomoCnt) reasons.push(`${fomoCnt} bloccati anti-FOMO`);
           if (snCnt) reasons.push(`${snCnt} rifiutati per SN candela alta opposta`);
           if (overCnt) reasons.push(`${overCnt} oltre soglia`);
           const reasonTxt = reasons.length ? reasons.join(", ") : "nessun asset libero da blocchi";
@@ -909,15 +1056,14 @@
       if (d.status === "ok") {
         STATE.markets = d.markets || [];
         renderMarketsTable();
+        renderScoreParamsTable();
       }
     }
 
-    function renderMarketsTable() {
+    function getFilteredMarketsList() {
       const cat = document.getElementById("categorySelect").value;
       const q = (document.getElementById("marketSearchInput").value || "").trim().toUpperCase();
-      const tf = document.getElementById("timeframeSelect").value || "15m";
-
-      const filtered = STATE.markets.filter(m => {
+      return STATE.markets.filter(m => {
         if (cat !== "ALL" && cat !== "CERTAIN" && m.category !== cat) return false;
         if (q) {
           const hay = `${m.symbol} ${m.bingxName} ${m.category}`.toUpperCase();
@@ -925,6 +1071,11 @@
         }
         return true;
       });
+    }
+
+    function renderMarketsTable() {
+      const filtered = getFilteredMarketsList();
+      const tf = document.getElementById("timeframeSelect").value || "15m";
 
       document.getElementById("marketsCount").textContent = `${filtered.length} mercati`;
       const tbody = document.getElementById("marketsBody");
@@ -933,7 +1084,7 @@
         return;
       }
 
-      tbody.innerHTML = filtered.slice(0, 120).map(m => {
+      tbody.innerHTML = filtered.map(m => {
         const chg = Number(m.priceChangePercent || 0);
         const chgCls = chg >= 0 ? "pos" : "neg";
         const sessBadge = (m.session && m.session.badge) || "--";
@@ -964,6 +1115,159 @@
           </tr>
         `;
       }).join("");
+    }
+
+    function renderScoreParamsTable() {
+      const tbody = document.getElementById("scoreParamsBody");
+      if (!tbody) return;
+      const list = getFilteredMarketsList();
+      if (!list.length) {
+        tbody.innerHTML = `<tr><td colspan="9" class="muted">Nessun asset disponibile.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = list.map(m => {
+        const sig = (STATE.signals || {})[m.symbol];
+        const ov = (STATE.symbolOverrides || {})[m.symbol] || {};
+        const scoreVal = ov.score_override !== undefined && ov.score_override !== null
+          ? ov.score_override
+          : (sig ? sig.composite_score : 0);
+        const sentVal = ov.sentiment !== undefined && ov.sentiment !== null
+          ? ov.sentiment
+          : (sig ? sig.sentiment : 0);
+        const confTxt = sig ? `${sig.confidence}%` : "--";
+        const sigTxt = sig ? `${sig.signal}` : "--";
+        const fomoTxt = sig && sig.anti_fomo
+          ? `<span class="${sig.anti_fomo.fomo_blocked ? "neg" : "pos"}">${sig.anti_fomo.fomo_blocked ? "BLOCCATO" : "OK"}</span>`
+          : `<span class="pill blue">ATTIVO</span>`;
+
+        const safeId = m.symbol.replace(/[^A-Z0-9_-]/gi, "_");
+        return `
+          <tr>
+            <td><strong>${m.bingxName}</strong> <span class="muted" style="font-size:11px;">${m.symbol}</span></td>
+            <td><span class="pill">${m.category}</span></td>
+            <td><strong>${m.lastPrice}</strong></td>
+            <td>
+              <input id="sc_${safeId}" type="number" min="-100" max="100" step="0.5" value="${scoreVal}" style="width:76px; padding:4px 6px;" />
+            </td>
+            <td>
+              <input id="sn_${safeId}" type="number" min="-100" max="100" step="1" value="${sentVal}" style="width:76px; padding:4px 6px;" />
+            </td>
+            <td><strong>${confTxt}</strong></td>
+            <td>${sigTxt}</td>
+            <td>${fomoTxt}</td>
+            <td>
+              <button class="primary" onclick="applySymbolScore('${m.symbol}', '${safeId}')">Applica</button>
+              <button onclick="resetSymbolScore('${m.symbol}')">Reset</button>
+            </td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    async function applySymbolScore(symbol, safeId) {
+      const scoreEl = document.getElementById(`sc_${safeId}`);
+      const sentEl = document.getElementById(`sn_${safeId}`);
+      const scoreOverride = scoreEl ? Number(scoreEl.value) : 0;
+      const sentiment = sentEl ? Number(sentEl.value) : 0;
+      const interval = document.getElementById("timeframeSelect").value;
+
+      const r = await fetch("/api/symbol_override", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          symbol,
+          interval,
+          score_override: scoreOverride,
+          sentiment
+        })
+      });
+      const d = await r.json();
+      if (d.status === "ok") {
+        STATE.symbolOverrides = d.symbol_overrides || STATE.symbolOverrides;
+        if (d.data) {
+          if (d.data.certain_signal || (d.data.early_setup && (d.data.early_setup.trigger_sound || d.data.early_setup.direction)) || String(d.data.signal || "").includes("LONG") || String(d.data.signal || "").includes("SHORT")) {
+            STATE.signals[d.data.symbol] = d.data;
+          }
+          if (document.getElementById("analyzeSymbolInput").value.trim().toUpperCase() === symbol.toUpperCase()) {
+            renderSingleAnalysis(d.data);
+          }
+        }
+        renderSignalsTable();
+        renderMarketsTable();
+        renderScoreParamsTable();
+      } else {
+        alert(d.msg || "Errore aggiornamento score");
+      }
+    }
+
+    async function resetSymbolScore(symbol) {
+      const interval = document.getElementById("timeframeSelect").value;
+      const r = await fetch("/api/symbol_override", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ symbol, interval, reset: true })
+      });
+      const d = await r.json();
+      if (d.status === "ok") {
+        STATE.symbolOverrides = d.symbol_overrides || STATE.symbolOverrides;
+        await pollMonitor();
+      }
+    }
+
+    function populateWeightsInputs(w) {
+      if (!w) return;
+      document.getElementById("wEma").value = w.ema_weight ?? 35;
+      document.getElementById("wMom").value = w.momentum_weight ?? 30;
+      document.getElementById("wVol").value = w.volatility_weight ?? 20;
+      document.getElementById("wSent").value = w.sentiment_weight ?? 15;
+      document.getElementById("wMinConf").value = w.min_confidence ?? 70;
+      document.getElementById("wRiskPct").value = w.risk_per_trade_pct ?? 1.5;
+      document.getElementById("wSlMult").value = w.sl_mult ?? 1.5;
+      document.getElementById("wTp1Mult").value = w.tp1_mult ?? 2.2;
+      document.getElementById("wTp2Mult").value = w.tp2_mult ?? 3.5;
+      document.getElementById("wTp3Mult").value = w.tp3_mult ?? 5.0;
+      document.getElementById("wMaxAtrStretch").value = w.max_entry_atr_stretch ?? 1.35;
+      document.getElementById("wMaxZAbs").value = w.max_entry_z_abs ?? 2.2;
+      document.getElementById("wFomoCandleAtr").value = w.anti_fomo_max_candle_atr ?? 1.45;
+      document.getElementById("wFomoVolMult").value = w.anti_fomo_max_vol_mult ?? 2.4;
+      document.getElementById("wFomoRsiOs").value = w.anti_fomo_rsi_oversold ?? 28;
+      document.getElementById("wFomoRsiOb").value = w.anti_fomo_rsi_overbought ?? 72;
+      document.getElementById("antiFomoEnabledChk").checked = Boolean(w.anti_fomo_enabled ?? true);
+    }
+
+    async function saveGlobalWeights() {
+      const payload = {
+        ema_weight: Number(document.getElementById("wEma").value || 35),
+        momentum_weight: Number(document.getElementById("wMom").value || 30),
+        volatility_weight: Number(document.getElementById("wVol").value || 20),
+        sentiment_weight: Number(document.getElementById("wSent").value || 15),
+        min_confidence: Number(document.getElementById("wMinConf").value || 70),
+        risk_per_trade_pct: Number(document.getElementById("wRiskPct").value || 1.5),
+        sl_mult: Number(document.getElementById("wSlMult").value || 1.5),
+        tp1_mult: Number(document.getElementById("wTp1Mult").value || 2.2),
+        tp2_mult: Number(document.getElementById("wTp2Mult").value || 3.5),
+        tp3_mult: Number(document.getElementById("wTp3Mult").value || 5.0),
+        max_entry_atr_stretch: Number(document.getElementById("wMaxAtrStretch").value || 1.35),
+        max_entry_z_abs: Number(document.getElementById("wMaxZAbs").value || 2.2),
+        anti_fomo_enabled: document.getElementById("antiFomoEnabledChk").checked,
+        anti_fomo_max_candle_atr: Number(document.getElementById("wFomoCandleAtr").value || 1.45),
+        anti_fomo_max_vol_mult: Number(document.getElementById("wFomoVolMult").value || 2.4),
+        anti_fomo_rsi_oversold: Number(document.getElementById("wFomoRsiOs").value || 28),
+        anti_fomo_rsi_overbought: Number(document.getElementById("wFomoRsiOb").value || 72)
+      };
+
+      const r = await fetch("/api/weights", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const d = await r.json();
+      if (d.status === "ok") {
+        populateWeightsInputs(d.weights);
+        await analyzeSingle();
+        renderScoreParamsTable();
+      }
     }
 
     function renderSignalsTable() {
@@ -1011,7 +1315,7 @@
               <div style="margin-top:3px;"><strong>${badgeText}</strong></div>
               <div class="muted" style="font-size:11px;">${early.setup_type || ""}</div>
             </td>
-            <td><strong>${s.confidence}%</strong></td>
+            <td><strong>${s.confidence}%</strong> <span class="muted" style="font-size:10px;">(${s.composite_score})</span></td>
             <td>
               <div>${s.price}</div>
               <div class="muted" style="font-size:11px;">Lim: ${early.limit_price ?? "--"}</div>
@@ -1133,6 +1437,10 @@
         document.getElementById("lastScanText").textContent = `Ultimo scan: ${d.last_run}`;
       }
 
+      if (d.weights) {
+        populateWeightsInputs(d.weights);
+      }
+
       const bal = d.balance_info || {};
       document.getElementById("balSyncBadge").textContent = `Sync: ${bal.last_sync || "--:--:--"}`;
       document.getElementById("kpiBalance").textContent = Number(bal.balance_usdt || 0).toFixed(2);
@@ -1143,8 +1451,25 @@
       upnlEl.className = `val ${upnl >= 0 ? "pos" : "neg"}`;
       document.getElementById("kpiEquity").textContent = Number(bal.equity_usdt || 0).toFixed(2);
 
+      const dWr = Number(bal.daily_win_rate_pct || 0);
+      const dWrEl = document.getElementById("kpiDailyWinRate");
+      dWrEl.textContent = `${dWr.toFixed(1)}%`;
+      dWrEl.className = `val ${dWr >= 50 ? "pos" : "neg"}`;
+      const dPnl = Number(bal.daily_realized_pnl_usdt || 0);
+      document.getElementById("kpiDailySub").textContent =
+        `${bal.daily_wins || 0}W / ${bal.daily_losses || 0}L • ${dPnl >= 0 ? "+" : ""}${dPnl.toFixed(2)} USDT`;
+
+      const mWr = Number(bal.monthly_win_rate_pct || 0);
+      const mWrEl = document.getElementById("kpiMonthlyWinRate");
+      mWrEl.textContent = `${mWr.toFixed(1)}%`;
+      mWrEl.className = `val ${mWr >= 50 ? "pos" : "neg"}`;
+      const mPnl = Number(bal.monthly_realized_pnl_usdt || 0);
+      document.getElementById("kpiMonthlySub").textContent =
+        `${bal.monthly_wins || 0}W / ${bal.monthly_losses || 0}L • ${mPnl >= 0 ? "+" : ""}${mPnl.toFixed(2)} USDT`;
+
       STATE.signals = d.signals || {};
       STATE.openPositions = d.open_positions || {};
+      STATE.symbolOverrides = d.symbol_overrides || {};
       STATE.tradeLogs = d.trade_logs || [];
       STATE.audioAlerts = d.audio_alerts || [];
 
@@ -1154,6 +1479,7 @@
 
       renderSignalsTable();
       renderMarketsTable();
+      renderScoreParamsTable();
       renderPositionsTable();
       renderLogsAndAlerts();
       tickTimersAndCandleTransition();
@@ -1175,7 +1501,6 @@
       const onlyCE = document.getElementById("onlyCertainEarlyChk").checked;
       const pool = STATE.markets
         .filter(m => cat === "ALL" || cat === "CERTAIN" || m.category === cat)
-        .slice(0, 30)
         .map(m => m.symbol);
 
       const r = await fetch("/api/scan_top", {
@@ -1194,6 +1519,7 @@
         }
         renderSignalsTable();
         renderMarketsTable();
+        renderScoreParamsTable();
         renderLogsAndAlerts();
         tickTimersAndCandleTransition();
       }
@@ -1228,6 +1554,7 @@
       const rp = a.recommended_params || {};
       const ew = a.entry_window || {};
       const sn = a.sn_rejection || {};
+      const af = a.anti_fomo || {};
       const ms = a.manual_sign || {};
       const ind = a.indicators || {};
       const early = a.early_setup || {};
@@ -1244,7 +1571,7 @@
           </div>
           <div>
             <span class="pill ${sInfo.isShort ? "red" : "green"}">${ms.badge || a.signal}</span>
-            <span class="pill">Conf: ${a.confidence}%</span>
+            <span class="pill">Score: ${a.composite_score} • Conf: ${a.confidence}%</span>
           </div>
         </div>
         <div class="muted" style="margin-bottom:8px;">${ms.reason || ""}</div>
@@ -1265,8 +1592,10 @@
             <div>Setup: ${early.setup_type || "--"}</div>
           </div>
           <div class="subbox">
-            <div><strong>Filtri Finestra & SN</strong></div>
-            <div>${ew.status_badge || "--"}</div>
+            <div><strong>Anti-FOMO, Finestra & SN</strong></div>
+            <div>${af.badge || "--"}</div>
+            <div class="muted" style="font-size:11px;">${af.reason || ""}</div>
+            <div style="margin-top:4px;">${ew.status_badge || "--"}</div>
             <div class="muted" style="font-size:11px;">${ew.reason || ""}</div>
             <div style="margin-top:4px;">${sn.badge || "--"}</div>
             <div class="muted" style="font-size:11px;">${sn.reason || ""}</div>
@@ -1343,6 +1672,7 @@
     ["timeframeSelect", "categorySelect", "onlyCertainEarlyChk", "autoTradeChk"].forEach(id => {
       document.getElementById(id).addEventListener("change", () => {
         renderMarketsTable();
+        renderScoreParamsTable();
         renderSignalsTable();
         syncMonitorSettings();
       });
