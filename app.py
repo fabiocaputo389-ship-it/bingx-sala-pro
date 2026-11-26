@@ -67,13 +67,13 @@ TIMEFRAME_PROFILES = {
         "momentum_weight": 35,
         "volatility_weight": 22,
         "sentiment_weight": 18,
-        "min_confidence": 75,
-        "sl_mult": 1.3,
-        "tp1_mult": 1.5,
-        "tp2_mult": 2.4,
-        "tp3_mult": 3.5,
+        "min_confidence": 78,
+        "sl_mult": 1.4,
+        "tp1_mult": 2.2,
+        "tp2_mult": 3.4,
+        "tp3_mult": 4.8,
         "breakeven_at_tp_pct": 45.0,
-        "risk_per_trade_pct": 1.25,
+        "risk_per_trade_pct": 1.0,
         "auto_scan_interval": 8
     },
     "5m": {
@@ -82,13 +82,13 @@ TIMEFRAME_PROFILES = {
         "momentum_weight": 34,
         "volatility_weight": 20,
         "sentiment_weight": 18,
-        "min_confidence": 75,
-        "sl_mult": 1.35,
-        "tp1_mult": 1.6,
-        "tp2_mult": 2.6,
-        "tp3_mult": 3.8,
-        "breakeven_at_tp_pct": 45.0,
-        "risk_per_trade_pct": 1.5,
+        "min_confidence": 78,
+        "sl_mult": 1.5,
+        "tp1_mult": 2.4,
+        "tp2_mult": 3.6,
+        "tp3_mult": 5.0,
+        "breakeven_at_tp_pct": 50.0,
+        "risk_per_trade_pct": 1.25,
         "auto_scan_interval": 10
     },
     "15m": {
@@ -97,12 +97,12 @@ TIMEFRAME_PROFILES = {
         "momentum_weight": 30,
         "volatility_weight": 20,
         "sentiment_weight": 15,
-        "min_confidence": 75,
-        "sl_mult": 1.35,
-        "tp1_mult": 1.6,
-        "tp2_mult": 2.6,
-        "tp3_mult": 3.8,
-        "breakeven_at_tp_pct": 45.0,
+        "min_confidence": 78,
+        "sl_mult": 1.5,
+        "tp1_mult": 2.5,
+        "tp2_mult": 3.8,
+        "tp3_mult": 5.4,
+        "breakeven_at_tp_pct": 50.0,
         "risk_per_trade_pct": 1.5,
         "auto_scan_interval": 12
     },
@@ -112,12 +112,12 @@ TIMEFRAME_PROFILES = {
         "momentum_weight": 28,
         "volatility_weight": 20,
         "sentiment_weight": 14,
-        "min_confidence": 76,
-        "sl_mult": 1.45,
-        "tp1_mult": 1.8,
-        "tp2_mult": 2.9,
-        "tp3_mult": 4.2,
-        "breakeven_at_tp_pct": 50.0,
+        "min_confidence": 79,
+        "sl_mult": 1.6,
+        "tp1_mult": 2.6,
+        "tp2_mult": 4.0,
+        "tp3_mult": 5.8,
+        "breakeven_at_tp_pct": 55.0,
         "risk_per_trade_pct": 1.75,
         "auto_scan_interval": 15
     },
@@ -127,12 +127,12 @@ TIMEFRAME_PROFILES = {
         "momentum_weight": 25,
         "volatility_weight": 20,
         "sentiment_weight": 13,
-        "min_confidence": 77,
-        "sl_mult": 1.6,
-        "tp1_mult": 2.0,
-        "tp2_mult": 3.2,
-        "tp3_mult": 4.6,
-        "breakeven_at_tp_pct": 50.0,
+        "min_confidence": 80,
+        "sl_mult": 1.8,
+        "tp1_mult": 2.8,
+        "tp2_mult": 4.4,
+        "tp3_mult": 6.2,
+        "breakeven_at_tp_pct": 55.0,
         "risk_per_trade_pct": 2.0,
         "auto_scan_interval": 20
     }
@@ -146,11 +146,11 @@ MARKET_PROFILES = {
         "volatility_delta": -5,
         "sentiment_delta": 0,
         "conf_delta": 0,
-        "sl_mult": 1.35,
-        "tp1_mult": 1.6,
-        "tp2_mult": 2.6,
-        "tp3_mult": 3.8,
-        "breakeven_at_tp_pct": 45.0,
+        "sl_mult": 1.5,
+        "tp1_mult": 2.4,
+        "tp2_mult": 3.8,
+        "tp3_mult": 5.4,
+        "breakeven_at_tp_pct": 50.0,
         "risk_per_trade_pct": 1.5
     },
     "ALTCOIN & DEFI": {
@@ -159,13 +159,13 @@ MARKET_PROFILES = {
         "momentum_delta": 5,
         "volatility_delta": -5,
         "sentiment_delta": 5,
-        "conf_delta": 1,
-        "sl_mult": 1.5,
-        "tp1_mult": 1.75,
-        "tp2_mult": 2.8,
-        "tp3_mult": 4.2,
+        "conf_delta": 2,
+        "sl_mult": 1.7,
+        "tp1_mult": 2.6,
+        "tp2_mult": 4.2,
+        "tp3_mult": 6.0,
         "breakeven_at_tp_pct": 45.0,
-        "risk_per_trade_pct": 1.25
+        "risk_per_trade_pct": 1.0
     },
     "METALLI & COMMODITIES": {
         "label": "Metalli & Commodities (Gold/Silver/Oil)",
@@ -173,12 +173,12 @@ MARKET_PROFILES = {
         "momentum_delta": 0,
         "volatility_delta": 5,
         "sentiment_delta": -10,
-        "conf_delta": 0,
-        "sl_mult": 1.35,
-        "tp1_mult": 1.6,
-        "tp2_mult": 2.6,
-        "tp3_mult": 3.8,
-        "breakeven_at_tp_pct": 45.0,
+        "conf_delta": 1,
+        "sl_mult": 1.5,
+        "tp1_mult": 2.4,
+        "tp2_mult": 3.8,
+        "tp3_mult": 5.2,
+        "breakeven_at_tp_pct": 50.0,
         "risk_per_trade_pct": 1.5
     },
     "FOREX & VALUTE": {
@@ -187,12 +187,12 @@ MARKET_PROFILES = {
         "momentum_delta": -5,
         "volatility_delta": 5,
         "sentiment_delta": -5,
-        "conf_delta": 1,
-        "sl_mult": 1.3,
-        "tp1_mult": 1.5,
-        "tp2_mult": 2.4,
-        "tp3_mult": 3.5,
-        "breakeven_at_tp_pct": 45.0,
+        "conf_delta": 2,
+        "sl_mult": 1.4,
+        "tp1_mult": 2.2,
+        "tp2_mult": 3.5,
+        "tp3_mult": 4.8,
+        "breakeven_at_tp_pct": 50.0,
         "risk_per_trade_pct": 1.25
     },
     "INDICI & AZIONI": {
@@ -201,12 +201,12 @@ MARKET_PROFILES = {
         "momentum_delta": 0,
         "volatility_delta": 0,
         "sentiment_delta": -5,
-        "conf_delta": 0,
-        "sl_mult": 1.35,
-        "tp1_mult": 1.6,
-        "tp2_mult": 2.6,
-        "tp3_mult": 3.8,
-        "breakeven_at_tp_pct": 45.0,
+        "conf_delta": 1,
+        "sl_mult": 1.5,
+        "tp1_mult": 2.4,
+        "tp2_mult": 3.8,
+        "tp3_mult": 5.2,
+        "breakeven_at_tp_pct": 50.0,
         "risk_per_trade_pct": 1.5
     }
 }
@@ -216,13 +216,13 @@ BRAIN_WEIGHTS = {
     "momentum_weight": 30,
     "volatility_weight": 20,
     "sentiment_weight": 15,
-    "min_confidence": 75,
-    "min_adx": 19.0,
-    "min_expectancy_r": 0.18,
-    "sl_mult": 1.35,
-    "tp1_mult": 1.6,
-    "tp2_mult": 2.6,
-    "tp3_mult": 3.8,
+    "min_confidence": 78,
+    "min_adx": 22.0,
+    "min_expectancy_r": 0.25,
+    "sl_mult": 1.5,
+    "tp1_mult": 2.5,
+    "tp2_mult": 3.8,
+    "tp3_mult": 5.4,
     "auto_scan_interval": 12,
     "auto_monitor_enabled": True,
     "auto_trade_enabled": False,
@@ -230,12 +230,12 @@ BRAIN_WEIGHTS = {
     "auto_close_on_candle_end": True,
     "auto_close_on_candle_signal": True,
     "auto_trade_cooldown_sec": 60,
-    "breakeven_at_tp_pct": 45.0,
+    "breakeven_at_tp_pct": 50.0,
     "max_daily_loss_usdt": 100.0,
     "account_capital": 0.0,
     "risk_per_trade_pct": 1.5,
-    "max_entry_atr_stretch": 1.85,
-    "max_entry_z_abs": 2.95
+    "max_entry_atr_stretch": 1.65,
+    "max_entry_z_abs": 2.75
 }
 
 BALANCE_STATE = {
@@ -313,7 +313,7 @@ BINGX_NAME_TO_API = {
     "JTOUSDT": ["JTO-USDT"],
     "PEOPLEUSDT": ["PEOPLEUSDT"],
     "SUIUSDT": ["SUI-USDT"],
-    "PENDLEUSDT": ["PENDLEUSDT"]
+    "PENDLEUSDT": ["PENDLE-USDT"]
 }
 
 CONTRACTS_CACHE = {
@@ -389,7 +389,10 @@ def compute_candle_timing(interval: str, klines: list = None, now_ts: float = No
     rem_int = int(round(remaining))
     mins, secs = divmod(rem_int, 60)
     hrs, mins = divmod(mins, 60)
-    countdown_str = f"{hrs:02d}:{mins:02d}:{secs:02d}" if hrs > 0 else f"{mins:02d}:{secs:02d}"
+    if hrs > 0:
+        countdown_str = f"{hrs:02d}:{mins:02d}:{secs:02d}"
+    else:
+        countdown_str = f"{mins:02d}:{secs:02d}"
 
     pre_close_window_sec = min(45.0, max(15.0, sec_per_candle * 0.25))
     before_next_candle = remaining <= pre_close_window_sec
@@ -448,6 +451,7 @@ def format_signal_full_spec(item: dict) -> str:
 
 
 def is_strong_valid_signal(item: dict) -> bool:
+    """Restituisce True solo per segnali forti, direzionali e non bloccati."""
     if not item:
         return False
     ew = item.get("entry_window") or {}
@@ -466,9 +470,9 @@ def is_strong_valid_signal(item: dict) -> bool:
     if is_blocked:
         return False
 
-    min_conf = float(BRAIN_WEIGHTS.get("min_confidence", 75))
-    min_adx = float(BRAIN_WEIGHTS.get("min_adx", 19.0))
-    min_exp = float(BRAIN_WEIGHTS.get("min_expectancy_r", 0.18))
+    min_conf = float(BRAIN_WEIGHTS.get("min_confidence", 78))
+    min_adx = float(BRAIN_WEIGHTS.get("min_adx", 22.0))
+    min_exp = float(BRAIN_WEIGHTS.get("min_expectancy_r", 0.25))
 
     conf = float(item.get("confidence") or 0.0)
     adx_val = float(ind.get("adx") or 0.0)
@@ -480,6 +484,7 @@ def is_strong_valid_signal(item: dict) -> bool:
 
 
 def record_new_candle_written_alert(interval: str, candle_timing: dict, analyses_map: dict):
+    """Registra un avviso scritto di nuova candela includendo SOLO segnali forti, puliti e liberi da blocchi."""
     if not candle_timing:
         return None
 
@@ -510,6 +515,7 @@ def record_new_candle_written_alert(interval: str, candle_timing: dict, analyses
     if strong_candidates:
         top_items = strong_candidates[:3]
         parts = [format_signal_full_spec(c) for c in top_items]
+
         best = top_items[0]
         lv0 = best.get("levels") or {}
         rp0 = best.get("recommended_params") or {}
@@ -559,7 +565,7 @@ def auto_tune_brain_for_category_and_tf(interval: str, category: str):
     w_vol = max(10, min(60, int(tf["volatility_weight"] + mk["volatility_delta"])))
     w_sent = max(5, min(50, int(tf["sentiment_weight"] + mk["sentiment_delta"])))
 
-    auto_min_conf = max(74, min(84, int(max(tf["min_confidence"], 75) + mk["conf_delta"])))
+    auto_min_conf = max(76, min(86, int(max(tf["min_confidence"], 78) + mk["conf_delta"])))
     sl_mult = round((tf["sl_mult"] + mk["sl_mult"]) / 2.0, 2)
     tp1_mult = round((tf["tp1_mult"] + mk["tp1_mult"]) / 2.0, 2)
     tp2_mult = round((tf["tp2_mult"] + mk["tp2_mult"]) / 2.0, 2)
@@ -1022,7 +1028,7 @@ def fetch_open_bingx_positions(signal_map: dict = None):
         sl_target = float(managed.get("sl") or sig_info.get("levels", {}).get("sl", 0) or 0)
 
         if tp_target <= 0 and entry_px > 0:
-            tp_target = entry_px * 1.02 if side == "LONG" else entry_px * 0.98
+            tp_target = entry_px * 1.025 if side == "LONG" else entry_px * 0.975
 
         progress_pct = 0.0
         if entry_px > 0 and tp_target != entry_px:
@@ -1033,7 +1039,7 @@ def fetch_open_bingx_positions(signal_map: dict = None):
 
         progress_clamped = round(max(0.0, min(100.0, progress_pct)), 1)
 
-        be_threshold = float(BRAIN_WEIGHTS.get("breakeven_at_tp_pct", 45.0))
+        be_threshold = float(BRAIN_WEIGHTS.get("breakeven_at_tp_pct", 50.0))
         if progress_clamped >= be_threshold and m_key not in AUTO_SCAN_STATE["breakeven_moved"] and entry_px > 0:
             be_price = round(entry_px * (1.001 if side == "LONG" else 0.999), 6)
             bingx_private_post("/openApi/swap/v2/trade/order", {
@@ -1114,7 +1120,7 @@ def monitor_and_manage_auto_positions(latest_analyses: dict, open_positions: dic
             new_certain = str(analysis.get("certain_signal") or "")
             new_early_dir = str((analysis.get("early_setup") or {}).get("direction") or "")
             conf = float(analysis.get("confidence") or 0)
-            min_conf = float(BRAIN_WEIGHTS.get("min_confidence", 75))
+            min_conf = float(BRAIN_WEIGHTS.get("min_confidence", 78))
 
             opposite_signal = False
             if side == "LONG":
@@ -1209,6 +1215,7 @@ def calc_adx(highs: np.ndarray, lows: np.ndarray, closes: np.ndarray, period: in
 
 
 def detect_opposite_sn_high_candle_rejection(direction: str, current_price: float, atr: float, opens, highs, lows, closes):
+    """Blocca solo se c'è un livello SN forte e ravvicinato (<= 0.75 ATR) con candela impulsiva/wick >= 1.50 ATR."""
     if not direction or len(closes) < 10 or atr <= 0:
         return {
             "rejected": False,
@@ -1220,7 +1227,7 @@ def detect_opposite_sn_high_candle_rejection(direction: str, current_price: floa
 
     ranges = highs[:-1] - lows[:-1]
     avg_range = float(np.mean(ranges[-25:])) if len(ranges) >= 25 else float(np.mean(ranges))
-    high_candle_threshold = max(2.35 * atr, 2.20 * avg_range)
+    high_candle_threshold = max(2.10 * atr, 2.00 * avg_range)
 
     if direction == "LONG":
         sn_candidates = []
@@ -1228,14 +1235,14 @@ def detect_opposite_sn_high_candle_rejection(direction: str, current_price: floa
             c_range = highs[i] - lows[i]
             c_body = abs(closes[i] - opens[i])
             upper_wick = highs[i] - max(opens[i], closes[i])
-            is_high_candle = (c_range >= high_candle_threshold) or (c_body >= 2.00 * atr) or (upper_wick >= 1.85 * atr)
+            is_high_candle = (c_range >= high_candle_threshold) or (c_body >= 1.80 * atr) or (upper_wick >= 1.55 * atr)
             if is_high_candle and highs[i] > current_price:
                 sn_candidates.append((float(highs[i]), float(c_range / (atr + 1e-9)), float(upper_wick / (atr + 1e-9))))
 
         if sn_candidates:
             nearest_sn, c_atr, w_atr = min(sn_candidates, key=lambda x: x[0] - current_price)
             dist_atr = (nearest_sn - current_price) / (atr + 1e-9)
-            if dist_atr <= 0.55 and (c_atr >= 2.35 or w_atr >= 1.85):
+            if dist_atr <= 0.75 and (c_atr >= 2.10 or w_atr >= 1.55):
                 return {
                     "rejected": True,
                     "sn_level": round(nearest_sn, 6),
@@ -1259,14 +1266,14 @@ def detect_opposite_sn_high_candle_rejection(direction: str, current_price: floa
         c_range = highs[i] - lows[i]
         c_body = abs(closes[i] - opens[i])
         lower_wick = min(opens[i], closes[i]) - lows[i]
-        is_high_candle = (c_range >= high_candle_threshold) or (c_body >= 2.00 * atr) or (lower_wick >= 1.85 * atr)
+        is_high_candle = (c_range >= high_candle_threshold) or (c_body >= 1.80 * atr) or (lower_wick >= 1.55 * atr)
         if is_high_candle and lows[i] < current_price:
             sn_candidates.append((float(lows[i]), float(c_range / (atr + 1e-9)), float(lower_wick / (atr + 1e-9))))
 
     if sn_candidates:
         nearest_sn, c_atr, w_atr = min(sn_candidates, key=lambda x: current_price - x[0])
         dist_atr = (current_price - nearest_sn) / (atr + 1e-9)
-        if dist_atr <= 0.55 and (c_atr >= 2.35 or w_atr >= 1.85):
+        if dist_atr <= 0.75 and (c_atr >= 2.10 or w_atr >= 1.55):
             return {
                 "rejected": True,
                 "sn_level": round(nearest_sn, 6),
@@ -1297,9 +1304,9 @@ def evaluate_entry_window(
     max_z_abs: float = None
 ):
     if max_atr_stretch is None:
-        max_atr_stretch = float(BRAIN_WEIGHTS.get("max_entry_atr_stretch", 1.85))
+        max_atr_stretch = float(BRAIN_WEIGHTS.get("max_entry_atr_stretch", 1.65))
     if max_z_abs is None:
-        max_z_abs = float(BRAIN_WEIGHTS.get("max_entry_z_abs", 2.95))
+        max_z_abs = float(BRAIN_WEIGHTS.get("max_entry_z_abs", 2.75))
 
     if not direction or ref_price <= 0 or atr <= 0:
         return {
@@ -1361,15 +1368,16 @@ def evaluate_entry_window(
 
 
 def detect_early_entry_setup(opens, highs, lows, closes, volumes, ema20_arr, ema50_arr, ema200_val, atr_series, rsi, z_score, adx):
+    """Rileva solo setup con direzione chiara, non inseguimento e forza minima del mercato."""
     price = closes[-1]
     prev_high, prev_low = highs[-2], lows[-2]
     curr_open, curr_high, curr_low, curr_close = opens[-1], highs[-1], lows[-1], closes[-1]
 
     atr_sma20 = float(np.mean(atr_series[-20:])) if len(atr_series) >= 20 else float(atr_series[-1])
-    is_compressed = atr_series[-1] < (atr_sma20 * 0.98)
+    is_compressed = atr_series[-1] < (atr_sma20 * 0.96)
 
     candle_body_pct = abs(curr_close - curr_open) / (atr_series[-1] + 1e-9)
-    not_chasing = candle_body_pct < 2.00 and abs(z_score) <= 2.95
+    not_chasing = candle_body_pct < 1.80 and abs(z_score) <= 2.75
 
     trend_bias = "BULL" if (price >= ema200_val and ema20_arr[-1] >= ema50_arr[-1]) else ("BEAR" if (price <= ema200_val and ema20_arr[-1] <= ema50_arr[-1]) else ("BULL" if price >= ema200_val else "BEAR"))
 
@@ -1377,15 +1385,15 @@ def detect_early_entry_setup(opens, highs, lows, closes, volumes, ema20_arr, ema
     e50 = ema50_arr[-1]
     dist_e20_atr = abs(price - e20) / (atr_series[-1] + 1e-9)
     dist_e50_atr = abs(price - e50) / (atr_series[-1] + 1e-9)
-    pullback_bull = (trend_bias == "BULL") and (min(dist_e20_atr, dist_e50_atr) <= 1.15) and (40 <= rsi <= 70)
-    pullback_bear = (trend_bias == "BEAR") and (min(dist_e20_atr, dist_e50_atr) <= 1.15) and (30 <= rsi <= 60)
+    pullback_bull = (trend_bias == "BULL") and (min(dist_e20_atr, dist_e50_atr) <= 0.95) and (42 <= rsi <= 68)
+    pullback_bear = (trend_bias == "BEAR") and (min(dist_e20_atr, dist_e50_atr) <= 0.95) and (32 <= rsi <= 58)
 
     sweep_bull = (curr_low < prev_low) and (curr_close > prev_low) and (curr_close > curr_open)
     sweep_bear = (curr_high > prev_high) and (curr_close < prev_high) and (curr_close < curr_open)
 
     vol_avg20 = float(np.mean(volumes[-20:])) if len(volumes) >= 20 else float(volumes[-1])
-    vol_confirmed = (volumes[-1] >= vol_avg20 * 0.80) or sweep_bull or sweep_bear
-    min_adx = float(BRAIN_WEIGHTS.get("min_adx", 19.0))
+    vol_confirmed = (volumes[-1] >= vol_avg20 * 0.90) or sweep_bull or sweep_bear
+    min_adx = float(BRAIN_WEIGHTS.get("min_adx", 22.0))
     strong_regime = (adx >= min_adx) or sweep_bull or sweep_bear
 
     setup_type = "MERCATO IN ATTESA (FILTRO FORZA)"
@@ -1438,13 +1446,13 @@ def detect_early_entry_setup(opens, highs, lows, closes, volumes, ema20_arr, ema
 
 def compute_tp_timeframe_plan(interval: str, adx: float):
     tf_map = {
-        "1m":  {"tp_tf": "5m",  "candles": 3 if adx >= 22 else 5, "minutes_per_candle": 5},
-        "5m":  {"tp_tf": "15m", "candles": 2 if adx >= 22 else 4, "minutes_per_candle": 15},
-        "15m": {"tp_tf": "1h",  "candles": 2 if adx >= 22 else 3, "minutes_per_candle": 60},
-        "1h":  {"tp_tf": "4h",  "candles": 2 if adx >= 22 else 3, "minutes_per_candle": 240},
-        "4h":  {"tp_tf": "1d",  "candles": 1 if adx >= 22 else 2, "minutes_per_candle": 1440},
+        "1m":  {"tp_tf": "5m",  "candles": 4 if adx >= 25 else 7, "minutes_per_candle": 5},
+        "5m":  {"tp_tf": "15m", "candles": 3 if adx >= 25 else 6, "minutes_per_candle": 15},
+        "15m": {"tp_tf": "1h",  "candles": 2 if adx >= 25 else 4, "minutes_per_candle": 60},
+        "1h":  {"tp_tf": "4h",  "candles": 2 if adx >= 25 else 3, "minutes_per_candle": 240},
+        "4h":  {"tp_tf": "1d",  "candles": 2 if adx >= 25 else 3, "minutes_per_candle": 1440},
     }
-    cfg = tf_map.get(interval, {"tp_tf": "1h", "candles": 2, "minutes_per_candle": 60})
+    cfg = tf_map.get(interval, {"tp_tf": "1h", "candles": 3, "minutes_per_candle": 60})
     est_hours = round((cfg["candles"] * cfg["minutes_per_candle"]) / 60.0, 1)
     return {
         "tp_timeframe": cfg["tp_tf"],
@@ -1477,7 +1485,7 @@ def evaluate_profit_math_and_entry(
     ema_dir, mom_dir, vol_dir, final_sentiment, session_info, early_setup,
     entry_window, candle_timing, sn_rejection
 ):
-    p_win = float(np.clip(0.52 + (confidence - 55.0) * 0.0045 + (r_squared - 0.25) * 0.14, 0.42, 0.82))
+    p_win = float(np.clip(0.50 + (confidence - 55.0) * 0.0045 + (r_squared - 0.25) * 0.14, 0.40, 0.80))
     p_loss = 1.0 - p_win
     reward_r = max(rr_ratio, 0.5)
     expectancy_r = round((p_win * reward_r) - (p_loss * 1.0), 2)
@@ -1503,16 +1511,16 @@ def evaluate_profit_math_and_entry(
     side_verb = "VENDI (SHORT)" if early_dir == "SHORT" else "COMPRA (LONG)"
     side_icon = "📉" if early_dir == "SHORT" else "📈"
 
-    min_adx = float(BRAIN_WEIGHTS.get("min_adx", 19.0))
-    min_exp = float(BRAIN_WEIGHTS.get("min_expectancy_r", 0.18))
+    min_adx = float(BRAIN_WEIGHTS.get("min_adx", 22.0))
+    min_exp = float(BRAIN_WEIGHTS.get("min_expectancy_r", 0.25))
 
-    bull_aligned = (ema_dir > 10) and (mom_dir > 5) and (vol_dir >= -15)
-    bear_aligned = (ema_dir < -10) and (mom_dir < -5) and (vol_dir <= 15)
+    bull_aligned = (ema_dir > 15) and (mom_dir > 10) and (vol_dir >= -10)
+    bear_aligned = (ema_dir < -15) and (mom_dir < -10) and (vol_dir <= 10)
 
     reversed_against_dir = False
-    if early_dir == "LONG" and (ema_dir < -25 or mom_dir < -25):
+    if early_dir == "LONG" and (ema_dir < -20 or mom_dir < -20):
         reversed_against_dir = True
-    elif early_dir == "SHORT" and (ema_dir > 25 or mom_dir > 25):
+    elif early_dir == "SHORT" and (ema_dir > 20 or mom_dir > 20):
         reversed_against_dir = True
 
     is_strong_enough = (
@@ -1646,6 +1654,7 @@ def evaluate_profit_math_and_entry(
 
 
 def is_certain_or_early_signal(analysis: dict) -> bool:
+    """Ritorna True SOLO se il segnale è forte e valido (niente segnali deboli o bloccati)."""
     return is_strong_valid_signal(analysis)
 
 
@@ -1749,7 +1758,7 @@ def analyze_symbol_math(symbol: str, interval: str = "15m", custom_sentiment: fl
     elif macd_hist < 0 and macd_line[-1] < signal_line[-1]:
         mom_dir -= 40
 
-    adx_multiplier = 1.25 if adx >= 22 else 0.85
+    adx_multiplier = 1.25 if adx >= 24 else 0.75
     mom_dir = float(np.clip(mom_dir * adx_multiplier, -100, 100))
 
     sma20 = np.mean(closes[-20:])
@@ -1764,8 +1773,8 @@ def analyze_symbol_math(symbol: str, interval: str = "15m", custom_sentiment: fl
     r_squared = float(corr_matrix[0, 1] ** 2) if not np.isnan(corr_matrix[0, 1]) else 0.0
 
     vol_dir = 0.0
-    if 0.25 < z_score < 2.2: vol_dir += 50 * r_squared + 30
-    elif -2.2 < z_score < -0.25: vol_dir -= 50 * r_squared + 30
+    if 0.3 < z_score < 2.1: vol_dir += 50 * r_squared + 30
+    elif -2.1 < z_score < -0.3: vol_dir -= 50 * r_squared + 30
     vol_dir = float(np.clip(vol_dir, -100, 100))
 
     bid_vol = sum(float(b[1]) for b in (depth.get("bids", []) if depth else []))
@@ -1776,7 +1785,7 @@ def analyze_symbol_math(symbol: str, interval: str = "15m", custom_sentiment: fl
     vol_ratio = volumes[-1] / (np.mean(volumes[-20:]) + 1e-9)
 
     calc_sentiment = float(np.clip(
-        ob_imbalance * 0.7 + (20 if vol_ratio > 1.25 and closes[-1] > closes[-2] else (-20 if vol_ratio > 1.25 else 0)),
+        ob_imbalance * 0.7 + (20 if vol_ratio > 1.3 and closes[-1] > closes[-2] else (-20 if vol_ratio > 1.3 else 0)),
         -100,
         100
     ))
@@ -1806,26 +1815,26 @@ def analyze_symbol_math(symbol: str, interval: str = "15m", custom_sentiment: fl
     )
 
     raw_conf = min(abs(composite_score) * 1.15 + (r_squared * 12) + (min(adx, 40) * 0.25), 99.4)
-    if early_setup.get("trigger_sound") and adx >= float(BRAIN_WEIGHTS.get("min_adx", 19.0)):
-        raw_conf = max(raw_conf, float(BRAIN_WEIGHTS["min_confidence"]) + 2.0)
+    if early_setup.get("trigger_sound") and adx >= float(BRAIN_WEIGHTS.get("min_adx", 22.0)):
+        raw_conf = max(raw_conf, float(BRAIN_WEIGHTS["min_confidence"]) + 2.5)
     confidence = round(float(min(raw_conf, 99.4)), 1)
 
     min_conf = BRAIN_WEIGHTS["min_confidence"]
-    if composite_score > 18 and confidence >= min_conf:
+    if composite_score > 20 and confidence >= min_conf:
         signal = "STRONG LONG"
     elif composite_score > 8:
         signal = "LONG"
-    elif composite_score < -18 and confidence >= min_conf:
+    elif composite_score < -20 and confidence >= min_conf:
         signal = "STRONG SHORT"
     elif composite_score < -8:
         signal = "SHORT"
     else:
         signal = "LONG" if composite_score >= 0 else "SHORT"
 
-    sl_m = float(BRAIN_WEIGHTS.get("sl_mult", 1.35))
-    tp1_m = float(BRAIN_WEIGHTS.get("tp1_mult", 1.6))
-    tp2_m = float(BRAIN_WEIGHTS.get("tp2_mult", 2.6))
-    tp3_m = float(BRAIN_WEIGHTS.get("tp3_mult", 3.8))
+    sl_m = float(BRAIN_WEIGHTS.get("sl_mult", 1.5))
+    tp1_m = float(BRAIN_WEIGHTS.get("tp1_mult", 2.5))
+    tp2_m = float(BRAIN_WEIGHTS.get("tp2_mult", 3.8))
+    tp3_m = float(BRAIN_WEIGHTS.get("tp3_mult", 5.4))
 
     ref_dir = early_setup["direction"] if early_setup.get("direction") else ("LONG" if composite_score >= 0 else "SHORT")
     if ref_dir == "LONG":
