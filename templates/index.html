@@ -10,24 +10,24 @@
       --bg-elevated: #0c1220;
       --surface: #10182b;
       --surface-alt: #16213a;
-      --panel: rgba(15, 23, 42, 0.9);
-      --panel-2: rgba(20, 30, 54, 0.94);
+      --panel: rgba(15, 23, 42, 0.92);
+      --panel-2: rgba(20, 30, 54, 0.95);
       --border: rgba(148, 163, 184, 0.18);
-      --border-strong: rgba(245, 185, 66, 0.38);
+      --border-strong: rgba(245, 185, 66, 0.4);
       --text: #f8fafc;
       --muted: #94a3b8;
       --gold: #f5b942;
-      --gold-soft: rgba(245, 185, 66, 0.14);
+      --gold-soft: rgba(245, 185, 66, 0.15);
       --accent: #38bdf8;
-      --accent-soft: rgba(56, 189, 248, 0.14);
+      --accent-soft: rgba(56, 189, 248, 0.15);
       --green: #10b981;
-      --green-soft: rgba(16, 185, 129, 0.16);
+      --green-soft: rgba(16, 185, 129, 0.17);
       --red: #f43f5e;
-      --red-soft: rgba(244, 63, 94, 0.16);
+      --red-soft: rgba(244, 63, 94, 0.17);
       --amber: #f5b942;
       --purple: #a78bfa;
       --shadow-sm: 0 6px 20px rgba(0, 0, 0, 0.35);
-      --shadow-md: 0 14px 36px rgba(0, 0, 0, 0.52);
+      --shadow-md: 0 14px 36px rgba(0, 0, 0, 0.55);
       --glow-gold: 0 0 24px rgba(245, 185, 66, 0.16);
     }
 
@@ -38,7 +38,7 @@
       background:
         radial-gradient(ellipse 75% 45% at 12% -5%, rgba(245, 185, 66, 0.14), transparent 60%),
         radial-gradient(ellipse 65% 40% at 88% 0%, rgba(56, 189, 248, 0.13), transparent 60%),
-        radial-gradient(ellipse 60% 50% at 50% 100%, rgba(16, 185, 129, 0.07), transparent 65%),
+        radial-gradient(ellipse 60% 50% at 50% 100%, rgba(16, 185, 129, 0.08), transparent 65%),
         var(--bg);
       color: var(--text);
       font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -88,7 +88,7 @@
       justify-content: space-between;
       gap: 12px;
       padding: 12px 22px;
-      background: rgba(9, 14, 26, 0.88);
+      background: rgba(9, 14, 26, 0.9);
       backdrop-filter: blur(14px);
       border-bottom: 1px solid var(--border-strong);
       box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
@@ -101,9 +101,9 @@
       display: flex;
       flex-wrap: wrap;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
       font-weight: 800;
-      font-size: 15.5px;
+      font-size: 15px;
       letter-spacing: -0.02em;
       color: var(--text);
     }
@@ -164,12 +164,42 @@
     }
 
     .container {
-      max-width: 1600px;
+      max-width: 1640px;
       margin: 0 auto;
-      padding: 18px 22px 48px;
+      padding: 18px 22px 54px;
       display: flex;
       flex-direction: column;
       gap: 16px;
+    }
+
+    .vip-strip {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 10px;
+    }
+
+    .vip-stat {
+      background: linear-gradient(155deg, rgba(22, 33, 58, 0.88), rgba(9, 14, 26, 0.96));
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      border-radius: 13px;
+      padding: 10px 13px;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .vip-stat .k {
+      font-size: 10.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: var(--muted);
+      letter-spacing: 0.04em;
+    }
+
+    .vip-stat .v {
+      font-size: 15px;
+      font-weight: 800;
+      color: #ffffff;
     }
 
     .candle-alert-box {
@@ -274,12 +304,12 @@
 
     .top-setups-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(275px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
       gap: 12px;
     }
 
     .setup-card {
-      background: linear-gradient(160deg, rgba(22, 33, 58, 0.9) 0%, rgba(10, 16, 30, 0.96) 100%);
+      background: linear-gradient(160deg, rgba(22, 33, 58, 0.92) 0%, rgba(10, 16, 30, 0.97) 100%);
       border: 1px solid rgba(245, 185, 66, 0.28);
       border-radius: 14px;
       padding: 12px 14px;
@@ -707,6 +737,30 @@
     .subbox:nth-child(4) {
       border-left-color: var(--purple);
     }
+
+    .toast-msg {
+      position: fixed;
+      bottom: 18px;
+      right: 18px;
+      background: linear-gradient(135deg, #10182b, #1b2846);
+      border: 1px solid var(--gold);
+      color: #fde68a;
+      padding: 10px 14px;
+      border-radius: 12px;
+      font-weight: 700;
+      font-size: 12px;
+      box-shadow: var(--shadow-md);
+      z-index: 99;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(8px);
+      transition: all 0.2s ease;
+    }
+
+    .toast-msg.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
   </style>
 </head>
 <body>
@@ -715,6 +769,7 @@
       <span>👑 BingX VIP Signal Room</span>
       <span id="monitorPill" class="pill green">Monitor: ATTIVO</span>
       <span id="profilePill" class="pill amber">Profilo: AUTO-PRO</span>
+      <span id="certainModePill" class="pill green">Modalità: SOLO CERTI</span>
       <span id="fakeoutGuardPill" class="pill purple">Anti-Fakeout & Rottura: HARD</span>
     </div>
 
@@ -737,8 +792,8 @@
       </select>
 
       <label class="toggle-label">
-        <input type="checkbox" id="onlyCertainEarlyChk" />
-        Solo Certi / Anticipo
+        <input type="checkbox" id="onlyCertainEarlyChk" checked />
+        Solo Segnali Certi
       </label>
 
       <label class="toggle-label">
@@ -752,33 +807,67 @@
       </label>
 
       <button id="soundBtn" class="pill blue" onclick="toggleSound()">🔊 Audio: ON</button>
+      <button class="red" onclick="panicCloseAll()">🚨 PANIC FLAT</button>
       <button class="primary" onclick="refreshAll(true)">↻ Aggiorna</button>
     </div>
   </div>
 
   <div class="container">
-    <!-- AVVISO SCRITTO PRE-CANDELA / PREPARAZIONE ENTRATA / CANDELA PROFITTO IN CARICAMENTO -->
+    <!-- CONTROLLO RISCHIO OPERATIVO & PANORAMICA SALA VIP -->
+    <div class="card" style="padding:12px 16px;">
+      <div class="card-header" style="margin-bottom:10px; padding-bottom:8px;">
+        <div class="card-title">🛡️ Controllo Rischio Giornaliero & Stato Sala VIP (Anticipazioni Candela Profitto)</div>
+        <div class="controls-row">
+          <span id="riskGuardBadge" class="pill green">Rischio: OK</span>
+          <span class="muted" style="font-size:11px;">Max Perdita Oggi (USDT):</span>
+          <input id="maxDailyLossInput" type="number" min="0" step="5" value="150" style="width:76px; padding:4px 7px;" onchange="renderAllDynamic()" />
+          <span class="muted" style="font-size:11px;">Max Posizioni:</span>
+          <input id="maxOpenPosInput" type="number" min="1" max="30" step="1" value="5" style="width:58px; padding:4px 7px;" onchange="renderAllDynamic()" />
+        </div>
+      </div>
+
+      <div class="vip-strip">
+        <div class="vip-stat">
+          <span class="k">Segnali Certi Validati</span>
+          <span id="vipConfirmedCount" class="v pos">0</span>
+        </div>
+        <div class="vip-stat">
+          <span class="k">Anticipazioni Pre-Candela</span>
+          <span id="vipPrepCount" class="v" style="color:#fde68a;">0</span>
+        </div>
+        <div class="vip-stat">
+          <span class="k">Candele Profitto Attive</span>
+          <span id="vipProfitCount" class="v pos">0</span>
+        </div>
+        <div class="vip-stat">
+          <span class="k">Scartati / Anti-Fakeout</span>
+          <span id="vipFakeoutCount" class="v neg">0</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- AVVISO SCRITTO PRE-CANDELA / ANTICIPAZIONE PROFITTO / CANDELA PROFITTO IN CARICAMENTO -->
     <div id="newCandleBanner" class="candle-alert-box">
       <div class="candle-alert-main">
-        <span id="newCandleAlertText">🕯️ In attesa dell'apertura della prossima candela...</span>
+        <span id="newCandleAlertText">🕯️ In attesa di anticipazione pre-candela su segnale certo in carica LONG/SHORT...</span>
         <span id="globalTimerBadge" class="pill amber">Prossima candela: --:--</span>
       </div>
       <div id="liveRadarStrip" class="live-radar-strip"></div>
       <div id="newCandleHistory" class="candle-history"></div>
     </div>
 
-    <!-- CARD DEDICATE AI TOP SETUP VIP DEL MOMENTO (CON SCORE MODIFICABILE AL VOLO) -->
+    <!-- CARD DEDICATE AI TOP SETUP CERTI DEL MOMENTO (SOLO SCORE MODIFICABILE) -->
     <div class="card">
       <div class="card-header">
-        <div class="card-title">⚡ Top Setup VIP del Momento (Rottura Validata • Parametri Auto • Score Modificabile)</div>
+        <div class="card-title">⚡ Top Segnali Certi & Anticipazioni Candela Profitto (EMA & Parametri 100% Auto • Solo Score Modificabile)</div>
         <div class="controls-row">
-          <span id="topSetupsBadge" class="pill amber">0 setup</span>
-          <button class="primary" onclick="applyBestAutoParams(true)">⚡ Auto-Ottimizza Parametri</button>
+          <span id="topSetupsBadge" class="pill amber">0 certi</span>
+          <button class="primary" onclick="applyBestAutoParams(true)">⚡ Reimposta EMA & Parametri Auto</button>
           <button onclick="runManualScan()">Scansiona ora</button>
         </div>
       </div>
       <div id="topSetupsGrid" class="top-setups-grid">
-        <div class="muted">Scansione setup in corso...</div>
+        <div class="muted">In attesa di segnali certi confermati...</div>
       </div>
     </div>
 
@@ -851,33 +940,32 @@
       </div>
     </div>
 
-    <!-- SCORE ESATTO MODIFICABILE PER ASSET (TUTTI GLI ALTRI PARAMETRI SONO IN AUTOMATICO) -->
+    <!-- SOLO SCORE MODIFICABILE PER ASSET (EMA, SENTIMENT E TUTTI GLI ALTRI PARAMETRI IN AUTOMATICO) -->
     <div class="card">
       <div class="card-header">
-        <div class="card-title">🎯 Score Esatto Modificabile per Asset (Altri Parametri Auto-Ottimizzati)</div>
+        <div class="card-title">🎯 Score Mercato Modificabile (EMA, Momentum, Volatilità, Sentiment & Parametri 100% Auto)</div>
         <div class="controls-row">
-          <span id="autoParamsSummary" class="pill green">Auto: EMA 40 • Mom 30 • Vol 15 • Sent 15 • Conf 68% • Risk 1.5% • TP 1.9/3.2/4.8x</span>
-          <button class="primary" onclick="applyBestAutoParams(true)">⚡ Reimposta Parametri Auto</button>
+          <span id="autoParamsSummary" class="pill green">EMA 40 • Mom 30 • Vol 15 • Sent 15 (AUTO) • Risk 1.5% • TP 1.9/3.2/4.8x</span>
+          <button class="primary" onclick="applyBestAutoParams(true)">⚡ Reimposta EMA & Parametri Auto</button>
         </div>
       </div>
 
-      <div class="table-wrap" style="max-height:300px;">
+      <div class="table-wrap" style="max-height:320px;">
         <table>
           <thead>
             <tr>
               <th>Asset</th>
               <th>Categoria</th>
               <th>Prezzo</th>
-              <th>Score Esatto (-100..+100)</th>
-              <th>Sentiment (-100..+100)</th>
+              <th>Score Mercato (-100..+100)</th>
               <th>Conf.</th>
               <th>Segnale</th>
-              <th>Rottura / Fakeout</th>
+              <th>Anticipazione & Carica</th>
               <th>Applica / Reset</th>
             </tr>
           </thead>
           <tbody id="scoreParamsBody">
-            <tr><td colspan="9" class="muted">Caricamento mercati per modifica score...</td></tr>
+            <tr><td colspan="8" class="muted">Caricamento mercati per modifica score...</td></tr>
           </tbody>
         </table>
       </div>
@@ -915,19 +1003,19 @@
       </div>
     </div>
 
-    <!-- RADAR SEGNALI & ANALISI DETTAGLIATA -->
+    <!-- RADAR SEGNALI CERTI & ANALISI DETTAGLIATA -->
     <div class="grid-2">
       <div class="card">
         <div class="card-header">
-          <div class="card-title">🎯 Radar Segnali VIP Certi / Anticipo</div>
-          <span id="radarCount" class="pill amber">0 segnali</span>
+          <div class="card-title">🎯 Radar Solo Segnali Certi & Anticipazioni</div>
+          <span id="radarCount" class="pill amber">0 certi</span>
         </div>
         <div class="table-wrap">
           <table>
             <thead>
               <tr>
                 <th>Asset, Avviso & Candela</th>
-                <th>Direzione / Rottura</th>
+                <th>Direzione / Anticipazione</th>
                 <th>Conf.</th>
                 <th>Prezzo / Limite</th>
                 <th>SL / TP1 / TP2 / TP3</th>
@@ -936,7 +1024,7 @@
               </tr>
             </thead>
             <tbody id="signalsBody">
-              <tr><td colspan="7" class="muted">In attesa di segnali...</td></tr>
+              <tr><td colspan="7" class="muted">Nessun segnale certo attivo al momento.</td></tr>
             </tbody>
           </table>
         </div>
@@ -946,11 +1034,11 @@
         <div class="card-header">
           <div class="card-title">🔬 Analisi Quantitativa Singolo Asset</div>
           <div class="controls-row">
-            <input id="analyzeSymbolInput" type="text" value="BTC-USDT" placeholder="Es. BTC-USDT, GOLD(XAU), NDX-USDT" style="width:165px;" />
+            <input id="analyzeSymbolInput" type="text" value="BTC-USDT" placeholder="Es. BTC-USDT, GOLD(XAU), NDX-USDT" style="width:165px;" onkeydown="if(event.key==='Enter') analyzeSingle()" />
             <button class="primary" onclick="analyzeSingle()">Analizza</button>
           </div>
         </div>
-        <div id="singleAnalysisBox" class="muted">Seleziona o analizza un contratto per vedere dettagli, rottura, anti-fakeout, preparazione entrata e indicatori.</div>
+        <div id="singleAnalysisBox" class="muted">Seleziona o analizza un contratto per vedere anticipazione candela profitto, carica LONG/SHORT e rottura.</div>
       </div>
     </div>
 
@@ -997,7 +1085,7 @@
 
       <div class="card">
         <div class="card-header">
-          <div class="card-title">🔔 Allarmi Acustici, Anti-Fakeout, Entrata & Profitto</div>
+          <div class="card-title">🔔 Allarmi Acustici, Anticipazioni Candela, Entrata & Profitto</div>
         </div>
         <div id="audioAlertsBox" class="log-box">
           <div class="muted">Nessun allarme recente.</div>
@@ -1005,6 +1093,8 @@
       </div>
     </div>
   </div>
+
+  <div id="toastMsg" class="toast-msg"></div>
 
   <script>
     const INTERVAL_SEC = { "1m": 60, "5m": 300, "15m": 900, "1h": 3600, "4h": 14400 };
@@ -1014,7 +1104,7 @@
       momentum_weight: 30,
       volatility_weight: 15,
       sentiment_weight: 15,
-      min_confidence: 68,
+      min_confidence: 70,
       risk_per_trade_pct: 1.5,
       sl_mult: 1.45,
       tp1_mult: 1.9,
@@ -1041,12 +1131,192 @@
       preWarnedCandleKey: null,
       lastProfitAlertSignature: null,
       lastAlertId: null,
+      dailyPnlUsdt: 0,
       soundEnabled: true
     };
+
+    let toastTimer = null;
+    function showToast(msg) {
+      const el = document.getElementById("toastMsg");
+      if (!el) return;
+      el.textContent = msg;
+      el.classList.add("show");
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => el.classList.remove("show"), 2400);
+    }
+
+    function isOnlyCertainEnabled() {
+      const el = document.getElementById("onlyCertainEarlyChk");
+      return el ? Boolean(el.checked) : true;
+    }
 
     function isStrictBreakoutEnabled() {
       const el = document.getElementById("strictBreakoutChk");
       return el ? Boolean(el.checked) : true;
+    }
+
+    function getSignalSideInfo(sig) {
+      if (!sig) return { side: "BUY", actionLabel: "COMPRA (LONG)", dirLabel: "LONG", icon: "📈", isShort: false };
+      const early = sig.early_setup || {};
+      const raw = String(sig.certain_signal || early.direction || sig.signal || "").toUpperCase();
+      const isShort = raw.includes("SHORT") || raw.includes("SELL") || Number(sig.composite_score || 0) < 0;
+      return {
+        side: isShort ? "SELL" : "BUY",
+        actionLabel: isShort ? "VENDI (SHORT)" : "COMPRA (LONG)",
+        dirLabel: isShort ? "SHORT" : "LONG",
+        icon: isShort ? "📉" : "📈",
+        isShort
+      };
+    }
+
+    // Studio matematico della carica direzionale LONG/SHORT verso il profitto
+    function computeMathChargeState(s) {
+      if (!s) {
+        return {
+          chargePower: 0,
+          direction: "NEUTRO",
+          isShort: false,
+          chargingForProfit: false,
+          badge: "⏳ CARICA 0%",
+          mathSummary: "Nessun dato quantitativo disponibile"
+        };
+      }
+
+      const sInfo = getSignalSideInfo(s);
+      const score = Number(s.composite_score ?? 0);
+      const conf = Number(s.confidence ?? 0);
+      const ind = s.indicators || {};
+      const early = s.early_setup || {};
+      const lv = s.levels || {};
+
+      const scoreMag = Math.min(100, Math.abs(score));
+      const confNorm = Math.max(0, Math.min(100, conf));
+      const adx = Number(ind.adx ?? 24);
+      const zScore = Number(ind.z_score ?? 0);
+      const distPct = Math.abs(Number(early.distance_pct ?? 0.25));
+      const rr = Number(lv.rr ?? 1.8);
+
+      const zAligned = sInfo.isShort ? (zScore <= 1.2) : (zScore >= -1.2);
+      const trendStrength = Math.max(0, Math.min(100, (adx / 40) * 100));
+      const proximityBoost = Math.max(0, 100 - distPct * 65);
+      const rrBoost = Math.max(0, Math.min(100, (rr / 3.0) * 100));
+
+      let rawPower = (
+        scoreMag * 0.34 +
+        confNorm * 0.32 +
+        trendStrength * 0.14 +
+        proximityBoost * 0.10 +
+        rrBoost * 0.10
+      );
+
+      if (!zAligned) rawPower *= 0.72;
+      if (early.trigger_sound) rawPower = Math.min(100, rawPower + 6);
+
+      const chargePower = Math.round(Math.max(0, Math.min(100, rawPower)));
+      const chargingForProfit = chargePower >= 55 && zAligned;
+
+      const dirTag = sInfo.isShort ? "SHORT" : "LONG";
+      const badge = chargingForProfit
+        ? `⚡ IN CARICA ${dirTag} (${chargePower}% PROFITTO)`
+        : `🔋 CARICA ${dirTag} ${chargePower}%`;
+
+      const mathSummary = `Score ${score} • Conf ${conf}% • ADX ${adx.toFixed ? adx.toFixed(1) : adx} • Z ${zScore} • R:R ${rr}`;
+
+      return {
+        chargePower,
+        direction: dirTag,
+        isShort: sInfo.isShort,
+        chargingForProfit,
+        badge,
+        mathSummary
+      };
+    }
+
+    // Anticipazione matematica della candela prima che parta per cogliere la spinta di profitto
+    function computeCandleAnticipation(s, clk) {
+      const math = computeMathChargeState(s);
+      const lv = s?.levels || {};
+      const price = Number(s?.price ?? lv.entry ?? 0);
+      const tp1 = Number(lv.tp1 ?? 0);
+      const tp2 = Number(lv.tp2 ?? 0);
+      const target = tp2 > 0 ? tp2 : tp1;
+
+      const expectedProfitPct = (price > 0 && target > 0)
+        ? Math.abs(((target - price) / price) * 100)
+        : Number(lv.rr ?? 1.8) * 0.45;
+
+      const preWindowActive = Boolean(clk && clk.isPre);
+      const anticipateReady = Boolean(math.chargingForProfit && (preWindowActive || math.chargePower >= 65));
+
+      const dirTag = math.direction;
+      const windowTxt = preWindowActive && clk
+        ? `parte tra ${clk.rem}s (${clk.nextClock})`
+        : `finestra di carica attiva`;
+
+      return {
+        anticipateReady,
+        preWindowActive,
+        expectedProfitPct,
+        chargePower: math.chargePower,
+        direction: dirTag,
+        badge: preWindowActive
+          ? `🔮 ANTICIPA CANDELA ${dirTag} (-${clk.rem}s • +${expectedProfitPct.toFixed(2)}% TP)`
+          : `🎯 CANDELA ${dirTag} IN PREPARAZIONE (+${expectedProfitPct.toFixed(2)}% TP)`,
+        summary: `Anticipazione candela ${dirTag} (${windowTxt}) • Carica ${math.chargePower}% • Target profitto stimato +${expectedProfitPct.toFixed(2)}% verso ${target || "--"}`
+      };
+    }
+
+    function isCertainSignal(s) {
+      if (!s) return false;
+      const ms = s.manual_sign || {};
+      const certTag = String(s.certain_signal || "").trim().toUpperCase();
+      const msStatus = String(ms.status || "").trim().toUpperCase();
+      const rawSig = String(s.signal || "").trim().toUpperCase();
+      const score = Number(s.composite_score ?? 0);
+      const conf = Number(s.confidence ?? 0);
+
+      const explicitlyCertain = Boolean(
+        certTag
+        || ms.show_enter_now === true
+        || msStatus === "CERTAIN"
+        || msStatus === "ENTER_NOW"
+        || rawSig.includes("CERTO")
+      );
+
+      if (!explicitlyCertain) return false;
+
+      const sInfo = getSignalSideInfo(s);
+      const alignedScore = sInfo.isShort ? score <= -25 : score >= 25;
+      const math = computeMathChargeState(s);
+      return alignedScore && conf >= 65 && math.chargingForProfit;
+    }
+
+    function getRiskGuardStatus() {
+      const maxLoss = Math.max(0, Number(document.getElementById("maxDailyLossInput")?.value || 150));
+      const maxPos = Math.max(1, Number(document.getElementById("maxOpenPosInput")?.value || 5));
+      const openCount = Object.keys(STATE.openPositions || {}).length;
+      const lossExceeded = maxLoss > 0 && Number(STATE.dailyPnlUsdt || 0) <= -maxLoss;
+      const posExceeded = openCount >= maxPos;
+
+      if (lossExceeded) {
+        return {
+          blocked: true,
+          badgeText: `🛑 STOP PERDITA GIORNO (-${Math.abs(STATE.dailyPnlUsdt).toFixed(2)} USDT)`,
+          badgeCls: "pill red"
+        };
+      }
+      if (posExceeded) {
+        return {
+          blocked: true,
+          badgeText: `⚠️ MAX POSIZIONI (${openCount}/${maxPos})`,
+          badgeCls: "pill amber"
+        };
+      }
+      return {
+        blocked: false,
+        badgeText: `🛡️ RISCHIO OK (${openCount}/${maxPos} pos • Max -${maxLoss} USDT)`,
+        badgeCls: "pill green"
+      };
     }
 
     function toggleSound() {
@@ -1121,23 +1391,13 @@
         openClock,
         nextClock,
         label: isPre
-          ? `⏱ PRE-CANDELA -${rem}s (apre ${nextClock})`
+          ? `⏱ ANTICIPA CANDELA -${rem}s (apre ${nextClock})`
           : `🕯️ ${interval} in ${countdownStr} (apre ${nextClock})`
       };
     }
 
-    function getSignalSideInfo(sig) {
-      if (!sig) return { side: "", actionLabel: "", dirLabel: "", icon: "", isShort: false };
-      const early = sig.early_setup || {};
-      const raw = String(sig.certain_signal || early.direction || sig.signal || "").toUpperCase();
-      const isShort = raw.includes("SHORT") || raw.includes("SELL");
-      return {
-        side: isShort ? "SELL" : "BUY",
-        actionLabel: isShort ? "VENDI (SHORT)" : "COMPRA (LONG)",
-        dirLabel: isShort ? "SHORT" : "LONG",
-        icon: isShort ? "📉" : "📈",
-        isShort
-      };
+    function getAllEffectiveSignalsMap() {
+      return { ...(STATE.signals || {}) };
     }
 
     function evaluateBreakoutAndFakeout(s) {
@@ -1183,7 +1443,6 @@
         fakeoutRisk = true;
         reasons.push(sess.session_name || "Fuori sessione");
       }
-
       if (sInfo.isShort && score > 12) {
         fakeoutRisk = true;
         reasons.push(`Divergenza score (${score}) su setup SHORT`);
@@ -1194,7 +1453,7 @@
       }
 
       if (isStrictBreakoutEnabled()) {
-        if (conf < 65 && Math.abs(score) < 55) {
+        if (conf < 68 && Math.abs(score) < 55) {
           fakeoutRisk = true;
           reasons.push(`Spinta breakout debole (Conf ${conf}%, Score ${score})`);
         }
@@ -1205,43 +1464,44 @@
         }
       }
 
-      const breakoutConfirmed = !fakeoutRisk && (
-        Boolean(s.certain_signal)
-        || Math.abs(score) >= 50
-        || conf >= 68
-      );
+      const math = computeMathChargeState(s);
+      const breakoutConfirmed = !fakeoutRisk && isCertainSignal(s);
 
       return {
         fakeoutRisk,
         breakoutConfirmed,
         badge: fakeoutRisk
           ? "⚠️ ANTI-FAKEOUT: RISCHIO RIENTRO"
-          : (breakoutConfirmed ? "🚀 ROTTURA CONFERMATA" : "🛡️ ROTTURA IN VALIDAZIONE"),
+          : (breakoutConfirmed ? math.badge : "⏳ CARICA INSUFFICIENTE"),
         reason: reasons.length
           ? reasons.join(" • ")
-          : "Direzione, soglia e momentum coerenti con rottura valida"
+          : (breakoutConfirmed
+            ? `In carica ${math.direction} (${math.chargePower}%) verso il profitto • ${math.mathSummary}`
+            : `Carica ${math.direction} al ${math.chargePower}% (${math.mathSummary})`)
       };
     }
 
     function isSignalBlocked(s) {
       if (!s) return true;
       const g = evaluateBreakoutAndFakeout(s);
-      return g.fakeoutRisk;
-    }
-
-    function isActionableSignal(s) {
-      if (!s) return false;
-      const early = s.early_setup || {};
-      const raw = String(s.signal || "").toUpperCase();
-      return Boolean(s.certain_signal || early.trigger_sound || early.direction || raw.includes("LONG") || raw.includes("SHORT"));
+      if (g.fakeoutRisk) return true;
+      if (isOnlyCertainEnabled() && !isCertainSignal(s)) return true;
+      return false;
     }
 
     function isPreparingEntry(s, clk) {
       if (!s || isSignalBlocked(s)) return false;
+      const ant = computeCandleAnticipation(s, clk);
       const early = s.early_setup || {};
       const ms = s.manual_sign || {};
       const distPct = Number(early.distance_pct ?? 999);
-      return Boolean(clk.isPre || early.trigger_sound || ms.show_enter_now || Math.abs(distPct) <= 0.75);
+      return Boolean(
+        ant.anticipateReady
+        || clk.isPre
+        || early.trigger_sound
+        || ms.show_enter_now
+        || Math.abs(distPct) <= 0.75
+      );
     }
 
     function getProfitCandleStatus(p, interval) {
@@ -1297,25 +1557,61 @@
       const rp = s.recommended_params || {};
       const plan = (s.tp_plan && s.tp_plan.label) ? ` (${s.tp_plan.label})` : "";
       const sInfo = getSignalSideInfo(s);
-      return `${s.bingx_name || s.symbol} [${sInfo.icon} ${sInfo.actionLabel}] | Entry: ${lv.entry ?? s.price} | TP1: ${lv.tp1 ?? "--"} | TP2: ${lv.tp2 ?? "--"} | TP3: ${lv.tp3 ?? "--"} | SL: ${lv.sl ?? "--"} | Lev: ${rp.leverage ?? "--"}x | Qty: ${rp.qty ?? 0}${plan}`;
+      const math = computeMathChargeState(s);
+      const ant = computeCandleAnticipation(s, computeLiveCandleClock(document.getElementById("timeframeSelect").value || "15m"));
+      return `${s.bingx_name || s.symbol} [CERTO • ${math.badge} • ${ant.badge} • ${sInfo.icon} ${sInfo.actionLabel}] | Entry: ${lv.entry ?? s.price} | TP1: ${lv.tp1 ?? "--"} | TP2: ${lv.tp2 ?? "--"} | TP3: ${lv.tp3 ?? "--"} | SL: ${lv.sl ?? "--"} | Lev: ${rp.leverage ?? "--"}x | Qty: ${rp.qty ?? 0}${plan}`;
     }
 
     function getFreeSignalsSorted() {
-      return Object.values(STATE.signals || {})
+      const map = getAllEffectiveSignalsMap();
+      return Object.values(map)
         .filter(s => s && !isSignalBlocked(s))
         .sort((a, b) => (b.confidence || 0) - (a.confidence || 0));
     }
 
     function getDisplaySignalsList() {
-      const onlyCE = document.getElementById("onlyCertainEarlyChk").checked;
-      const all = Object.values(STATE.signals || {}).filter(s => {
-        if (!s) return false;
-        if (onlyCE) return isActionableSignal(s);
-        return true;
-      });
-      const free = all.filter(s => !isSignalBlocked(s));
-      const source = free.length > 0 ? free : all;
-      return source.sort((a, b) => (b.confidence || 0) - (a.confidence || 0));
+      const map = getAllEffectiveSignalsMap();
+      const cat = document.getElementById("categorySelect").value;
+      const marketCatBySymbol = {};
+      (STATE.markets || []).forEach(m => { marketCatBySymbol[m.symbol] = m.category; });
+
+      return Object.values(map)
+        .filter(s => {
+          if (!s) return false;
+          if (cat && cat !== "ALL" && cat !== "CERTAIN") {
+            const mCat = marketCatBySymbol[s.symbol];
+            if (mCat && mCat !== cat) return false;
+          }
+          return !isSignalBlocked(s);
+        })
+        .sort((a, b) => (b.confidence || 0) - (a.confidence || 0));
+    }
+
+    function renderVipOverviewStrip(clk, freeList) {
+      const rg = getRiskGuardStatus();
+      const rgBadge = document.getElementById("riskGuardBadge");
+      if (rgBadge) {
+        rgBadge.textContent = rg.badgeText;
+        rgBadge.className = rg.badgeCls;
+      }
+
+      const map = getAllEffectiveSignalsMap();
+      const allSigs = Object.values(map).filter(Boolean);
+      const confirmed = freeList.length;
+      const prep = freeList.filter(s => isPreparingEntry(s, clk)).length;
+      const profitActive = Object.values(STATE.openPositions || {})
+        .filter(p => getProfitCandleStatus(p, clk.interval).loading).length;
+      const rejectedOrFake = allSigs.filter(s => isSignalBlocked(s)).length;
+
+      const elConf = document.getElementById("vipConfirmedCount");
+      const elPrep = document.getElementById("vipPrepCount");
+      const elProf = document.getElementById("vipProfitCount");
+      const elFake = document.getElementById("vipFakeoutCount");
+
+      if (elConf) elConf.textContent = String(confirmed);
+      if (elPrep) elPrep.textContent = String(prep);
+      if (elProf) elProf.textContent = String(profitActive);
+      if (elFake) elFake.textContent = String(rejectedOrFake);
     }
 
     function renderLiveProfitAndPrepStrip(clk, freeList) {
@@ -1327,8 +1623,8 @@
         .filter(x => x.st.loading);
 
       const prepSignals = freeList.filter(s => isPreparingEntry(s, clk)).slice(0, 2);
-      const fakeoutSignals = Object.values(STATE.signals || {})
-        .filter(s => s && isActionableSignal(s) && evaluateBreakoutAndFakeout(s).fakeoutRisk)
+      const fakeoutSignals = Object.values(getAllEffectiveSignalsMap())
+        .filter(s => s && evaluateBreakoutAndFakeout(s).fakeoutRisk)
         .slice(0, 1);
 
       const tiles = [];
@@ -1347,9 +1643,10 @@
         const lv = s.levels || {};
         const early = s.early_setup || {};
         const brk = evaluateBreakoutAndFakeout(s);
+        const ant = computeCandleAnticipation(s, clk);
         tiles.push(`
           <div class="radar-alert-tile entry-prep">
-            <div><span class="pill amber">🎯 PREPARAZIONE ALL'ENTRATA • ${brk.badge}</span></div>
+            <div><span class="pill amber">${ant.badge} • ${brk.badge}</span></div>
             <div style="color:#fef3c7; font-weight:700;">
               ${s.bingx_name || s.symbol} • ${sInfo.icon} ${sInfo.actionLabel} • Entry ${early.limit_price ?? lv.entry ?? s.price} • TP1 ${lv.tp1 ?? "--"} / TP2 ${lv.tp2 ?? "--"} • SL ${lv.sl ?? "--"}
             </div>
@@ -1400,54 +1697,49 @@
     function getEntryTimingBadge(symbol, interval) {
       const tf = interval || document.getElementById("timeframeSelect").value || "15m";
       const clk = computeLiveCandleClock(tf);
-      const sig = (STATE.signals || {})[symbol];
+      const sig = getAllEffectiveSignalsMap()[symbol];
 
-      if (!sig) {
+      if (!sig || isSignalBlocked(sig)) {
         if (clk.isPre) {
           return {
             cls: "timing-pill prep",
-            text: `🎯 PREPARA ENTRATA -${clk.rem}s`,
-            title: `Preparazione all'apertura della nuova candela ${tf}`
+            text: `🎯 PREPARA CANDELA -${clk.rem}s`,
+            title: `Anticipazione apertura nuova candela ${tf}`
           };
         }
         return {
           cls: "timing-pill wait",
-          text: `⏳ ATTESA (${clk.countdownStr})`,
-          title: `Candela ${tf} in corso, prossima apertura tra ${clk.countdownStr}`
+          text: `⏳ SOLO CERTI (${clk.countdownStr})`,
+          title: `In attesa di segnale certo in carica per ${tf}, prossima candela tra ${clk.countdownStr}`
         };
       }
 
       const brk = evaluateBreakoutAndFakeout(sig);
+      const math = computeMathChargeState(sig);
+      const ant = computeCandleAnticipation(sig, clk);
       const ms = sig.manual_sign || {};
       const lv = sig.levels || {};
       const rp = sig.recommended_params || {};
       const sInfo = getSignalSideInfo(sig);
-      const tpSummary = `${sInfo.actionLabel} • Entry ${lv.entry ?? sig.price} • TP1 ${lv.tp1 ?? "--"} • TP2 ${lv.tp2 ?? "--"} • TP3 ${lv.tp3 ?? "--"} • SL ${lv.sl ?? "--"} • Lev ${rp.leverage ?? "--"}x`;
+      const tpSummary = `${ant.summary} • ${sInfo.actionLabel} • Entry ${lv.entry ?? sig.price} • TP1 ${lv.tp1 ?? "--"} • TP2 ${lv.tp2 ?? "--"} • TP3 ${lv.tp3 ?? "--"} • SL ${lv.sl ?? "--"} • Lev ${rp.leverage ?? "--"}x`;
 
-      if (brk.fakeoutRisk) {
-        return {
-          cls: "timing-pill stop",
-          text: `🛑 ANTI-FAKEOUT • ${brk.reason}`,
-          title: `${brk.reason} | ${tpSummary}`
-        };
-      }
       if (ms.show_enter_now || clk.isPre) {
         return {
           cls: sInfo.isShort ? "timing-pill go-short" : "timing-pill go",
-          text: `🟢 ENTRA ORA • ${sInfo.icon} ${sInfo.actionLabel} (-${clk.rem}s) • TP1 ${lv.tp1 ?? "--"} / TP2 ${lv.tp2 ?? "--"} / TP3 ${lv.tp3 ?? "--"} • SL ${lv.sl ?? "--"}`,
+          text: `🟢 ${ant.badge} • ${sInfo.icon} ${sInfo.actionLabel} • TP2 ${lv.tp2 ?? "--"} • SL ${lv.sl ?? "--"}`,
           title: `${brk.badge} | ${tpSummary}`
         };
       }
       if (isPreparingEntry(sig, clk)) {
         return {
           cls: "timing-pill prep",
-          text: `🎯 PREPARA ENTRATA • ${sInfo.icon} ${sInfo.actionLabel} • Entry ${lv.entry ?? sig.price} • TP2 ${lv.tp2 ?? "--"}`,
+          text: `🎯 ${ant.badge} • ${sInfo.icon} ${sInfo.actionLabel} • Entry ${lv.entry ?? sig.price} • TP2 ${lv.tp2 ?? "--"}`,
           title: `${brk.badge} | ${tpSummary}`
         };
       }
       return {
-        cls: "timing-pill wait",
-        text: `${brk.badge} • ${sInfo.icon} ${sInfo.actionLabel} • TP1 ${lv.tp1 ?? "--"} / TP2 ${lv.tp2 ?? "--"} • SL ${lv.sl ?? "--"} (${clk.countdownStr})`,
+        cls: "timing-pill go",
+        text: `${math.badge} • ${sInfo.icon} ${sInfo.actionLabel} • TP1 ${lv.tp1 ?? "--"} / TP2 ${lv.tp2 ?? "--"} • SL ${lv.sl ?? "--"} (${clk.countdownStr})`,
         title: `${brk.reason} | ${tpSummary}`
       };
     }
@@ -1483,6 +1775,13 @@
       const clk = computeLiveCandleClock(interval);
       clk.interval = interval;
 
+      const cPill = document.getElementById("certainModePill");
+      if (cPill) {
+        const onlyC = isOnlyCertainEnabled();
+        cPill.textContent = onlyC ? "Modalità: SOLO CERTI" : "Modalità: TUTTI";
+        cPill.className = onlyC ? "pill green" : "pill amber";
+      }
+
       const guardPill = document.getElementById("fakeoutGuardPill");
       if (guardPill) {
         const strict = isStrictBreakoutEnabled();
@@ -1492,7 +1791,7 @@
 
       const globalBadge = document.getElementById("globalTimerBadge");
       globalBadge.textContent = clk.isPre
-        ? `⏱ PRE-CANDELA ${interval}: -${clk.rem}s (apre ${clk.nextClock})`
+        ? `⏱ ANTICIPA CANDELA ${interval}: -${clk.rem}s (apre ${clk.nextClock})`
         : `Prossima candela ${interval}: ${clk.countdownStr} (alle ${clk.nextClock})`;
       globalBadge.className = clk.isPre ? "pill green" : "pill amber";
 
@@ -1505,6 +1804,7 @@
 
       const candleKey = `${interval}_${clk.candleIndex}`;
       const freeList = getFreeSignalsSorted();
+      renderVipOverviewStrip(clk, freeList);
       updateBannerUrgencyState(freeList, clk);
       renderLiveProfitAndPrepStrip(clk, freeList);
 
@@ -1513,7 +1813,7 @@
         const banner = document.getElementById("newCandleBanner");
         banner.classList.remove("blocked");
         document.getElementById("newCandleAlertText").textContent =
-          `🎯 PREPARAZIONE ENTRATA (-${clk.rem}s • apre ${clk.nextClock}): ${topParts.join(" • ")}`;
+          `🔮 ANTICIPAZIONE CANDELA PROFITTO (-${clk.rem}s • apre ${clk.nextClock}): ${topParts.join(" • ")}`;
 
         const warnKey = `${candleKey}_PRE`;
         if (STATE.preWarnedCandleKey !== warnKey) {
@@ -1530,21 +1830,16 @@
             time: clk.openClock,
             timeframe: interval,
             blocked: false,
-            text: `Nuova candela ${interval} aperta alle ${clk.openClock} — ROTTURA VALIDATA ENTRA ORA (${freeList.length} LIBERI): ${topParts.join(" • ")}`
+            text: `Nuova candela ${interval} aperta alle ${clk.openClock} — CANDELA PROFITTO ATTIVA (${freeList.length}): ${topParts.join(" • ")}`
           });
           playBeep(980, 220);
         } else {
-          const sigList = Object.values(STATE.signals || {}).filter(s => s && isActionableSignal(s));
-          const fakeoutCnt = sigList.filter(s => evaluateBreakoutAndFakeout(s).fakeoutRisk).length;
-          const reasonTxt = fakeoutCnt > 0
-            ? `${fakeoutCnt} setup bloccati da Anti-Fakeout / Rottura non confermata`
-            : "nessuna rottura confermata libera da blocchi";
           pushNewCandleWrittenAlert({
             id: candleKey,
             time: clk.openClock,
             timeframe: interval,
             blocked: true,
-            text: `Nuova candela ${interval} aperta alle ${clk.openClock} — NESSUN INGRESSO (${reasonTxt}).`
+            text: `Nuova candela ${interval} aperta alle ${clk.openClock} — NESSUN SEGNALE CERTO IN CARICA.`
           });
         }
       }
@@ -1552,18 +1847,17 @@
     }
 
     async function applyBestAutoParams(forceNotify = false) {
-      const r = await fetch("/api/weights", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(BEST_AUTO_WEIGHTS)
-      });
-      const d = await r.json();
-      if (d.status === "ok") {
-        await analyzeSingle();
-        await pollMonitor();
-        if (forceNotify) {
-          playBeep(1046, 150);
-        }
+      try {
+        await fetch("/api/weights", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(BEST_AUTO_WEIGHTS)
+        });
+      } catch (_) {}
+      renderAllDynamic();
+      if (forceNotify) {
+        playBeep(1046, 150);
+        showToast("⚡ EMA & tutti i parametri impostati in automatico");
       }
     }
 
@@ -1572,11 +1866,12 @@
       const badge = document.getElementById("topSetupsBadge");
       if (!grid || !badge) return;
 
+      const clk = computeLiveCandleClock(document.getElementById("timeframeSelect").value || "15m");
       const list = getDisplaySignalsList().slice(0, 4);
-      badge.textContent = `${list.length} setup`;
+      badge.textContent = `${list.length} certi`;
 
       if (!list.length) {
-        grid.innerHTML = `<div class="muted">Nessun setup rilevato al momento. Premi "Scansiona ora" oppure verifica i filtri.</div>`;
+        grid.innerHTML = `<div class="muted">Nessun segnale certo confermato al momento. Premi "Scansiona ora" per verificare nuove anticipazioni.</div>`;
         return;
       }
 
@@ -1586,7 +1881,8 @@
         const early = s.early_setup || {};
         const sInfo = getSignalSideInfo(s);
         const brk = evaluateBreakoutAndFakeout(s);
-        const cardCls = brk.fakeoutRisk ? "setup-card" : (sInfo.isShort ? "setup-card short" : "setup-card go");
+        const ant = computeCandleAnticipation(s, clk);
+        const cardCls = sInfo.isShort ? "setup-card short" : "setup-card go";
         const ov = (STATE.symbolOverrides || {})[s.symbol] || {};
         const currentScore = ov.score_override !== undefined && ov.score_override !== null
           ? ov.score_override
@@ -1600,17 +1896,17 @@
                 <strong>${s.bingx_name || s.symbol}</strong>
                 <span class="muted" style="font-size:11px;">${s.timeframe || ""}</span>
               </div>
-              <span class="pill ${sInfo.isShort ? "red" : "green"}">${sInfo.icon} ${sInfo.actionLabel}</span>
+              <span class="pill ${sInfo.isShort ? "red" : "green"}">✅ CERTO • ${sInfo.icon} ${sInfo.actionLabel}</span>
             </div>
             <div style="display:flex; justify-content:space-between; align-items:center; font-size:11.5px; gap:6px; flex-wrap:wrap;">
-              <span>Conf: <strong>${s.confidence}%</strong></span>
-              <span class="pill ${brk.fakeoutRisk ? "red" : "green"}">${brk.badge}</span>
+              <span>Conf: <strong>${s.confidence}%</strong> • R:R <strong>${lv.rr ?? "--"}</strong></span>
+              <span class="pill green">${ant.badge}</span>
             </div>
-            <div class="muted" style="font-size:10.5px;">${brk.reason}</div>
+            <div class="muted" style="font-size:10.5px;">${ant.summary} • ${brk.reason}</div>
             <div class="score-inline-bar">
               <span style="font-weight:700; color:#fde68a;">Score:</span>
-              <input id="${safeId}" type="number" min="-100" max="100" step="0.5" value="${currentScore}" style="width:74px; padding:3px 6px;" />
-              <button class="primary" style="padding:3px 8px;" onclick="applyCardScore('${s.symbol}', '${safeId}')">OK</button>
+              <input id="${safeId}" type="number" min="-100" max="100" step="0.5" value="${currentScore}" style="width:78px; padding:3px 6px;" />
+              <button class="primary" style="padding:3px 9px;" onclick="applyCardScore('${s.symbol}', '${safeId}')">OK</button>
             </div>
             <div class="setup-levels">
               <div>Entry: <strong>${lv.entry ?? s.price}</strong></div>
@@ -1633,43 +1929,42 @@
       const inp = document.getElementById(inputId);
       if (!inp) return;
       const scoreOverride = Number(inp.value);
-      const ov = (STATE.symbolOverrides || {})[symbol] || {};
-      const sentiment = ov.sentiment !== undefined && ov.sentiment !== null ? Number(ov.sentiment) : 0;
       const interval = document.getElementById("timeframeSelect").value;
 
-      const r = await fetch("/api/symbol_override", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          symbol,
-          interval,
-          score_override: scoreOverride,
-          sentiment
-        })
-      });
-      const d = await r.json();
-      if (d.status === "ok") {
-        STATE.symbolOverrides = d.symbol_overrides || STATE.symbolOverrides;
-        if (d.data && isActionableSignal(d.data)) {
-          STATE.signals[d.data.symbol] = d.data;
+      STATE.symbolOverrides[symbol] = { ...(STATE.symbolOverrides[symbol] || {}), score_override: scoreOverride };
+
+      try {
+        const r = await fetch("/api/symbol_override", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ symbol, interval, score_override: scoreOverride })
+        });
+        const d = await r.json();
+        if (d.status === "ok") {
+          if (d.symbol_overrides) STATE.symbolOverrides = d.symbol_overrides;
+          if (d.data) STATE.signals[d.data.symbol] = d.data;
         }
-        renderAllDynamic();
-      }
+      } catch (_) {}
+
+      renderAllDynamic();
+      showToast(`Score ${scoreOverride} impostato su ${symbol}`);
     }
 
     async function loadKeysStatus() {
-      const r = await fetch("/api/keys");
-      const d = await r.json();
-      const badge = document.getElementById("keysStatusBadge");
-      if (d.has_keys) {
-        badge.textContent = "Connesso";
-        badge.className = "pill green";
-      } else {
-        badge.textContent = "Non configurato";
-        badge.className = "pill amber";
-      }
-      document.getElementById("keysMaskText").textContent =
-        `API: ${d.masked_api_key || "--"} | Secret: ${d.masked_secret_key || "--"}`;
+      try {
+        const r = await fetch("/api/keys");
+        const d = await r.json();
+        const badge = document.getElementById("keysStatusBadge");
+        if (d.has_keys) {
+          badge.textContent = "Connesso";
+          badge.className = "pill green";
+        } else {
+          badge.textContent = "Non configurato";
+          badge.className = "pill amber";
+        }
+        document.getElementById("keysMaskText").textContent =
+          `API: ${d.masked_api_key || "--"} | Secret: ${d.masked_secret_key || "--"}`;
+      } catch (_) {}
     }
 
     async function saveKeys() {
@@ -1689,14 +1984,15 @@
     }
 
     async function loadMarkets(force = false) {
-      const url = force ? "/api/markets?force=1" : "/api/markets";
-      const r = await fetch(url);
-      const d = await r.json();
-      if (d.status === "ok") {
-        STATE.markets = d.markets || [];
-        renderMarketsTable();
-        renderScoreParamsTable();
-      }
+      try {
+        const url = force ? "/api/markets?force=1" : "/api/markets";
+        const r = await fetch(url);
+        const d = await r.json();
+        if (d.status === "ok") {
+          STATE.markets = d.markets || [];
+          renderAllDynamic();
+        }
+      } catch (_) {}
     }
 
     function getFilteredMarketsList() {
@@ -1761,24 +2057,25 @@
       if (!tbody) return;
       const list = getFilteredMarketsList();
       if (!list.length) {
-        tbody.innerHTML = `<tr><td colspan="9" class="muted">Nessun asset disponibile.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" class="muted">Nessun asset disponibile.</td></tr>`;
         return;
       }
 
+      const effMap = getAllEffectiveSignalsMap();
+      const clk = computeLiveCandleClock(document.getElementById("timeframeSelect").value || "15m");
+
       tbody.innerHTML = list.map(m => {
-        const sig = (STATE.signals || {})[m.symbol];
+        const sig = effMap[m.symbol];
         const ov = (STATE.symbolOverrides || {})[m.symbol] || {};
         const scoreVal = ov.score_override !== undefined && ov.score_override !== null
           ? ov.score_override
           : (sig ? sig.composite_score : 0);
-        const sentVal = ov.sentiment !== undefined && ov.sentiment !== null
-          ? ov.sentiment
-          : (sig ? sig.sentiment : 0);
         const confTxt = sig ? `${sig.confidence}%` : "--";
-        const sigTxt = sig ? `${sig.signal}` : "--";
+        const sigTxt = sig ? `${sig.signal}` : "IN ATTESA";
         const brk = sig ? evaluateBreakoutAndFakeout(sig) : null;
+        const ant = sig ? computeCandleAnticipation(sig, clk) : null;
         const statusTxt = brk
-          ? `<span class="${brk.fakeoutRisk ? "neg" : "pos"}" title="${brk.reason}">${brk.badge}</span>`
+          ? `<span class="${brk.fakeoutRisk ? "neg" : "pos"}" title="${ant ? ant.summary : brk.reason}">${ant && !brk.fakeoutRisk ? ant.badge : brk.badge}</span>`
           : `<span class="pill blue">AUTO</span>`;
 
         const safeId = m.symbol.replace(/[^A-Z0-9_-]/gi, "_");
@@ -1788,10 +2085,7 @@
             <td><span class="pill">${m.category}</span></td>
             <td><strong>${m.lastPrice}</strong></td>
             <td>
-              <input id="sc_${safeId}" type="number" min="-100" max="100" step="0.5" value="${scoreVal}" style="width:82px; padding:4px 6px;" />
-            </td>
-            <td>
-              <input id="sn_${safeId}" type="number" min="-100" max="100" step="1" value="${sentVal}" style="width:76px; padding:4px 6px;" />
+              <input id="sc_${safeId}" type="number" min="-100" max="100" step="0.5" value="${scoreVal}" style="width:88px; padding:4px 6px;" />
             </td>
             <td><strong>${confTxt}</strong></td>
             <td>${sigTxt}</td>
@@ -1807,58 +2101,56 @@
 
     async function applySymbolScore(symbol, safeId) {
       const scoreEl = document.getElementById(`sc_${safeId}`);
-      const sentEl = document.getElementById(`sn_${safeId}`);
       const scoreOverride = scoreEl ? Number(scoreEl.value) : 0;
-      const sentiment = sentEl ? Number(sentEl.value) : 0;
       const interval = document.getElementById("timeframeSelect").value;
 
-      const r = await fetch("/api/symbol_override", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          symbol,
-          interval,
-          score_override: scoreOverride,
-          sentiment
-        })
-      });
-      const d = await r.json();
-      if (d.status === "ok") {
-        STATE.symbolOverrides = d.symbol_overrides || STATE.symbolOverrides;
-        if (d.data && isActionableSignal(d.data)) {
-          STATE.signals[d.data.symbol] = d.data;
+      STATE.symbolOverrides[symbol] = { ...(STATE.symbolOverrides[symbol] || {}), score_override: scoreOverride };
+
+      try {
+        const r = await fetch("/api/symbol_override", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ symbol, interval, score_override: scoreOverride })
+        });
+        const d = await r.json();
+        if (d.status === "ok") {
+          if (d.symbol_overrides) STATE.symbolOverrides = d.symbol_overrides;
+          if (d.data) STATE.signals[d.data.symbol] = d.data;
         }
-        renderAllDynamic();
-      } else {
-        alert(d.msg || "Errore aggiornamento score");
-      }
+      } catch (_) {}
+
+      renderAllDynamic();
+      showToast(`Score ${scoreOverride} applicato su ${symbol}`);
     }
 
     async function resetSymbolScore(symbol) {
       const interval = document.getElementById("timeframeSelect").value;
-      const r = await fetch("/api/symbol_override", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ symbol, interval, reset: true })
-      });
-      const d = await r.json();
-      if (d.status === "ok") {
-        STATE.symbolOverrides = d.symbol_overrides || STATE.symbolOverrides;
-        await pollMonitor();
-      }
+      delete STATE.symbolOverrides[symbol];
+      try {
+        const r = await fetch("/api/symbol_override", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ symbol, interval, reset: true })
+        });
+        const d = await r.json();
+        if (d.status === "ok") {
+          if (d.symbol_overrides) STATE.symbolOverrides = d.symbol_overrides;
+          if (d.data) STATE.signals[d.data.symbol] = d.data;
+        }
+      } catch (_) {}
+      renderAllDynamic();
+      showToast(`Score ripristinato in automatico per ${symbol}`);
     }
 
     function renderSignalsTable() {
       const tf = document.getElementById("timeframeSelect").value || "15m";
+      const clk = computeLiveCandleClock(tf);
       const list = getDisplaySignalsList();
-      const freeCount = Object.values(STATE.signals || {}).filter(s => s && !isSignalBlocked(s)).length;
 
-      document.getElementById("radarCount").textContent = freeCount > 0
-        ? `${freeCount} validati`
-        : `${list.length} filtrati`;
+      document.getElementById("radarCount").textContent = `${list.length} certi`;
       const tbody = document.getElementById("signalsBody");
       if (!list.length) {
-        tbody.innerHTML = `<tr><td colspan="7" class="muted">Nessun segnale attivo per i filtri correnti.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" class="muted">Nessun segnale certo attivo al momento.</td></tr>`;
         return;
       }
 
@@ -1868,7 +2160,7 @@
         const early = s.early_setup || {};
         const ms = s.manual_sign || {};
         const sInfo = getSignalSideInfo(s);
-        const brk = evaluateBreakoutAndFakeout(s);
+        const ant = computeCandleAnticipation(s, clk);
         const badgeText = ms.badge || s.certain_signal || s.signal;
         const tBadge = getEntryTimingBadge(s.symbol, s.timeframe || tf);
 
@@ -1884,9 +2176,9 @@
               </div>
             </td>
             <td>
-              <div><span class="pill ${sInfo.isShort ? "red" : "green"}">${sInfo.icon} ${sInfo.actionLabel}</span></div>
+              <div><span class="pill ${sInfo.isShort ? "red" : "green"}">✅ CERTO • ${sInfo.icon} ${sInfo.actionLabel}</span></div>
               <div style="margin-top:3px;"><strong>${badgeText}</strong></div>
-              <div class="${brk.fakeoutRisk ? "neg" : "pos"}" style="font-size:10.5px;">${brk.badge}</div>
+              <div class="pos" style="font-size:10.5px;">${ant.badge}</div>
             </td>
             <td><strong>${s.confidence}%</strong> <span class="muted" style="font-size:10px;">(${s.composite_score})</span></td>
             <td>
@@ -1898,8 +2190,8 @@
               <div>TP1: ${lv.tp1 ?? "--"} • TP2: <span class="pos">${lv.tp2 ?? "--"}</span> • TP3: <span class="pos">${lv.tp3 ?? "--"}</span></div>
             </td>
             <td style="font-size:11px;">
-              <div>${(s.tp_plan && s.tp_plan.label) || "--"}</div>
-              <div>Lev ${rp.leverage ?? "--"}x • Qty ${rp.qty ?? 0}</div>
+              <div>${(s.tp_plan && s.tp_plan.label) || "AUTO TP"}</div>
+              <div>Lev ${rp.leverage ?? "--"}x • Qty ${rp.qty ?? 0} • R:R ${lv.rr ?? "--"}</div>
             </td>
             <td>
               <button onclick="selectAndAnalyze('${s.symbol}')">Dettagli</button>
@@ -1949,13 +2241,13 @@
       }).join("");
     }
 
-    async function closeAllPositions() {
+    async function closeAllPositions(skipConfirm = false) {
       const posList = Object.values(STATE.openPositions || {});
       if (!posList.length) {
-        alert("Nessuna posizione aperta da chiudere.");
+        showToast("Nessuna posizione aperta da chiudere.");
         return;
       }
-      if (!confirm(`Vuoi chiudere tutte le ${posList.length} posizioni aperte su BingX?`)) return;
+      if (!skipConfirm && !confirm(`Vuoi chiudere tutte le ${posList.length} posizioni aperte su BingX?`)) return;
       for (const p of posList) {
         await fetch("/api/close_position", {
           method: "POST",
@@ -1964,6 +2256,15 @@
         });
       }
       await pollMonitor();
+    }
+
+    async function panicCloseAll() {
+      if (!confirm("🚨 PANIC FLAT: chiudere immediatamente TUTTE le posizioni aperte e mettere in pausa il monitor?")) return;
+      await syncMonitorSettings({ enabled: false, auto_trade_enabled: false });
+      await closeAllPositions(true);
+      document.getElementById("monitorEnabledChk").checked = false;
+      document.getElementById("autoTradeChk").checked = false;
+      showToast("🚨 PANIC FLAT completato — Monitor in pausa");
     }
 
     function renderLogsAndAlerts() {
@@ -1989,10 +2290,10 @@
       const prepLines = getFreeSignalsSorted()
         .filter(s => isPreparingEntry(s, clk))
         .slice(0, 3)
-        .map(s => `<div class="log-item" style="color:#fde68a;">[PREP • ${clk.countdownStr}] 🎯 ${formatSignalFullSpecJs(s)}</div>`);
+        .map(s => `<div class="log-item" style="color:#fde68a;">[ANTICIPA • ${clk.countdownStr}] 🔮 ${formatSignalFullSpecJs(s)}</div>`);
 
-      const fakeoutLines = Object.values(STATE.signals || {})
-        .filter(s => s && isActionableSignal(s) && evaluateBreakoutAndFakeout(s).fakeoutRisk)
+      const fakeoutLines = Object.values(getAllEffectiveSignalsMap())
+        .filter(s => s && evaluateBreakoutAndFakeout(s).fakeoutRisk)
         .slice(0, 2)
         .map(s => `<div class="log-item neg">[FAKEOUT GUARD] ⚠️ ${s.bingx_name || s.symbol}: ${evaluateBreakoutAndFakeout(s).reason}</div>`);
 
@@ -2032,24 +2333,31 @@
         auto_close_on_candle_end: document.getElementById("closeCandleEndChk").checked,
         auto_close_on_candle_signal: document.getElementById("closeCandleSigChk").checked,
         active_category: document.getElementById("categorySelect").value,
-        only_certain_and_early: document.getElementById("onlyCertainEarlyChk").checked,
+        only_certain_and_early: isOnlyCertainEnabled(),
         interval: document.getElementById("timeframeSelect").value,
         scan_interval_sec: Number(document.getElementById("scanIntervalInput").value || 12),
         apply_profile: true,
         ...payloadExtra
       };
 
-      const r = await fetch("/api/auto_monitor_status", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      });
-      const d = await r.json();
-      applyMonitorPayload(d);
+      try {
+        const r = await fetch("/api/auto_monitor_status", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const d = await r.json();
+        applyMonitorPayload(d);
+      } catch (_) {
+        renderAllDynamic();
+      }
     }
 
     function applyMonitorPayload(d) {
-      if (!d || d.status !== "ok") return;
+      if (!d || d.status !== "ok") {
+        renderAllDynamic();
+        return;
+      }
 
       const pill = document.getElementById("monitorPill");
       pill.textContent = d.enabled ? "Monitor: ATTIVO" : "Monitor: PAUSA";
@@ -2078,6 +2386,7 @@
       dWrEl.textContent = `${dWr.toFixed(1)}%`;
       dWrEl.className = `val ${dWr >= 50 ? "pos" : "neg"}`;
       const dPnl = Number(bal.daily_realized_pnl_usdt || 0);
+      STATE.dailyPnlUsdt = dPnl;
       document.getElementById("kpiDailySub").textContent =
         `${bal.daily_wins || 0}W / ${bal.daily_losses || 0}L • ${dPnl >= 0 ? "+" : ""}${dPnl.toFixed(2)} USDT`;
 
@@ -2091,7 +2400,9 @@
 
       STATE.signals = d.signals || {};
       STATE.openPositions = d.open_positions || {};
-      STATE.symbolOverrides = d.symbol_overrides || {};
+      if (d.symbol_overrides) {
+        STATE.symbolOverrides = { ...d.symbol_overrides, ...STATE.symbolOverrides };
+      }
       STATE.tradeLogs = d.trade_logs || [];
       STATE.audioAlerts = d.audio_alerts || [];
 
@@ -2108,34 +2419,38 @@
         const d = await r.json();
         applyMonitorPayload(d);
       } catch (e) {
-        console.error(e);
+        renderAllDynamic();
       }
     }
 
     async function runManualScan() {
       const tf = document.getElementById("timeframeSelect").value;
       const cat = document.getElementById("categorySelect").value;
-      const onlyCE = document.getElementById("onlyCertainEarlyChk").checked;
+      const onlyC = isOnlyCertainEnabled();
       const pool = STATE.markets
         .filter(m => cat === "ALL" || cat === "CERTAIN" || m.category === cat)
         .map(m => m.symbol);
 
-      const r = await fetch("/api/scan_top", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ symbols: pool, interval: tf, only_certain_and_early: onlyCE })
-      });
-      const d = await r.json();
-      if (d.status === "ok") {
-        const map = {};
-        (d.signals || []).forEach(s => { map[s.symbol] = s; });
-        STATE.signals = map;
-        STATE.audioAlerts = d.audio_alerts || STATE.audioAlerts;
-        if (d.latest_new_candle_alert) {
-          pushNewCandleWrittenAlert(d.latest_new_candle_alert);
+      try {
+        const r = await fetch("/api/scan_top", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ symbols: pool, interval: tf, only_certain_and_early: onlyC })
+        });
+        const d = await r.json();
+        if (d.status === "ok") {
+          const map = {};
+          (d.signals || []).forEach(s => { map[s.symbol] = s; });
+          STATE.signals = map;
+          STATE.audioAlerts = d.audio_alerts || STATE.audioAlerts;
+          if (d.latest_new_candle_alert) {
+            pushNewCandleWrittenAlert(d.latest_new_candle_alert);
+          }
         }
-        renderAllDynamic();
-      }
+      } catch (_) {}
+
+      renderAllDynamic();
+      showToast(`Scansione anticipazioni candela completata (${tf})`);
     }
 
     function selectAndAnalyze(symbol) {
@@ -2146,20 +2461,26 @@
     async function analyzeSingle() {
       const symbol = (document.getElementById("analyzeSymbolInput").value || "BTC-USDT").trim();
       const interval = document.getElementById("timeframeSelect").value;
-      const r = await fetch("/api/analyze", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ symbol, interval, apply_auto_profile: true })
-      });
-      const d = await r.json();
-      if (d.status !== "ok" || !d.data) {
-        document.getElementById("singleAnalysisBox").innerHTML = `<span class="neg">${d.msg || "Errore analisi"}</span>`;
-        return;
-      }
-      if (d.latest_new_candle_alert) {
-        pushNewCandleWrittenAlert(d.latest_new_candle_alert);
-      }
-      renderSingleAnalysis(d.data);
+      try {
+        const r = await fetch("/api/analyze", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ symbol, interval, apply_auto_profile: true })
+        });
+        const d = await r.json();
+        if (d.status === "ok" && d.data) {
+          STATE.signals[d.data.symbol] = d.data;
+          if (d.latest_new_candle_alert) {
+            pushNewCandleWrittenAlert(d.latest_new_candle_alert);
+          }
+          renderSingleAnalysis(d.data);
+          renderAllDynamic();
+          return;
+        }
+      } catch (_) {}
+
+      document.getElementById("singleAnalysisBox").innerHTML =
+        `<div class="muted">Nessun dato disponibile per <strong>${symbol}</strong> su ${interval}.</div>`;
     }
 
     function renderSingleAnalysis(a) {
@@ -2170,16 +2491,20 @@
       const af = a.anti_fomo || {};
       const ms = a.manual_sign || {};
       const ind = a.indicators || {};
-      const early = a.early_setup || {};
       const sInfo = getSignalSideInfo(a);
       const brk = evaluateBreakoutAndFakeout(a);
+      const math = computeMathChargeState(a);
+      const clk = computeLiveCandleClock(a.timeframe || document.getElementById("timeframeSelect").value || "15m");
+      const ant = computeCandleAnticipation(a, clk);
+      const isCert = isCertainSignal(a);
       const tBadge = getEntryTimingBadge(a.symbol, a.timeframe);
 
       document.getElementById("singleAnalysisBox").innerHTML = `
         <div style="display:flex; flex-wrap:wrap; justify-content:space-between; gap:8px; margin-bottom:8px;">
           <div>
             <strong>${a.bingx_name}</strong> (${a.symbol}) • <span class="pill blue">${a.timeframe}</span>
-            <span class="pill ${sInfo.isShort ? "red" : "green"}" style="margin-left:6px;">${sInfo.icon} ${sInfo.actionLabel}</span>
+            <span class="pill ${isCert ? "green" : "amber"}" style="margin-left:6px;">${isCert ? "✅ SEGNALE CERTO" : "⏳ NON CERTO"}</span>
+            <span class="pill ${sInfo.isShort ? "red" : "green"}" style="margin-left:6px;">${ant.badge}</span>
             <span class="pill ${brk.fakeoutRisk ? "red" : "green"}" style="margin-left:6px;">${brk.badge}</span>
             <span class="${tBadge.cls}" style="margin-left:6px;" title="${tBadge.title}">${tBadge.text}</span>
             <span class="candle-badge live-candle-badge" data-tf="${a.timeframe}" style="display:inline-flex; margin-left:6px;">🕯️ ${a.timeframe}</span>
@@ -2189,7 +2514,7 @@
             <span class="pill amber">Score: ${a.composite_score} • Conf: ${a.confidence}%</span>
           </div>
         </div>
-        <div class="muted" style="margin-bottom:8px;">${brk.reason} • ${ms.reason || ""}</div>
+        <div class="muted" style="margin-bottom:8px;">${ant.summary} • ${brk.reason}</div>
         <div class="analysis-detail">
           <div class="subbox">
             <div><strong>Direzione, Livelli & Piano TP</strong></div>
@@ -2197,29 +2522,27 @@
             <div>Prezzo: <strong>${a.price}</strong></div>
             <div>Entry: ${lv.entry} | SL: <span class="neg">${lv.sl}</span></div>
             <div>TP1: ${lv.tp1} | TP2: <span class="pos">${lv.tp2}</span> | TP3: <span class="pos">${lv.tp3}</span></div>
-            <div>R:R: ${lv.rr} | Piano: ${(a.tp_plan && a.tp_plan.label) || "--"}</div>
+            <div>R:R: ${lv.rr} | Piano: ${(a.tp_plan && a.tp_plan.label) || "AUTO TP"}</div>
           </div>
           <div class="subbox">
-            <div><strong>Size & Matematica</strong></div>
+            <div><strong>Anticipazione & Carica Profitto</strong></div>
+            <div>Anticipazione: <strong>${ant.badge}</strong></div>
+            <div>Carica ${math.direction}: <strong>${math.chargePower}%</strong> • Target: <strong>+${ant.expectedProfitPct.toFixed(2)}%</strong></div>
+            <div>Dettagli: ${math.mathSummary}</div>
             <div>Lev: <strong>${rp.leverage}x</strong> • Size: <strong>${rp.qty}</strong></div>
-            <div>Margine: ${rp.margin_usdt} USDT • Rischio: ${rp.risk_usd} USDT</div>
-            <div>P(Win): ${rp.p_win_pct}% • Exp: ${rp.expectancy_r}R • Kelly: ${rp.half_kelly_pct}%</div>
-            <div>Setup: ${early.setup_type || "--"}</div>
           </div>
           <div class="subbox">
-            <div><strong>Rottura, Anti-Fakeout & SN</strong></div>
+            <div><strong>Rottura & Anti-Fakeout</strong></div>
             <div><strong>${brk.badge}</strong></div>
             <div class="muted" style="font-size:11px;">${brk.reason}</div>
-            <div style="margin-top:4px;">${af.badge || "--"}</div>
-            <div class="muted" style="font-size:11px;">${af.reason || ""}</div>
-            <div style="margin-top:4px;">${ew.status_badge || "--"}</div>
-            <div style="margin-top:4px;">${sn.badge || "--"}</div>
+            <div style="margin-top:4px;">${af.badge || "Anti-FOMO: AUTO"}</div>
+            <div style="margin-top:4px;">${ew.status_badge || "Finestra Entrata: AUTO"}</div>
+            <div style="margin-top:4px;">${sn.badge || "SN: AUTO"}</div>
           </div>
           <div class="subbox">
-            <div><strong>Indicatori</strong></div>
-            <div>RSI: ${ind.rsi} • ADX: ${ind.adx} • Z: ${ind.z_score}</div>
-            <div>EMA200: ${ind.ema200} • ATR: ${ind.atr}</div>
-            <div>OB Imb: ${ind.ob_imbalance}% • Fund: ${ind.funding_rate}%</div>
+            <div><strong>EMA & Indicatori (AUTO)</strong></div>
+            <div>EMA / RSI: ${ind.rsi ?? "AUTO"} • ADX: ${ind.adx ?? "AUTO"} • Z: ${ind.z_score ?? "AUTO"}</div>
+            <div>EMA200: ${ind.ema200 ?? "AUTO"} • ATR: ${ind.atr ?? "AUTO"}</div>
           </div>
         </div>
       `;
@@ -2227,29 +2550,31 @@
     }
 
     async function quickOrder(symbol, side) {
-      const interval = document.getElementById("timeframeSelect").value;
-      const r = await fetch("/api/analyze", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ symbol, interval, apply_auto_profile: true })
-      });
-      const d = await r.json();
-      if (d.status !== "ok" || !d.data) {
-        alert(d.msg || "Impossibile calcolare parametri ordine");
+      const rg = getRiskGuardStatus();
+      if (rg.blocked) {
+        alert(`Ordine bloccato dal controllo rischio: ${rg.badgeText}`);
         return;
       }
-      const a = d.data;
+      const a = getAllEffectiveSignalsMap()[symbol];
+      if (!a || isSignalBlocked(a)) {
+        alert("Operazione consentita solo su segnale certo in carica confermato.");
+        return;
+      }
       const lv = a.levels || {};
       const rp = a.recommended_params || {};
       const early = a.early_setup || {};
-      const timing = a.candle_timing || {};
       await executeFromAnalysis(
         a.symbol, side, rp.qty, lv.sl, lv.tp2, rp.leverage,
-        a.price, early.candle_id, timing.candle_index, lv.tp1, lv.tp3
+        a.price, early.candle_id || 0, 0, lv.tp1, lv.tp3
       );
     }
 
     async function executeFromAnalysis(symbol, side, quantity, sl, tp, leverage, entry, candleId, candleIndex, tp1, tp3) {
+      const rg = getRiskGuardStatus();
+      if (rg.blocked) {
+        alert(`Ordine bloccato dal controllo rischio: ${rg.badgeText}`);
+        return;
+      }
       if (!quantity || Number(quantity) <= 0) {
         alert("Quantità ordine non valida o saldo insufficiente.");
         return;
