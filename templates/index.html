@@ -32,10 +32,10 @@
               Saldo Live: <span id="headerBalanceVal">--.--</span> USDT (<span id="headerBalanceSync">--:--:--</span>)
             </span>
             <span id="headerCertainBadge" class="px-2.5 py-0.5 text-[11px] font-extrabold bg-indigo-50 text-indigo-800 border border-indigo-200 rounded-full">
-              Segnali Certi / Anticipo: <span id="certainCountVal">0</span>
+              Segnali Attivi: <span id="certainCountVal">0</span>
             </span>
           </div>
-          <p class="text-xs text-slate-500">Nomi Esatti BingX • Parametri Auto per Mercato & Timeframe • Ingresso Anticipato • Audio al Momento Esatto • Segnali Certi</p>
+          <p class="text-xs text-slate-500">Segnale Pre-Candela a Fine Candela Precedente • Timer Scadere & Apertura Nuova Candela • Timeframe • Filtro SN • Chiusura a TP o Fine Candela</p>
         </div>
       </div>
 
@@ -59,6 +59,38 @@
   </header>
 
   <main class="max-w-[1840px] mx-auto px-4 py-5 space-y-6">
+
+    <!-- CARTELLO MANUALE ENTRA ORA + TIMER SCADERE & INIZIO NUOVA CANDELA -->
+    <div id="manualEnterSignCard" class="card-white p-4 border-2 border-slate-300 flex flex-wrap items-center justify-between gap-4">
+      <div class="flex flex-wrap items-center gap-3">
+        <div id="enterNowSignBoard" class="px-4 py-2 rounded-xl text-sm font-extrabold uppercase tracking-wide bg-slate-200 text-slate-700 border border-slate-300">
+          ⏳ IN ATTESA SEGNALE CERTO
+        </div>
+        <div>
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="text-[11px] font-extrabold uppercase text-slate-400">Cartello Operativo Pre-Candela</span>
+            <span id="snRejectionBadge" class="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-300">✅ SN LATO OPPOSTO LIBERO</span>
+          </div>
+          <div id="manualSignReasonText" class="text-sm font-bold text-slate-800 mt-0.5">Il segnale viene preparato prima della fine della candela precedente con scadere sincronizzato all'inizio della nuova candela nel verso previsto.</div>
+        </div>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-5 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5">
+        <div>
+          <div class="text-[10px] font-extrabold uppercase text-slate-400">Timeframe Candela</div>
+          <div id="activeCandleTfVal" class="mono text-sm font-extrabold text-slate-900">15m</div>
+        </div>
+        <div class="border-l border-slate-200 pl-4">
+          <div class="text-[10px] font-extrabold uppercase text-slate-400">Scadere & Nuova Candela</div>
+          <div id="nextCandleCountdownVal" class="mono text-base font-extrabold text-blue-700">--:--</div>
+          <div id="nextCandleStartTimeVal" class="mono text-[10px] font-bold text-slate-500">Start: --:--:--</div>
+        </div>
+        <div class="border-l border-slate-200 pl-4">
+          <div class="text-[10px] font-extrabold uppercase text-slate-400">Finestra Pre-Candela</div>
+          <div id="preCandleWindowStatusVal" class="text-xs font-extrabold text-slate-700">In attesa</div>
+        </div>
+      </div>
+    </div>
 
     <!-- TABELLA ORIZZONTALE CHIAVI API BINGX -->
     <div class="card-white p-4">
@@ -96,13 +128,13 @@
       </div>
     </div>
 
-    <!-- BANNER REGOLA INGRESSO ANTICIPATO + ORARI & TIPO MERCATO -->
+    <!-- BANNER REGOLA INGRESSO ANTICIPATO + SOGLIA & ORARI -->
     <div id="entryRuleBanner" class="card-white p-4 border-l-4 border-l-slate-400 flex flex-wrap items-center justify-between gap-4">
       <div class="flex items-center gap-3">
         <span id="entryActionPill" class="px-3 py-1.5 rounded-lg text-xs font-extrabold bg-slate-100 text-slate-700">⏳ IN ATTESA</span>
         <div>
           <div class="flex flex-wrap items-center gap-2">
-            <span class="text-xs font-bold uppercase text-slate-400">Motore Ingresso Anticipato (No Inseguimento)</span>
+            <span class="text-xs font-bold uppercase text-slate-400">Motore Ingresso Pre-Candela (No Inseguimento)</span>
             <span id="certainSignalPill" class="hidden px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-indigo-600 text-white">💎 SEGNALE CERTO</span>
             <span id="earlySetupPill" class="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-amber-100 text-amber-900 border border-amber-300">Setup: --</span>
           </div>
@@ -113,6 +145,10 @@
         <div>
           <div class="text-[11px] font-bold text-slate-400 uppercase">Ordine / Livello Chiave</div>
           <div id="limitOrderHighlight" class="mono text-xs font-extrabold text-indigo-700">--</div>
+        </div>
+        <div>
+          <div class="text-[11px] font-bold text-slate-400 uppercase">Soglia Max Ingresso</div>
+          <div id="entryThresholdHighlight" class="mono text-xs font-extrabold text-rose-700">--</div>
         </div>
         <div>
           <div class="text-[11px] font-bold text-slate-400 uppercase">Tipo & Ora Mercato</div>
@@ -288,7 +324,56 @@
             <div><div class="flex justify-between font-semibold text-slate-600"><span>Sentiment (OB/Funding)</span><span id="lblWsent" class="mono">15%</span></div><input id="wSent" type="range" min="0" max="100" value="15" oninput="document.getElementById('lblWsent').innerText=this.value+'%'" class="w-full accent-slate-900"></div>
             <div><div class="flex justify-between font-bold text-blue-700"><span>Soglia Certezza Minima</span><span id="lblMinConf" class="mono">70%</span></div><input id="wMinConf" type="range" min="50" max="98" value="70" oninput="document.getElementById('lblMinConf').innerText=this.value+'%'" class="w-full accent-blue-600"></div>
           </div>
+
+          <div class="mt-3 pt-3 border-t border-slate-100 space-y-2 text-xs">
+            <label class="flex items-center justify-between gap-2 font-semibold text-slate-700 cursor-pointer">
+              <span>Chiusura auto al raggiungimento TP</span>
+              <input id="chkAutoCloseTp" type="checkbox" checked onchange="syncExitRules()" class="accent-emerald-600 w-4 h-4" />
+            </label>
+            <label class="flex items-center justify-between gap-2 font-semibold text-slate-700 cursor-pointer">
+              <span>Chiusura a fine candela</span>
+              <input id="chkAutoCloseCandleEnd" type="checkbox" checked onchange="syncExitRules()" class="accent-blue-600 w-4 h-4" />
+            </label>
+            <label class="flex items-center justify-between gap-2 font-semibold text-slate-700 cursor-pointer">
+              <span>Chiusura a fine candela se segnale inverte</span>
+              <input id="chkAutoCloseCandle" type="checkbox" checked onchange="syncExitRules()" class="accent-indigo-600 w-4 h-4" />
+            </label>
+          </div>
         </div>
+      </div>
+    </div>
+
+    <!-- TABELLA DEDICATA AI SEGNALI CERTI -->
+    <div class="card-white p-5 border-2 border-indigo-200">
+      <div class="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-indigo-100">
+        <div class="flex items-center gap-2">
+          <span class="px-2.5 py-1 rounded-lg bg-indigo-600 text-white text-xs font-extrabold">💎 SEGNALI CERTI</span>
+          <div>
+            <h2 class="text-base md:text-lg font-extrabold text-slate-900">Tabella Segnali Certi Confermati</h2>
+            <p class="text-xs text-slate-500">Segnali preparati a fine candela precedente e sincronizzati all'apertura della nuova candela nel verso previsto.</p>
+          </div>
+        </div>
+        <span id="certainTableCountBadge" class="px-3 py-1 rounded-full text-xs font-extrabold mono bg-indigo-50 text-indigo-800 border border-indigo-200">0 Attivi</span>
+      </div>
+
+      <div class="overflow-x-auto mt-3">
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="border-b-2 border-indigo-100 text-[11px] font-extrabold text-indigo-900 uppercase bg-indigo-50/60">
+              <th class="py-2.5 px-3">Nome BingX</th>
+              <th class="py-2.5 px-3 text-center">Segnale Certo / Cartello</th>
+              <th class="py-2.5 px-3 text-center">Setup & Ordine</th>
+              <th class="py-2.5 px-3 text-right">Prezzo</th>
+              <th class="py-2.5 px-3 text-center">TP2 / SL</th>
+              <th class="py-2.5 px-3 text-center">Parametri</th>
+              <th class="py-2.5 px-3 text-center">Certezza %</th>
+              <th class="py-2.5 px-3 text-right">Apri</th>
+            </tr>
+          </thead>
+          <tbody id="certainSignalsTableBody" class="divide-y divide-indigo-50 text-xs">
+            <tr><td colspan="8" class="py-5 text-center text-slate-400 font-semibold">Nessun Segnale Certo attivo al momento: il sistema continua a monitorare in automatico.</td></tr>
+          </tbody>
+        </table>
       </div>
     </div>
 
@@ -296,15 +381,15 @@
     <div class="card-white p-5">
       <div class="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-200">
         <div>
-          <h2 class="text-lg font-extrabold text-slate-900">Mercati BingX — Solo Segnali Certi & Anticipo per Categoria</h2>
-          <p class="text-xs text-slate-500">Calcolo automatico di parametri, orari mercato, setup anticipati (<strong>Compressione/Squeeze</strong>, <strong>Pullback</strong>, <strong>Sweep</strong>) e <strong>Segnali Certi</strong> sulla categoria impostata.</p>
+          <h2 class="text-lg font-extrabold text-slate-900">Mercati BingX — Tutti i Segnali Attivi per Categoria</h2>
+          <p class="text-xs text-slate-500">Mostra tutti i segnali attivi (<strong>LONG / SHORT / STRONG</strong>), i setup anticipati e i <strong>Segnali Certi</strong> sulla categoria selezionata.</p>
         </div>
 
         <input id="searchMarket" onkeyup="renderMarketsTable()" type="text" placeholder="Cerca GOLD(XAU), SILVER(XAG), Oil WTI, Oil Brent, NASDAQ100, SOXL, GS..." class="bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs font-medium w-80 focus:outline-none focus:border-slate-900" />
       </div>
 
       <div class="flex flex-wrap gap-2 my-4" id="categoryTabs">
-        <button onclick="setCategory('ALL')" data-cat="ALL" class="cat-btn tab-active px-3.5 py-1.5 rounded-lg text-xs font-bold border border-slate-300 transition">TUTTI (CERTI & ANTICIPO)</button>
+        <button onclick="setCategory('ALL')" data-cat="ALL" class="cat-btn tab-active px-3.5 py-1.5 rounded-lg text-xs font-bold border border-slate-300 transition">TUTTI I SEGNALI ATTIVI</button>
         <button onclick="setCategory('CERTAIN')" data-cat="CERTAIN" class="cat-btn bg-indigo-50 text-indigo-800 px-3.5 py-1.5 rounded-lg text-xs font-extrabold border border-indigo-300 transition">💎 SOLO SEGNALI CERTI</button>
         <button onclick="setCategory('CRYPTO MAJOR')" data-cat="CRYPTO MAJOR" class="cat-btn bg-white text-slate-700 px-3.5 py-1.5 rounded-lg text-xs font-bold border border-slate-300 transition">CRYPTO MAJOR</button>
         <button onclick="setCategory('ALTCOIN & DEFI')" data-cat="ALTCOIN & DEFI" class="cat-btn bg-white text-slate-700 px-3.5 py-1.5 rounded-lg text-xs font-bold border border-slate-300 transition">ALTCOIN & DEFI</button>
@@ -325,7 +410,7 @@
               <th class="py-3 px-3 text-center">Parametri Consigliati</th>
               <th class="py-3 px-3 text-center">TP / SL Esatti</th>
               <th class="py-3 px-3 text-center">Candela TP</th>
-              <th class="py-3 px-3 text-center">Segnale Certo / Ingresso</th>
+              <th class="py-3 px-3 text-center">Stato / Ingresso</th>
               <th class="py-3 px-3 text-center">Score</th>
               <th class="py-3 px-3 text-center">Sentiment</th>
               <th class="py-3 px-3 text-center">Certezza %</th>
@@ -334,7 +419,7 @@
             </tr>
           </thead>
           <tbody id="marketsTableBody" class="divide-y divide-slate-100 text-xs">
-            <tr><td colspan="14" class="py-8 text-center text-slate-400 font-semibold">Calcolo automatico segnali certi e anticipo in corso...</td></tr>
+            <tr><td colspan="14" class="py-8 text-center text-slate-400 font-semibold">Caricamento segnali attivi in corso...</td></tr>
           </tbody>
         </table>
       </div>
@@ -343,6 +428,7 @@
   </main>
 
   <script>
+    const INTERVAL_SEC_MAP = { '1m': 60, '5m': 300, '15m': 900, '1h': 3600, '4h': 14400 };
     let allMarkets = [];
     let currentCategory = 'ALL';
     let activeSymbol = 'BTC-USDT';
@@ -355,6 +441,112 @@
     let audioCtx = null;
     let openPositions = {};
     let userOverrides = {};
+
+    function computeClientCandleTiming(tf, serverTiming) {
+      const sec = INTERVAL_SEC_MAP[tf] || 900;
+      const nowSec = Math.floor(Date.now() / 1000);
+      const candleStart = Math.floor(nowSec / sec) * sec;
+      const nextCandleSec = candleStart + sec;
+      const rem = Math.max(0, nextCandleSec - nowSec);
+      const mins = Math.floor(rem / 60);
+      const secs = rem % 60;
+      const hrs = Math.floor(mins / 60);
+      const remMins = mins % 60;
+      const countdownStr = hrs > 0
+        ? `${String(hrs).padStart(2, '0')}:${String(remMins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
+        : `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+      const preCloseSec = serverTiming?.pre_close_window_sec || Math.min(45, Math.max(15, Math.floor(sec * 0.25)));
+      const beforeNextCandle = rem <= preCloseSec;
+      const nextTimeStr = new Date(nextCandleSec * 1000).toLocaleTimeString('it-IT', {
+        timeZone: 'Europe/Rome',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      });
+      return {
+        timeframe: tf,
+        seconds_to_next_candle: rem,
+        countdown_str: countdownStr,
+        next_candle_time_cet: nextTimeStr,
+        pre_close_window_sec: preCloseSec,
+        before_next_candle: beforeNextCandle,
+        candle_index: Math.floor(candleStart / sec)
+      };
+    }
+
+    function refreshLiveCandleClock() {
+      const tf = document.getElementById('timeframeSelect').value;
+      const timing = computeClientCandleTiming(tf, currentAnalysis?.candle_timing);
+      document.getElementById('activeCandleTfVal').innerText = tf;
+      document.getElementById('nextCandleCountdownVal').innerText = timing.countdown_str;
+      document.getElementById('nextCandleStartTimeVal').innerText = `Nuova candela: ${timing.next_candle_time_cet} CET`;
+      const winEl = document.getElementById('preCandleWindowStatusVal');
+      if (timing.before_next_candle) {
+        winEl.innerText = `🟢 SCADERE IMMINENTE (-${timing.seconds_to_next_candle}s)`;
+        winEl.className = 'text-xs font-extrabold text-emerald-700';
+      } else {
+        winEl.innerText = `Pre-trigger ultimi ${timing.pre_close_window_sec}s`;
+        winEl.className = 'text-xs font-extrabold text-slate-600';
+      }
+      if (currentAnalysis && activeSymbol === currentAnalysis.symbol) {
+        const ew = computeClientEntryWindow(currentAnalysis, currentAnalysis.early_setup || {});
+        const snRej = currentAnalysis.sn_rejection || {};
+        const dir = currentAnalysis.early_setup?.direction || (currentAnalysis.composite_score >= 0 ? 'LONG' : 'SHORT');
+        const ms = { ...(currentAnalysis.manual_sign || {}) };
+        if (!snRej.rejected && !ew.exceeded && ms.status !== 'CANCELLED_REVERSAL' && currentAnalysis.certain_signal) {
+          if (timing.before_next_candle) {
+            ms.show_enter_now = true;
+            ms.status = 'ENTER_NOW_PRE_CANDLE';
+            ms.badge = `🟢 ENTRA ORA • ${dir} (APERTURA ${timing.next_candle_time_cet} • -${timing.seconds_to_next_candle}s)`;
+            ms.reason = `${currentAnalysis.certain_signal}: fine candela precedente tra ${timing.seconds_to_next_candle}s, apertura nuova candela ${tf} alle ${timing.next_candle_time_cet} nel verso ${dir}.`;
+          } else {
+            ms.show_enter_now = false;
+            ms.status = 'ARMED_WAIT_PRE_CANDLE';
+            ms.badge = `⏳ SEGNALE CERTO ${dir} • APERTURA ${timing.next_candle_time_cet} (-${timing.countdown_str})`;
+            ms.reason = `${currentAnalysis.certain_signal} pronto per il verso ${dir}: scatta a fine candela precedente (apertura ${tf} alle ${timing.next_candle_time_cet}, tra ${timing.countdown_str}).`;
+          }
+        }
+        updateManualEnterSignCard(currentAnalysis, ew, snRej, ms);
+      }
+    }
+
+    function computeClientEntryWindow(d, early) {
+      if (d && d.entry_window) return d.entry_window;
+      const dir = early?.direction || (d?.composite_score >= 0 ? 'LONG' : 'SHORT');
+      const price = parseFloat(d?.price || 0);
+      const refPrice = parseFloat(early?.limit_price || d?.levels?.entry || price || 0);
+      const atr = parseFloat(d?.indicators?.atr || 0);
+      const z = parseFloat(d?.indicators?.z_score || 0);
+      if (!dir || !refPrice || !atr) {
+        return { in_window: true, exceeded: false, threshold_price: null, status_badge: '📊 SEGNALE ATTIVO', reason: '' };
+      }
+      const stretch = parseFloat(d?.weights?.max_entry_atr_stretch || 1.55);
+      const maxZ = parseFloat(d?.weights?.max_entry_z_abs || 2.60);
+      if (dir === 'LONG') {
+        const thr = Number((refPrice + stretch * atr).toFixed(6));
+        const exceeded = (price > thr) || (z > maxZ);
+        return {
+          in_window: !exceeded,
+          exceeded,
+          threshold_price: thr,
+          status_badge: exceeded ? '🛑 OLTRE SOGLIA — NON ENTRARE' : '✅ FINESTRA INGRESSO LONG',
+          reason: exceeded
+            ? `Prezzo ${price} oltre soglia max ${thr} (rif. ${refPrice} + ${stretch}x ATR, Z=${z >= 0 ? '+' : ''}${z.toFixed(2)}σ).`
+            : `Prezzo ${price} entro la soglia max ${thr} (rif. ${refPrice}).`
+        };
+      }
+      const thr = Number((refPrice - stretch * atr).toFixed(6));
+      const exceeded = (price < thr) || (z < -maxZ);
+      return {
+        in_window: !exceeded,
+        exceeded,
+        threshold_price: thr,
+        status_badge: exceeded ? '🛑 OLTRE SOGLIA — NON ENTRARE' : '✅ FINESTRA INGRESSO SHORT',
+        reason: exceeded
+          ? `Prezzo ${price} sceso oltre soglia max ${thr} (rif. ${refPrice} - ${stretch}x ATR, Z=${z >= 0 ? '+' : ''}${z.toFixed(2)}σ).`
+          : `Prezzo ${price} entro la soglia max ${thr} (rif. ${refPrice}).`
+      };
+    }
 
     function playChime(mode = 'anticipo') {
       if (!soundEnabled && mode !== 'anticipo') return;
@@ -436,10 +628,25 @@
       if (w.min_confidence !== undefined) { document.getElementById('wMinConf').value = w.min_confidence; document.getElementById('lblMinConf').innerText = w.min_confidence + '%'; }
       if (w.breakeven_at_tp_pct !== undefined) { document.getElementById('bePctLbl').innerText = w.breakeven_at_tp_pct + '%'; }
       if (w.risk_per_trade_pct !== undefined) { document.getElementById('riskPctInput').value = w.risk_per_trade_pct; }
+      if (w.auto_close_on_tp !== undefined) { document.getElementById('chkAutoCloseTp').checked = Boolean(w.auto_close_on_tp); }
+      if (w.auto_close_on_candle_end !== undefined) { document.getElementById('chkAutoCloseCandleEnd').checked = Boolean(w.auto_close_on_candle_end); }
+      if (w.auto_close_on_candle_signal !== undefined) { document.getElementById('chkAutoCloseCandle').checked = Boolean(w.auto_close_on_candle_signal); }
+    }
+
+    async function syncExitRules() {
+      await fetch('/api/weights', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          auto_close_on_tp: document.getElementById('chkAutoCloseTp').checked,
+          auto_close_on_candle_end: document.getElementById('chkAutoCloseCandleEnd').checked,
+          auto_close_on_candle_signal: document.getElementById('chkAutoCloseCandle').checked
+        })
+      });
     }
 
     function updateCertainSignalsCounter() {
-      const count = Object.values(userOverrides).filter(o => o && (o.certainSignal || o.triggerSound)).length;
+      const count = Object.values(userOverrides).filter(o => o && (o.signal || o.certainSignal || o.triggerSound)).length;
       document.getElementById('certainCountVal').innerText = count;
     }
 
@@ -524,7 +731,7 @@
           active_category: cat,
           interval: tf,
           apply_profile: true,
-          only_certain_and_early: true
+          only_certain_and_early: false
         })
       });
       const json = await res.json();
@@ -549,11 +756,10 @@
       return allMarkets.filter(m => {
         const ov = userOverrides[m.symbol] || {};
         const isCertain = Boolean(ov.certainSignal);
-        const isCertainOrEarly = Boolean(ov.certainSignal || ov.triggerSound);
         const matchCat =
-          (currentCategory === 'ALL' && isCertainOrEarly) ||
+          currentCategory === 'ALL' ||
           (currentCategory === 'CERTAIN' && isCertain) ||
-          (m.category === currentCategory && isCertainOrEarly);
+          m.category === currentCategory;
         const matchQ = !q ||
           m.bingxName.toUpperCase().includes(q) ||
           m.symbol.includes(q) ||
@@ -599,11 +805,76 @@
       `;
     }
 
+    function renderCertainSignalsTable() {
+      const q = document.getElementById('searchMarket').value.trim().toUpperCase();
+      const tbody = document.getElementById('certainSignalsTableBody');
+      const badge = document.getElementById('certainTableCountBadge');
+
+      const certainList = allMarkets.filter(m => {
+        const ov = userOverrides[m.symbol] || {};
+        if (!ov.certainSignal) return false;
+        const matchCat =
+          currentCategory === 'ALL' ||
+          currentCategory === 'CERTAIN' ||
+          m.category === currentCategory;
+        const matchQ = !q ||
+          m.bingxName.toUpperCase().includes(q) ||
+          m.symbol.includes(q) ||
+          m.category.includes(q);
+        return matchCat && matchQ;
+      });
+
+      badge.innerText = `${certainList.length} ${certainList.length === 1 ? 'Attivo' : 'Attivi'}`;
+
+      if (!certainList.length) {
+        tbody.innerHTML = `<tr><td colspan="8" class="py-5 text-center text-slate-400 font-semibold">Nessun Segnale Certo attivo al momento: il sistema continua a monitorare in automatico.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = certainList.map(m => {
+        const ov = userOverrides[m.symbol] || {};
+        const early = ov.earlySetup || {};
+        const tpSl = ov.tpSlText || {};
+        const ms = ov.manualSign || {};
+        const blocked = Boolean(ov.entryWindow?.exceeded || ov.snRejection?.rejected);
+        const isLong = String(ov.certainSignal || '').includes('LONG');
+        const sigClass = isLong ? 'bg-emerald-600 text-white' : 'bg-red-600 text-white';
+
+        return `
+          <tr class="hover:bg-indigo-50/60 transition cursor-pointer bg-indigo-50/20" onclick="analyzeSymbol('${m.symbol}')">
+            <td class="py-2.5 px-3">
+              <div class="font-extrabold text-slate-900">${m.bingxName}</div>
+              <div class="text-[10px] text-slate-500">${m.category}</div>
+            </td>
+            <td class="py-2.5 px-3 text-center">
+              <div class="px-2 py-1 rounded-md text-[10px] font-extrabold ${sigClass}">💎 ${ov.certainSignal}</div>
+              <div class="text-[10px] font-extrabold mt-1 ${blocked ? 'text-red-700' : (ms.show_enter_now ? 'text-emerald-700' : 'text-indigo-700')}">${ms.badge || ''}</div>
+            </td>
+            <td class="py-2.5 px-3 text-center">
+              <div class="text-[10px] font-bold text-slate-800">${early.setup_type || '--'}</div>
+              <div class="text-[10px] mono text-indigo-700">${early.order_type || ''} ${early.limit_price ? '@ ' + early.limit_price : ''}</div>
+            </td>
+            <td class="py-2.5 px-3 text-right mono font-bold text-slate-900">${m.lastPrice}</td>
+            <td class="py-2.5 px-3 text-center mono text-[11px] font-bold">
+              <div class="text-emerald-700">TP2: ${tpSl.tp2 || '--'}</div>
+              <div class="text-red-600">SL: ${tpSl.sl || '--'}</div>
+            </td>
+            <td class="py-2.5 px-3 text-center mono text-[11px] font-bold text-slate-800">${ov.recSummary || '--'}</td>
+            <td class="py-2.5 px-3 text-center mono font-extrabold text-indigo-800">${ov.confidence !== undefined ? ov.confidence + '%' : '--'}</td>
+            <td class="py-2.5 px-3 text-right" onclick="event.stopPropagation()">
+              <button onclick="analyzeSymbol('${m.symbol}')" class="bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-bold px-2.5 py-1 rounded-md transition">Apri</button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
     function renderMarketsTable() {
+      renderCertainSignalsTable();
       const filtered = getFilteredMarkets();
       const tbody = document.getElementById('marketsTableBody');
       if (!filtered.length) {
-        tbody.innerHTML = `<tr><td colspan="14" class="py-6 text-center text-slate-400">Nessun segnale certo o setup anticipato rilevato al momento in questa categoria.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="14" class="py-6 text-center text-slate-400">Nessun mercato trovato per il filtro o la categoria selezionata.</td></tr>`;
         return;
       }
 
@@ -611,6 +882,8 @@
         const ov = userOverrides[m.symbol] || {};
         const sess = ov.session || m.session || {};
         const early = ov.earlySetup || {};
+        const ew = ov.entryWindow || {};
+        const snRej = ov.snRejection || {};
         const scoreVal = ov.score !== undefined ? ov.score : '';
         const sentVal = ov.sentiment !== undefined ? ov.sentiment : 0;
         const confVal = ov.confidence !== undefined ? `${ov.confidence}%` : '--';
@@ -620,22 +893,21 @@
         const tpSlText = ov.tpSlText || {};
         const recSummary = ov.recSummary || `Lev ${Math.min(10, m.maxLeverage)}x • In attesa`;
         const recSub = ov.recSub || '';
-        const entryBadge = ov.entryBadge || '⏳ IN ANALISI';
+        const entryBadge = ov.entryBadge || '📊 SEGNALE ATTIVO';
         const entryReason = ov.entryReason || '';
         const chgColor = m.priceChangePercent >= 0 ? 'text-emerald-600' : 'text-red-600';
 
         let sigBadgeClass = 'bg-slate-100 text-slate-600';
         if (certainSig) sigBadgeClass = 'bg-indigo-600 text-white ring-2 ring-indigo-300';
-        else if (ov.triggerSound) sigBadgeClass = 'bg-amber-500 text-white';
         else if (sigVal.includes('STRONG LONG')) sigBadgeClass = 'bg-emerald-600 text-white';
         else if (sigVal.includes('LONG')) sigBadgeClass = 'bg-emerald-100 text-emerald-800';
         else if (sigVal.includes('STRONG SHORT')) sigBadgeClass = 'bg-red-600 text-white';
         else if (sigVal.includes('SHORT')) sigBadgeClass = 'bg-red-100 text-red-800';
 
         let entryClass = 'bg-slate-100 text-slate-700';
-        if (certainSig) entryClass = 'bg-indigo-100 text-indigo-900 border border-indigo-400';
-        else if (entryBadge.includes('ANTICIPO') || entryBadge.includes('ENTRA ORA')) entryClass = 'bg-emerald-100 text-emerald-800 border border-emerald-300';
-        else if (entryBadge.includes('NON')) entryClass = 'bg-red-100 text-red-800 border border-red-300';
+        if (snRej.rejected || ew.exceeded || entryBadge.includes('RIFIUTO') || entryBadge.includes('OLTRE SOGLIA') || entryBadge.includes('ANNULLATO')) entryClass = 'bg-red-100 text-red-800 border border-red-300';
+        else if (certainSig) entryClass = 'bg-indigo-100 text-indigo-900 border border-indigo-400';
+        else if (entryBadge.includes('ENTRA ORA') || entryBadge.includes('ANTICIPO') || entryBadge.includes('LONG') || entryBadge.includes('SHORT')) entryClass = 'bg-emerald-100 text-emerald-800 border border-emerald-300';
         else entryClass = 'bg-amber-100 text-amber-800 border border-amber-300';
 
         return `
@@ -669,7 +941,7 @@
             <td class="py-2.5 px-3 text-center mono font-bold text-indigo-700">${tpLabel}</td>
             <td class="py-2.5 px-3 text-center">
               <span class="px-2 py-1 rounded text-[10px] font-extrabold ${entryClass}">${entryBadge}</span>
-              ${entryReason ? `<div class="text-[10px] text-slate-500 mt-0.5 max-w-[180px] mx-auto">${entryReason}</div>` : ''}
+              ${entryReason ? `<div class="text-[10px] text-slate-500 mt-0.5 max-w-[190px] mx-auto">${entryReason}</div>` : ''}
             </td>
             <td class="py-2.5 px-3 text-center" onclick="event.stopPropagation()">
               <input type="number" min="-100" max="100" step="1" value="${scoreVal}" placeholder="Auto"
@@ -721,13 +993,72 @@
       await analyzeSymbol(symbol);
     }
 
+    function updateManualEnterSignCard(d, ew, snRej, ms) {
+      const card = document.getElementById('manualEnterSignCard');
+      const board = document.getElementById('enterNowSignBoard');
+      const reasonEl = document.getElementById('manualSignReasonText');
+      const snBadge = document.getElementById('snRejectionBadge');
+
+      if (snRej && snRej.badge) {
+        snBadge.innerText = snRej.badge;
+        snBadge.className = snRej.rejected
+          ? 'px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-red-100 text-red-800 border border-red-300'
+          : 'px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-300';
+      }
+
+      if (snRej?.rejected) {
+        card.className = 'card-white p-4 border-2 border-red-400 bg-red-50/30 flex flex-wrap items-center justify-between gap-4';
+        board.className = 'px-4 py-2 rounded-xl text-sm font-extrabold uppercase tracking-wide bg-red-600 text-white';
+        board.innerText = '🛑 RIFIUTO (SN CANDELA ALTA OPPOSTA)';
+        reasonEl.innerText = snRej.reason;
+        return;
+      }
+
+      if (ew?.exceeded) {
+        card.className = 'card-white p-4 border-2 border-red-400 bg-red-50/30 flex flex-wrap items-center justify-between gap-4';
+        board.className = 'px-4 py-2 rounded-xl text-sm font-extrabold uppercase tracking-wide bg-red-600 text-white';
+        board.innerText = '🛑 OLTRE SOGLIA — NON ENTRARE';
+        reasonEl.innerText = ew.reason;
+        return;
+      }
+
+      if (ms?.show_enter_now) {
+        card.className = 'card-white p-4 border-2 border-emerald-500 bg-emerald-50/40 flex flex-wrap items-center justify-between gap-4';
+        board.className = 'px-4 py-2 rounded-xl text-sm font-extrabold uppercase tracking-wide bg-emerald-600 text-white animate-pulse';
+        board.innerText = ms.badge || '🟢 ENTRA ORA';
+        reasonEl.innerText = ms.reason || '';
+        return;
+      }
+
+      if (ms?.status === 'CANCELLED_REVERSAL') {
+        card.className = 'card-white p-4 border-2 border-amber-400 bg-amber-50/30 flex flex-wrap items-center justify-between gap-4';
+        board.className = 'px-4 py-2 rounded-xl text-sm font-extrabold uppercase tracking-wide bg-amber-600 text-white';
+        board.innerText = ms.badge;
+        reasonEl.innerText = ms.reason;
+        return;
+      }
+
+      card.className = 'card-white p-4 border-2 border-slate-300 flex flex-wrap items-center justify-between gap-4';
+      board.className = 'px-4 py-2 rounded-xl text-sm font-extrabold uppercase tracking-wide bg-slate-200 text-slate-700 border border-slate-300';
+      board.innerText = ms?.badge || '⏳ IN ATTESA SEGNALE CERTO';
+      reasonEl.innerText = ms?.reason || 'Il segnale viene preparato prima della fine della candela precedente con scadere sincronizzato all\'inizio della nuova candela nel verso previsto.';
+    }
+
     function applyAnalysisToUI(d) {
       currentAnalysis = d;
       const ov = userOverrides[d.symbol] || {};
       const rp = d.recommended_params || {};
       const sess = d.session || ov.session || {};
       const early = d.early_setup || {};
+      const ew = computeClientEntryWindow(d, early);
+      const snRej = d.sn_rejection || {};
+      const ms = d.manual_sign || {};
       if (ov.score !== undefined) { d.composite_score = ov.score; d.confidence = ov.confidence; d.signal = ov.signal; }
+
+      const blocked = Boolean(ew.exceeded || snRej.rejected);
+      const effectiveCertain = d.certain_signal || null;
+      const effectiveEntryBadge = d.entry_rule?.badge || '--';
+      const effectiveEntryReason = d.entry_rule?.reason || '';
 
       if (d.account_balance !== undefined) {
         updateBalanceUI(d.account_balance);
@@ -737,21 +1068,30 @@
         ...ov,
         session: sess,
         earlySetup: early,
+        entryWindow: ew,
+        snRejection: snRej,
+        manualSign: ms,
         triggerSound: Boolean(early.trigger_sound),
         score: d.composite_score,
         confidence: d.confidence,
         signal: d.signal,
-        certainSignal: d.certain_signal || null,
+        certainSignal: effectiveCertain,
         tpLabel: d.tp_plan?.label || '--',
         tpSlText: { tp2: d.levels?.tp2, sl: d.levels?.sl },
         recSummary: rp.summary || '--',
         recSub: rp.margin_usdt !== undefined ? `Margine ~$${rp.margin_usdt} • Win ${rp.p_win_pct}%` : '',
-        entryBadge: d.entry_rule?.badge || '--',
-        entryReason: d.entry_rule?.reason || ''
+        entryBadge: effectiveEntryBadge,
+        entryReason: effectiveEntryReason
       };
       updateCertainSignalsCounter();
 
       if (activeSymbol === d.symbol) {
+        if (d.timeframe) {
+          document.getElementById('timeframeSelect').value = d.timeframe;
+        }
+        refreshLiveCandleClock();
+        updateManualEnterSignCard(d, ew, snRej, ms);
+
         if (d.weights) applyWeightsToSliders(d.weights);
         if (d.applied_profile && d.applied_profile.profile_name) {
           document.getElementById('activeProfileInfo').innerText =
@@ -765,31 +1105,41 @@
         document.getElementById('earlySetupPill').innerText = `Setup: ${early.setup_type || '--'}`;
         document.getElementById('limitOrderHighlight').innerText = `${early.order_type || '--'} @ ${early.limit_price || '--'}`;
 
+        const thrEl = document.getElementById('entryThresholdHighlight');
+        if (ew.threshold_price !== null && ew.threshold_price !== undefined) {
+          thrEl.innerText = `${ew.threshold_price} (${ew.exceeded ? 'SUPERATA' : 'IN FINESTRA'})`;
+          thrEl.className = ew.exceeded
+            ? 'mono text-xs font-extrabold text-red-700'
+            : 'mono text-xs font-extrabold text-emerald-700';
+        } else {
+          thrEl.innerText = '--';
+          thrEl.className = 'mono text-xs font-extrabold text-slate-600';
+        }
+
         const sigBadge = document.getElementById('signalMasterBadge');
-        sigBadge.innerText = d.certain_signal ? `💎 ${d.certain_signal} (${d.confidence}%)` : `${d.signal} (${d.confidence}%)`;
+        sigBadge.innerText = effectiveCertain ? `💎 ${effectiveCertain} (${d.confidence}%)` : `${d.signal} (${d.confidence}%)`;
         sigBadge.className = 'px-4 py-1.5 rounded-lg font-extrabold text-sm ' + (
-          d.certain_signal ? 'bg-indigo-600 text-white' :
+          effectiveCertain ? 'bg-indigo-600 text-white' :
           d.signal.includes('LONG') ? 'bg-emerald-600 text-white' :
           d.signal.includes('SHORT') ? 'bg-red-600 text-white' : 'bg-slate-200 text-slate-800'
         );
 
         const certPill = document.getElementById('certainSignalPill');
-        if (d.certain_signal) {
-          certPill.innerText = `💎 ${d.certain_signal}`;
+        if (effectiveCertain) {
+          certPill.innerText = `💎 ${effectiveCertain}`;
           certPill.classList.remove('hidden');
         } else {
           certPill.classList.add('hidden');
         }
 
-        const er = d.entry_rule || {};
         const pill = document.getElementById('entryActionPill');
-        pill.innerText = er.badge || '⏳ IN ATTESA';
+        pill.innerText = effectiveEntryBadge || '📊 SEGNALE ATTIVO';
         pill.className = 'px-3 py-1.5 rounded-lg text-xs font-extrabold ' + (
-          d.certain_signal ? 'bg-indigo-600 text-white' :
-          (er.badge || '').includes('ANTICIPO') || (er.badge || '').includes('ENTRA ORA') ? 'bg-emerald-600 text-white' :
-          (er.badge || '').includes('NON') ? 'bg-red-600 text-white' : 'bg-amber-500 text-white'
+          blocked || effectiveEntryBadge.includes('RIFIUTO') || effectiveEntryBadge.includes('OLTRE SOGLIA') || effectiveEntryBadge.includes('ANNULLATO') ? 'bg-red-600 text-white' :
+          effectiveCertain ? 'bg-indigo-600 text-white' :
+          effectiveEntryBadge.includes('ENTRA ORA') || effectiveEntryBadge.includes('ANTICIPO') || effectiveEntryBadge.includes('LONG') || effectiveEntryBadge.includes('SHORT') ? 'bg-emerald-600 text-white' : 'bg-amber-500 text-white'
         );
-        document.getElementById('entryReasonText').innerText = er.reason || '';
+        document.getElementById('entryReasonText').innerText = effectiveEntryReason || '';
         document.getElementById('recParamsHighlight').innerText = rp.summary || '--';
         document.getElementById('tpTimeframeHighlight').innerText = d.tp_plan?.label || '--';
 
@@ -872,6 +1222,7 @@
 
     async function onTimeframeChange() {
       const tf = document.getElementById('timeframeSelect').value;
+      refreshLiveCandleClock();
       const res = await fetch('/api/auto_monitor_status', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -879,7 +1230,7 @@
           interval: tf,
           active_category: currentCategory,
           apply_profile: true,
-          only_certain_and_early: true
+          only_certain_and_early: false
         })
       });
       const json = await res.json();
@@ -901,7 +1252,7 @@
     }
 
     async function toggleAutoTrade() {
-      if (!autoTradeEnabled && !confirm("⚠️ Attivando l'Auto-Trade Reale, il sistema aprirà posizioni reali su BingX con TP2 e SL della Dashboard quando scatta ENTRA ORA / ANTICIPO / SEGNALE CERTO. Procedere?")) return;
+      if (!autoTradeEnabled && !confirm("⚠️ Attivando l'Auto-Trade Reale, il sistema aprirà posizioni reali su BingX appena scatta l'entrata con TP2 e SL esatti, e le chiuderà al TP o a fine candela. Procedere?")) return;
       autoTradeEnabled = !autoTradeEnabled;
       const btn = document.getElementById('btnToggleAutoTrade');
       btn.innerText = autoTradeEnabled ? '⚡ Auto-Trade Reale: ON' : '⚡ Auto-Trade Reale: OFF';
@@ -967,7 +1318,7 @@
           symbols: pool,
           interval,
           overrides: userOverrides,
-          only_certain_and_early: true
+          only_certain_and_early: false
         })
       });
       const json = await res.json();
@@ -985,6 +1336,9 @@
         volatility_weight: document.getElementById('wVol').value,
         sentiment_weight: document.getElementById('wSent').value,
         min_confidence: document.getElementById('wMinConf').value,
+        auto_close_on_tp: document.getElementById('chkAutoCloseTp').checked,
+        auto_close_on_candle_end: document.getElementById('chkAutoCloseCandleEnd').checked,
+        auto_close_on_candle_signal: document.getElementById('chkAutoCloseCandle').checked,
         account_capital: accountBalance,
         risk_per_trade_pct: parseFloat(document.getElementById('riskPctInput').value) || 1.5,
         max_daily_loss_usdt: parseFloat(document.getElementById('maxLossInput').value) || 1.0
@@ -995,17 +1349,38 @@
 
     async function executeBingXOrder() {
       if (!currentAnalysis) return alert("Analizza prima un simbolo.");
+      const ew = currentAnalysis.entry_window || computeClientEntryWindow(currentAnalysis, currentAnalysis.early_setup || {});
+      const snRej = currentAnalysis.sn_rejection || {};
+      if (snRej.rejected) {
+        return alert(`${snRej.badge}\n${snRej.reason}`);
+      }
+      if (ew.exceeded) {
+        return alert(`🛑 OLTRE SOGLIA — NON ENTRARE\n${ew.reason}`);
+      }
       const qty = parseFloat(document.getElementById('orderQty').value);
       if (!qty || qty <= 0) return alert("Inserisci una quantità valida.");
       const side = currentAnalysis.composite_score >= 0 ? "BUY" : "SELL";
       const lev = currentAnalysis.recommended_params?.leverage || 10;
+      const timing = computeClientCandleTiming(document.getElementById('timeframeSelect').value, currentAnalysis.candle_timing);
 
       if (!confirm(`Confermi ordine REALE su BingX?\nMercato: ${currentAnalysis.bingx_name}\nDirezione: ${side}\nLeva: ${lev}x\nQuantità: ${qty}\nSL: ${currentAnalysis.levels.sl}\nTP2: ${currentAnalysis.levels.tp2}`)) return;
 
       const res = await fetch('/api/execute_order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ symbol: currentAnalysis.symbol, side, quantity: qty, sl: currentAnalysis.levels.sl, tp: currentAnalysis.levels.tp2, leverage: lev })
+        body: JSON.stringify({
+          symbol: currentAnalysis.symbol,
+          side,
+          quantity: qty,
+          entry: currentAnalysis.levels.entry,
+          sl: currentAnalysis.levels.sl,
+          tp1: currentAnalysis.levels.tp1,
+          tp: currentAnalysis.levels.tp2,
+          tp3: currentAnalysis.levels.tp3,
+          candle_id: currentAnalysis.early_setup?.candle_id,
+          candle_index: timing.candle_index,
+          leverage: lev
+        })
       });
       const json = await res.json();
       alert("Risposta BingX: " + JSON.stringify(json));
@@ -1013,11 +1388,13 @@
       await pollAutoMonitor();
     }
 
+    refreshLiveCandleClock();
     loadKeysStatus();
     loadAllMarkets(false);
     fetchAccountBalance();
     pollAutoMonitor();
-    setInterval(pollAutoMonitor, 5000);
+    setInterval(refreshLiveCandleClock, 1000);
+    setInterval(pollAutoMonitor, 3500);
   </script>
 </body>
 </html>
