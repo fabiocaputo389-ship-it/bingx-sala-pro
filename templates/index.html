@@ -189,6 +189,7 @@
     button.primary { background: #0284c7; border-color: #38bdf8; color: #fff; }
     button.green { background: #15803d; border-color: #22c55e; color: #fff; }
     button.red { background: #b91c1c; border-color: #ef4444; color: #fff; }
+    button.amber { background: #b45309; border-color: #f59e0b; color: #fff; }
 
     .kpi-grid {
       display: grid;
@@ -268,37 +269,6 @@
       border-color: rgba(34,197,94,.55);
       color: #86efac;
       font-weight: 700;
-    }
-
-    .timing-pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      font-size: 10px;
-      font-weight: 700;
-      padding: 2px 7px;
-      border-radius: 6px;
-      border: 1px solid var(--border);
-      background: var(--panel-2);
-      color: var(--text);
-    }
-
-    .timing-pill.go {
-      background: rgba(34, 197, 94, .16);
-      border-color: rgba(34, 197, 94, .65);
-      color: #86efac;
-    }
-
-    .timing-pill.wait {
-      background: rgba(245, 158, 11, .14);
-      border-color: rgba(245, 158, 11, .55);
-      color: #fcd34d;
-    }
-
-    .timing-pill.stop {
-      background: rgba(239, 68, 68, .15);
-      border-color: rgba(239, 68, 68, .6);
-      color: #fca5a5;
     }
 
     .pos { color: #4ade80; font-weight: 700; }
@@ -387,7 +357,7 @@
   </div>
 
   <div class="container">
-    <!-- AVVISO SCRITTO PRE-CANDELA / NUOVA CANDELA CON TP ESATTI -->
+    <!-- AVVISO SCRITTO NUOVA CANDELA -->
     <div id="newCandleBanner" class="candle-alert-box">
       <div class="candle-alert-main">
         <span id="newCandleAlertText">🕯️ In attesa dell'apertura della prossima candela...</span>
@@ -495,11 +465,11 @@
           <table>
             <thead>
               <tr>
-                <th>Asset, Avviso & Candela</th>
+                <th>Asset & Candela</th>
                 <th>Segnale / Stato</th>
                 <th>Conf.</th>
                 <th>Prezzo / Limite</th>
-                <th>SL / TP1 / TP2 / TP3</th>
+                <th>SL / TP1 / TP2</th>
                 <th>Piano / Lev</th>
                 <th>Azione</th>
               </tr>
@@ -536,7 +506,7 @@
         <table>
           <thead>
             <tr>
-              <th>Asset, Avviso & Candela</th>
+              <th>Asset & Candela</th>
               <th>Categoria</th>
               <th>Sessione</th>
               <th>Prezzo</th>
@@ -586,7 +556,6 @@
       audioAlerts: [],
       newCandleHistory: [],
       lastAnnouncedCandleKey: null,
-      preWarnedCandleKey: null,
       lastAlertId: null,
       soundEnabled: true
     };
@@ -618,12 +587,6 @@
       } catch (_) {}
     }
 
-    function playPreCandleBeep() {
-      if (!STATE.soundEnabled) return;
-      playBeep(660, 120);
-      setTimeout(() => playBeep(990, 150), 150);
-    }
-
     function computeLiveCandleClock(interval) {
       const secPerCandle = INTERVAL_SEC[interval] || 900;
       const nowSec = Math.floor(Date.now() / 1000);
@@ -636,126 +599,7 @@
       const mins = Math.floor((rem % 3600) / 60);
       const secs = rem % 60;
       const countdownStr = hrs > 0
-        ? `${String(hrs).padStart(2, "0")}:${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`
-        : `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
-
-      const preWindow = Math.min(45, Math.max(15, Math.floor(secPerCandle * 0.25)));
-      const isPre = rem <= preWindow;
-
-      const openClock = new Date(startSec * 1000).toLocaleTimeString("it-IT", {
-        timeZone: "Europe/Rome", hour12: false
-      });
-      const nextClock = new Date(nextSec * 1000).toLocaleTimeString("it-IT", {
-        timeZone: "Europe/Rome", hour12: false
-      });
-
-      return {
-        candleIndex,
-        countdownStr,
-        rem,
-        isPre,
-        openClock,
-        nextClock,
-        label: isPre
-          ? `⏱ PRE-CANDELA -${rem}s (apre ${nextClock})`
-          : `🕯️ ${interval} in ${countdownStr} (apre ${nextClock})`
-      };
-    }
-
-    function formatSignalFullSpecJs(s) {
-      const lv = s.levels || {};
-      const rp = s.recommended_params || {};
-      const plan = (s.tp_plan && s.tp_plan.label) ? ` (${s.tp_plan.label})` : "";
-      const dir = s.certain_signal || s.signal || (s.early_setup && s.early_setup.direction) || "LONG";
-      return `${s.bingx_name || s.symbol} ${dir} | Entry: ${lv.entry ?? s.price} | TP1: ${lv.tp1 ?? "--"} | TP2: ${lv.tp2 ?? "--"} | TP3: ${lv.tp3 ?? "--"} | SL: ${lv.sl ?? "--"} | Lev: ${rp.leverage ?? "--"}x | Qty: ${rp.qty ?? 0}${plan}`;
-    }
-
-    function getFreeSignalsSorted() {
-      return Object.values(STATE.signals || {})
-        .filter(s => {
-          if (!s) return false;
-          const ew = s.entry_window || {};
-          const sn = s.sn_rejection || {};
-          const ms = s.manual_sign || {};
-          const sess = s.session || {};
-          const blocked = (
-            Boolean(ew.exceeded)
-            || Boolean(sn.rejected)
-            || ["CANCELLED_REVERSAL", "REJECTED_SN", "OVER_THRESHOLD"].includes(ms.status)
-            || sess.session_ok === false
-          );
-          return !blocked;
-        })
-        .sort((a, b) => (b.confidence || 0) - (a.confidence || 0));
-    }
-
-    function getEntryTimingBadge(symbol, interval) {
-      const tf = interval || document.getElementById("timeframeSelect").value || "15m";
-      const clk = computeLiveCandleClock(tf);
-      const sig = (STATE.signals || {})[symbol];
-
-      if (!sig) {
-        if (clk.isPre) {
-          return {
-            cls: "timing-pill go",
-            text: `🟢 PRE-CANDELA -${clk.rem}s`,
-            title: `Mancano ${clk.rem}s all'apertura della nuova candela ${tf}`
-          };
-        }
-        return {
-          cls: "timing-pill wait",
-          text: `⏳ ATTESA (${clk.countdownStr})`,
-          title: `Candela ${tf} in corso, prossima apertura tra ${clk.countdownStr}`
-        };
-      }
-
-      const ew = sig.entry_window || {};
-      const sn = sig.sn_rejection || {};
-      const ms = sig.manual_sign || {};
-      const sess = sig.session || {};
-      const lv = sig.levels || {};
-      const rp = sig.recommended_params || {};
-      const tpSummary = `Entry ${lv.entry ?? sig.price} • TP1 ${lv.tp1 ?? "--"} • TP2 ${lv.tp2 ?? "--"} • TP3 ${lv.tp3 ?? "--"} • SL ${lv.sl ?? "--"} • Lev ${rp.leverage ?? "--"}x`;
-
-      if (sn.rejected) {
-        return {
-          cls: "timing-pill stop",
-          text: "🛑 NON ENTRARE (SN)",
-          title: `${sn.reason || "Rifiuto SN candela alta opposta"} | ${tpSummary}`
-        };
-      }
-      if (ew.exceeded) {
-        return {
-          cls: "timing-pill stop",
-          text: "🛑 NON ENTRARE (SOGLIA)",
-          title: `${ew.reason || "Prezzo oltre soglia"} | ${tpSummary}`
-        };
-      }
-      if (ms.status === "CANCELLED_REVERSAL") {
-        return {
-          cls: "timing-pill stop",
-          text: "❌ ANNULLATO",
-          title: `${ms.reason || "Segnale annullato per inversione"} | ${tpSummary}`
-        };
-      }
-      if (sess.session_ok === false) {
-        return {
-          cls: "timing-pill wait",
-          text: `🟡 FUORI ORARIO • TP2 ${lv.tp2 ?? "--"}`,
-          title: `${sess.session_name || "Fuori orario"} | ${tpSummary}`
-        };
-      }
-      if (ms.show_enter_now || clk.isPre) {
-        return {
-          cls: "timing-pill go",
-          text: `🟢 ENTRA ORA (-${clk.rem}s) • TP1 ${lv.tp1 ?? "--"} / TP2 ${lv.tp2 ?? "--"} / TP3 ${lv.tp3 ?? "--"} • SL ${lv.sl ?? "--"}`,
-          title: tpSummary
-        };
-      }
-      return {
-        cls: "timing-pill wait",
-        text: `🎯 FINESTRA OK • TP1 ${lv.tp1 ?? "--"} / TP2 ${lv.tp2 ?? "--"} / TP3 ${lv.tp3 ?? "--"} • SL ${lv.sl ?? "--"} (${clk.countdownStr})`,
-        title: tpSummary
+        ? `${String(hrs).padStart(2, "0")}:${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}` : `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;  const preWindow = Math.min(45, Math.max(15, Math.floor(secPerCandle * 0.25))); const isPre = rem <= preWindow;  const openClock = new Date(startSec * 1000).toLocaleTimeString("it-IT", { timeZone: "Europe/Rome", hour12: false }); const nextClock = new Date(nextSec * 1000).toLocaleTimeString("it-IT", { timeZone: "Europe/Rome", hour12: false });  return { candleIndex, countdownStr, rem, isPre, openClock, nextClock, label: isPre ? `⏱ PRE-CANDELA -${rem}s (apre ${nextClock})` : `🕯️ ${interval} in ${countdownStr} (apre${nextClock})`
       };
     }
 
@@ -763,25 +607,7 @@
       if (!alertObj || !alertObj.text) return;
       const banner = document.getElementById("newCandleBanner");
       const textEl = document.getElementById("newCandleAlertText");
-      textEl.textContent = `🕯️ ${alertObj.text}`;
-      banner.classList.toggle("blocked", Boolean(alertObj.blocked));
-
-      const exists = STATE.newCandleHistory.some(x => x.id === alertObj.id && x.text === alertObj.text);
-      if (!exists) {
-        STATE.newCandleHistory.unshift(alertObj);
-        STATE.newCandleHistory = STATE.newCandleHistory.slice(0, 5);
-        renderCandleHistory();
-      }
-    }
-
-    function renderCandleHistory() {
-      const box = document.getElementById("newCandleHistory");
-      if (!STATE.newCandleHistory.length) {
-        box.innerHTML = "";
-        return;
-      }
-      box.innerHTML = STATE.newCandleHistory
-        .map(item => `<span>${item.text}</span>`)
+      textEl.textContent = `🕯️ ${alertObj.text}`; banner.classList.toggle("blocked", Boolean(alertObj.blocked));  const exists = STATE.newCandleHistory.some(x => x.id === alertObj.id && x.text === alertObj.text); if (!exists) { STATE.newCandleHistory.unshift(alertObj); STATE.newCandleHistory = STATE.newCandleHistory.slice(0, 5); renderCandleHistory(); } }  function renderCandleHistory() { const box = document.getElementById("newCandleHistory"); if (!STATE.newCandleHistory.length) { box.innerHTML = ""; return; } box.innerHTML = STATE.newCandleHistory .map(item => `<span>${item.text}</span>`)
         .join("");
     }
 
@@ -790,9 +616,7 @@
       const clk = computeLiveCandleClock(interval);
 
       const globalBadge = document.getElementById("globalTimerBadge");
-      globalBadge.textContent = clk.isPre
-        ? `⏱ PRE-CANDELA ${interval}: -${clk.rem}s (apre ${clk.nextClock})`
-        : `Prossima candela ${interval}: ${clk.countdownStr} (alle ${clk.nextClock})`;
+      globalBadge.textContent = `Prossima candela ${interval}: ${clk.countdownStr} (alle${clk.nextClock})`;
       globalBadge.className = clk.isPre ? "pill green" : "pill blue";
 
       document.querySelectorAll(".live-candle-badge").forEach(el => {
@@ -803,51 +627,33 @@
       });
 
       const candleKey = `${interval}_${clk.candleIndex}`;
-      const freeList = getFreeSignalsSorted();
-
-      // Pre-avviso qualche secondo prima con TP1, TP2, TP3, Entry, SL e Leva
-      if (clk.isPre && clk.rem > 0 && freeList.length > 0) {
-        const topParts = freeList.slice(0, 3).map(formatSignalFullSpecJs);
-        const banner = document.getElementById("newCandleBanner");
-        banner.classList.remove("blocked");
-        document.getElementById("newCandleAlertText").textContent =
-          `⏱ PRE-AVVISO -${clk.rem}s (apertura ${clk.nextClock}) — PREPARATI: ${topParts.join(" • ")}`;
-
-        const warnKey = `${candleKey}_PRE`;
-        if (STATE.preWarnedCandleKey !== warnKey) {
-          STATE.preWarnedCandleKey = warnKey;
-          playPreCandleBeep();
-        }
-      }
-
-      // Scatto esatto all'apertura della nuova candela con tutti i TP
       if (STATE.lastAnnouncedCandleKey && STATE.lastAnnouncedCandleKey !== candleKey) {
-        if (freeList.length > 0) {
-          const topParts = freeList.slice(0, 3).map(formatSignalFullSpecJs);
+        const sigList = Object.values(STATE.signals || {});
+        const validSig = sigList
+          .filter(s => !(s.entry_window && s.entry_window.exceeded) && !(s.sn_rejection && s.sn_rejection.rejected))
+          .sort((a, b) => (b.confidence || 0) - (a.confidence || 0))[0];
+
+        if (validSig) {
+          const dir = validSig.certain_signal || validSig.signal || (validSig.early_setup && validSig.early_setup.direction) || "";
+          const lv = validSig.levels || {};
+          const rp = validSig.recommended_params || {};
           pushNewCandleWrittenAlert({
             id: candleKey,
             time: clk.openClock,
             timeframe: interval,
             blocked: false,
-            text: `Nuova candela ${interval} aperta alle ${clk.openClock} — ENTRA ORA (${freeList.length} LIBERI): ${topParts.join(" • ")}`
+            text: `Nuova candela ${interval} aperta alle${clk.openClock} — ${validSig.bingx_name \vert{}\vert{} validSig.symbol}${dir} | Entry: ${lv.entry ?? validSig.price} \vert{} TP2: ${lv.tp2 ?? "--"} | SL: ${lv.sl ?? "--"} (Lev ${rp.leverage ?? "--"}x)`
           });
-          playBeep(980, 220);
         } else {
-          const sigList = Object.values(STATE.signals || {});
-          const snCnt = sigList.filter(s => s && s.sn_rejection && s.sn_rejection.rejected).length;
-          const overCnt = sigList.filter(s => s && s.entry_window && s.entry_window.exceeded).length;
-          const reasons = [];
-          if (snCnt) reasons.push(`${snCnt} rifiutati per SN candela alta opposta`);
-          if (overCnt) reasons.push(`${overCnt} oltre soglia`);
-          const reasonTxt = reasons.length ? reasons.join(", ") : "nessun asset libero da blocchi";
           pushNewCandleWrittenAlert({
             id: candleKey,
             time: clk.openClock,
             timeframe: interval,
             blocked: true,
-            text: `Nuova candela ${interval} aperta alle ${clk.openClock} — NESSUN ASSET LIBERO (${reasonTxt}).`
+            text: `Nuova candela ${interval} aperta alle${clk.openClock} — NON ENTRARE (nessun segnale valido confermato).`
           });
         }
+        playBeep(980, 220);
       }
       STATE.lastAnnouncedCandleKey = candleKey;
     }
@@ -864,7 +670,7 @@
         badge.className = "pill amber";
       }
       document.getElementById("keysMaskText").textContent =
-        `API: ${d.masked_api_key || "--"} | Secret: ${d.masked_secret_key || "--"}`;
+        `API: ${d.masked_api_key \vert{}\vert{} "--"} \vert{} Secret: ${d.masked_secret_key || "--"}`;
     }
 
     async function saveKeys() {
@@ -901,13 +707,7 @@
       const filtered = STATE.markets.filter(m => {
         if (cat !== "ALL" && cat !== "CERTAIN" && m.category !== cat) return false;
         if (q) {
-          const hay = `${m.symbol} ${m.bingxName} ${m.category}`.toUpperCase();
-          if (!hay.includes(q)) return false;
-        }
-        return true;
-      });
-
-      document.getElementById("marketsCount").textContent = `${filtered.length} mercati`;
+          const hay = `${m.symbol}${m.bingxName} ${m.category}`.toUpperCase(); if (!hay.includes(q)) return false; } return true; });  document.getElementById("marketsCount").textContent = `${filtered.length} mercati`;
       const tbody = document.getElementById("marketsBody");
       if (!filtered.length) {
         tbody.innerHTML = `<tr><td colspan="8" class="muted">Nessun contratto trovato con i filtri attuali.</td></tr>`;
@@ -918,7 +718,6 @@
         const chg = Number(m.priceChangePercent || 0);
         const chgCls = chg >= 0 ? "pos" : "neg";
         const sessBadge = (m.session && m.session.badge) || "--";
-        const tBadge = getEntryTimingBadge(m.symbol, tf);
         return `
           <tr>
             <td>
@@ -926,7 +725,6 @@
                 <div class="asset-main">
                   <strong>${m.bingxName}</strong>
                   <span class="muted" style="font-size:11px;">${m.symbol}</span>
-                  <span class="${tBadge.cls}" title="${tBadge.title}">${tBadge.text}</span>
                 </div>
                 <span class="candle-badge live-candle-badge" data-tf="${tf}">🕯️ ${tf}</span>
               </div>
@@ -975,17 +773,13 @@
         const badgeText = ms.badge || s.certain_signal || s.signal;
         const dir = s.certain_signal || early.direction || s.signal || "LONG";
         const side = String(dir).includes("SHORT") ? "SELL" : "BUY";
-        const tBadge = getEntryTimingBadge(s.symbol, s.timeframe || tf);
 
         return `
           <tr>
             <td>
               <div class="asset-cell">
-                <div class="asset-main">
-                  <strong>${s.bingx_name || s.symbol}</strong>
-                  <span class="${tBadge.cls}" title="${tBadge.title}">${tBadge.text}</span>
-                </div>
-                <span class="candle-badge live-candle-badge" data-tf="${s.timeframe || tf}">🕯️ ${s.timeframe || tf}</span>
+                <strong>${s.bingx_name || s.symbol}</strong>
+                <span class="candle-badge live-candle-badge" data-tf="${s.timeframe \vert{}\vert{} tf}">🕯️ ${s.timeframe || tf}</span>
               </div>
             </td>
             <td>
@@ -999,7 +793,7 @@
             </td>
             <td style="font-size:11px;">
               <div>SL: <span class="neg">${lv.sl ?? "--"}</span></div>
-              <div>TP1: ${lv.tp1 ?? "--"} • TP2: <span class="pos">${lv.tp2 ?? "--"}</span> • TP3: <span class="pos">${lv.tp3 ?? "--"}</span></div>
+              <div>TP1: ${lv.tp1 ?? "--"} • TP2: <span class="pos">${lv.tp2 ?? "--"}</span></div>
             </td>
             <td style="font-size:11px;">
               <div>${(s.tp_plan && s.tp_plan.label) || "--"}</div>
@@ -1007,7 +801,7 @@
             </td>
             <td>
               <button onclick="selectAndAnalyze('${s.symbol}')">Dettagli</button>
-              <button class="${side === "BUY" ? "green" : "red"}" onclick="executeFromAnalysis('${s.symbol}', '${side}', ${rp.qty || 0}, ${lv.sl || 0}, ${lv.tp2 || 0}, ${rp.leverage || 10}, ${s.price}, ${early.candle_id || 0}, ${(s.candle_timing && s.candle_timing.candle_index) || 0}, ${lv.tp1 || 0}, ${lv.tp3 || 0})">
+              <button class="${side === "BUY" ? "green" : "red"}" onclick="executeFromAnalysis('${s.symbol}', '${side}',${rp.qty || 0}, ${lv.sl \vert{}\vert{} 0},${lv.tp2 || 0}, ${rp.leverage \vert{}\vert{} 10},${s.price}, ${early.candle_id \vert{}\vert{} 0},${(s.candle_timing && s.candle_timing.candle_index) || 0}, ${lv.tp1 \vert{}\vert{} 0},${lv.tp3 || 0})">
                 ${side === "BUY" ? "Compra" : "Vendi"}
               </button>
             </td>
@@ -1035,12 +829,12 @@
             <td>${p.size}</td>
             <td>${p.entry_price}</td>
             <td>${p.mark_price}</td>
-            <td style="font-size:11px;">SL ${p.sl_price} / TP2 ${p.tp_price}</td>
+            <td style="font-size:11px;">SL ${p.sl_price} / TP2${p.tp_price}</td>
             <td>${p.tp_progress_pct}%</td>
             <td>${p.leverage}x</td>
             <td class="${cls}">${pnl >= 0 ? "+" : ""}${pnl.toFixed(2)}</td>
             <td>
-              <button class="red" onclick="closePosition('${p.symbol}', '${p.side}', ${p.size})">Chiudi</button>
+              <button class="red" onclick="closePosition('${p.symbol}', '${p.side}',${p.size})">Chiudi</button>
             </td>
           </tr>
         `;
@@ -1054,7 +848,7 @@
       } else {
         logsBox.innerHTML = STATE.tradeLogs.map(l => `
           <div class="log-item">
-            [${l.time}] <strong>${l.symbol}</strong> ${l.side} qty=${l.qty} sl=${l.sl} tp=${l.tp} → ${JSON.stringify(l.response)}
+            [${l.time}] <strong>${l.symbol}</strong>${l.side} qty=${l.qty} sl=${l.sl} tp=${l.tp} →${JSON.stringify(l.response)}
           </div>
         `).join("");
       }
@@ -1069,7 +863,7 @@
         }
         alertsBox.innerHTML = STATE.audioAlerts.map(a => `
           <div class="log-item">
-            [${a.time}] <strong>${a.symbol}</strong> — ${a.title} (${a.order_type}) @ ${a.price} | SL ${a.sl} | TP1 ${a.tp1 ?? "--"} / TP2 ${a.tp2} / TP3 ${a.tp3 ?? "--"}
+            [${a.time}] <strong>${a.symbol}</strong> —${a.title} (${a.order_type}) @${a.price} | SL ${a.sl} \vert{} TP2${a.tp2}
           </div>
         `).join("");
       }
@@ -1115,13 +909,7 @@
       }
 
       const bal = d.balance_info || {};
-      document.getElementById("balSyncBadge").textContent = `Sync: ${bal.last_sync || "--:--:--"}`;
-      document.getElementById("kpiBalance").textContent = Number(bal.balance_usdt || 0).toFixed(2);
-      document.getElementById("kpiAvailable").textContent = Number(bal.available_usdt || 0).toFixed(2);
-      const upnl = Number(bal.unrealized_pnl_usdt || 0);
-      const upnlEl = document.getElementById("kpiUnrealized");
-      upnlEl.textContent = `${upnl >= 0 ? "+" : ""}${upnl.toFixed(2)}`;
-      upnlEl.className = `val ${upnl >= 0 ? "pos" : "neg"}`;
+      document.getElementById("balSyncBadge").textContent = `Sync: ${bal.last_sync \vert{}\vert{} "--:--:--"}`; document.getElementById("kpiBalance").textContent = Number(bal.balance_usdt \vert{}\vert{} 0).toFixed(2); document.getElementById("kpiAvailable").textContent = Number(bal.available_usdt \vert{}\vert{} 0).toFixed(2); const upnl = Number(bal.unrealized_pnl_usdt \vert{}\vert{} 0); const upnlEl = document.getElementById("kpiUnrealized"); upnlEl.textContent = `${upnl >= 0 ? "+" : ""}${upnl.toFixed(2)}`; upnlEl.className = `val ${upnl >= 0 ? "pos" : "neg"}`;
       document.getElementById("kpiEquity").textContent = Number(bal.equity_usdt || 0).toFixed(2);
 
       STATE.signals = d.signals || {};
@@ -1134,7 +922,6 @@
       }
 
       renderSignalsTable();
-      renderMarketsTable();
       renderPositionsTable();
       renderLogsAndAlerts();
       tickTimersAndCandleTransition();
@@ -1174,7 +961,6 @@
           pushNewCandleWrittenAlert(d.latest_new_candle_alert);
         }
         renderSignalsTable();
-        renderMarketsTable();
         renderLogsAndAlerts();
         tickTimersAndCandleTransition();
       }
@@ -1212,13 +998,11 @@
       const ms = a.manual_sign || {};
       const ind = a.indicators || {};
       const early = a.early_setup || {};
-      const tBadge = getEntryTimingBadge(a.symbol, a.timeframe);
 
       document.getElementById("singleAnalysisBox").innerHTML = `
         <div style="display:flex; flex-wrap:wrap; justify-content:space-between; gap:8px; margin-bottom:8px;">
           <div>
             <strong>${a.bingx_name}</strong> (${a.symbol}) • <span class="pill blue">${a.timeframe}</span>
-            <span class="${tBadge.cls}" style="margin-left:6px;" title="${tBadge.title}">${tBadge.text}</span>
             <span class="candle-badge live-candle-badge" data-tf="${a.timeframe}" style="display:inline-flex; margin-left:6px;">🕯️ ${a.timeframe}</span>
           </div>
           <div>
@@ -1232,8 +1016,8 @@
             <div><strong>Livelli & Piano TP</strong></div>
             <div>Prezzo: <strong>${a.price}</strong></div>
             <div>Entry: ${lv.entry} | SL: <span class="neg">${lv.sl}</span></div>
-            <div>TP1: ${lv.tp1} | TP2: <span class="pos">${lv.tp2}</span> | TP3: <span class="pos">${lv.tp3}</span></div>
-            <div>R:R: ${lv.rr} | Piano: ${(a.tp_plan && a.tp_plan.label) || "--"}</div>
+            <div>TP1: ${lv.tp1} | TP2: <span class="pos">${lv.tp2}</span> \vert{} TP3:${lv.tp3}</div>
+            <div>R:R: ${lv.rr} \vert{} Piano:${(a.tp_plan && a.tp_plan.label) || "--"}</div>
           </div>
           <div class="subbox">
             <div><strong>Size & Matematica</strong></div>
@@ -1253,7 +1037,7 @@
             <div><strong>Indicatori</strong></div>
             <div>RSI: ${ind.rsi} • ADX: ${ind.adx} • Z: ${ind.z_score}</div>
             <div>EMA200: ${ind.ema200} • ATR: ${ind.atr}</div>
-            <div>OB Imb: ${ind.ob_imbalance}% • Fund: ${ind.funding_rate}%</div>
+            <div>OB Imb: ${ind.ob_imbalance}\% • Fund: ${ind.funding_rate}%</div>
           </div>
         </div>
       `;
