@@ -1,3 +1,4 @@
+
 import os
 import json
 import time
@@ -309,7 +310,7 @@ BINGX_NAME_TO_API = {
     "HYPEUSDT": ["HYPE-USDT"],
     "ZECUSDT": ["ZEC-USDT"],
     "JTOUSDT": ["JTO-USDT"],
-    "PEOPLEUSDT": ["PEOPLE-USDT"],
+    "PEOPLEUSDT": ["PEOPLEUSDT"],
     "SUIUSDT": ["SUI-USDT"],
     "PENDLEUSDT": ["PENDLE-USDT"]
 }
@@ -415,8 +416,40 @@ def compute_candle_timing(interval: str, klines: list = None, now_ts: float = No
     }
 
 
+def format_signal_full_spec(item: dict) -> str:
+    lv = item.get("levels") or {}
+    rp = item.get("recommended_params") or {}
+    tp_plan = item.get("tp_plan") or {}
+    raw_dir = str(
+        item.get("certain_signal")
+        or item.get("signal")
+        or ((item.get("early_setup") or {}).get("direction"))
+        or "LONG"
+    ).upper()
+    is_short = "SHORT" in raw_dir or "SELL" in raw_dir
+    action_txt = "📉 VENDI (SHORT)" if is_short else "📈 COMPRA (LONG)"
+
+    entry_px = lv.get("entry", item.get("price", "--"))
+    sl_px = lv.get("sl", "--")
+    tp1_px = lv.get("tp1", "--")
+    tp2_px = lv.get("tp2", "--")
+    tp3_px = lv.get("tp3", "--")
+    lev_val = rp.get("leverage", "--")
+    qty_val = rp.get("qty", 0)
+    plan_lbl = tp_plan.get("label", "")
+
+    spec = (
+        f"{item.get('bingx_name') or item.get('symbol')} [{action_txt}] | "
+        f"Entry: {entry_px} | TP1: {tp1_px} | TP2: {tp2_px} | TP3: {tp3_px} | "
+        f"SL: {sl_px} | Lev: {lev_val}x | Qty: {qty_val}"
+    )
+    if plan_lbl:
+        spec += f" ({plan_lbl})"
+    return spec
+
+
 def record_new_candle_written_alert(interval: str, candle_timing: dict, analyses_map: dict):
-    """Registra un avviso scritto esatto ogni volta che inizia una nuova candela su un timeframe."""
+    """Registra un avviso scritto di nuova candela includendo SOLO gli asset liberi da blocchi con direzione, Entry, TP1/TP2/TP3, SL e Leva."""
     if not candle_timing:
         return None
 
@@ -434,20 +467,29 @@ def record_new_candle_written_alert(interval: str, candle_timing: dict, analyses
     AUTO_SCAN_STATE["last_seen_candle_index_by_tf"][interval] = curr_idx
     open_clock = candle_timing.get("open_clock_rome") or time.strftime("%H:%M:%S")
 
-    candidates = []
+    free_candidates = []
     for sym, item in (analyses_map or {}).items():
         if not item:
             continue
         ew = item.get("entry_window") or {}
         sn = item.get("sn_rejection") or {}
         ms = item.get("manual_sign") or {}
-        if ew.get("exceeded") or sn.get("rejected") or ms.get("status") == "CANCELLED_REVERSAL":
+        sess = item.get("session") or {}
+
+        is_blocked = (
+            bool(ew.get("exceeded"))
+            or bool(sn.get("rejected"))
+            or ms.get("status") in ("CANCELLED_REVERSAL", "REJECTED_SN", "OVER_THRESHOLD")
+            or not bool(sess.get("session_ok", True))
+        )
+        if is_blocked:
             continue
+
         dir_str = str(item.get("certain_signal") or (item.get("early_setup") or {}).get("direction") or item.get("signal") or "")
         if "LONG" in dir_str or "SHORT" in dir_str:
-            candidates.append(item)
+            free_candidates.append(item)
 
-    candidates.sort(
+    free_candidates.sort(
         key=lambda x: (
             1 if x.get("certain_signal") else 0,
             float(x.get("confidence") or 0.0)
@@ -455,50 +497,56 @@ def record_new_candle_written_alert(interval: str, candle_timing: dict, analyses
         reverse=True
     )
 
-    if candidates:
-        best = candidates[0]
-        levels = best.get("levels") or {}
-        rp = best.get("recommended_params") or {}
-        side_label = best.get("certain_signal") or best.get("signal") or ((best.get("early_setup") or {}).get("direction"))
+    if free_candidates:
+        top_items = free_candidates[:3]
+        parts = [format_signal_full_spec(c) for c in top_items]
+
+        best = top_items[0]
+        lv0 = best.get("levels") or {}
+        rp0 = best.get("recommended_params") or {}
+        side0 = best.get("certain_signal") or best.get("signal") or ((best.get("early_setup") or {}).get("direction"))
+
         alert_obj = {
             "id": tf_key,
             "time": open_clock,
             "timeframe": interval,
             "blocked": False,
+            "free_count": len(free_candidates),
             "symbol": best.get("bingx_name") or best.get("symbol"),
-            "direction": side_label,
-            "entry": levels.get("entry", best.get("price")),
-            "tp2": levels.get("tp2", "--"),
-            "sl": levels.get("sl", "--"),
-            "leverage": rp.get("leverage", "--"),
-            "confidence": best.get("confidence", "--"),
-            "text": (
-                f"Nuova candela {interval} aperta alle {open_clock} — "
-                f"{best.get('bingx_name')} {side_label} | Entry: {levels.get('entry', best.get('price'))} | "
-                f"TP2: {levels.get('tp2', '--')} | SL: {levels.get('sl', '--')} (Lev {rp.get('leverage', '--')}x)"
-            )
+            "direction": side0,
+            "entry": lv0.get("entry", best.get("price")),
+            "tp1": lv0.get("tp1", "--"),
+            "tp2": lv0.get("tp2", "--"),
+            "tp3": lv0.get("tp3", "--"),
+            "sl": lv0.get("sl", "--"),
+            "leverage": rp0.get("leverage", "--"),
+            "qty": rp0.get("qty", 0),
+            "text": f"Nuova candela {interval} aperta alle {open_clock} — LIBERI ({len(free_candidates)}): " + " • ".join(parts)
         }
     else:
-        blocked_item = next(
-            (v for v in (analyses_map or {}).values()
-             if v and ((v.get("entry_window") or {}).get("exceeded") or (v.get("sn_rejection") or {}).get("rejected"))),
-            None
+        sn_count = sum(
+            1 for v in (analyses_map or {}).values()
+            if v and (v.get("sn_rejection") or {}).get("rejected")
         )
-        if blocked_item:
-            if (blocked_item.get("sn_rejection") or {}).get("rejected"):
-                reason = (blocked_item.get("sn_rejection") or {}).get("badge") or "RIFIUTO: SN CANDELA ALTA OPPOSTA"
-            else:
-                reason = (blocked_item.get("entry_window") or {}).get("status_badge") or "OLTRE SOGLIA — NON ENTRARE"
-        else:
-            reason = "NESSUN SEGNALE CONFERMATO ALL'APERTURA CANDELA"
+        over_count = sum(
+            1 for v in (analyses_map or {}).values()
+            if v and (v.get("entry_window") or {}).get("exceeded")
+        )
+        reason_parts = []
+        if sn_count:
+            reason_parts.append(f"{sn_count} rifiutati per SN candela alta opposta")
+        if over_count:
+            reason_parts.append(f"{over_count} oltre soglia")
+        reason = ", ".join(reason_parts) if reason_parts else "nessun asset libero da blocchi"
 
         alert_obj = {
             "id": tf_key,
             "time": open_clock,
             "timeframe": interval,
             "blocked": True,
+            "free_count": 0,
             "reason": reason,
-            "text": f"Nuova candela {interval} aperta alle {open_clock} — NON ENTRARE ({reason})."
+            "text": f"Nuova candela {interval} aperta alle {open_clock} — NESSUN ASSET LIBERO ({reason})."
         }
 
     AUTO_SCAN_STATE["latest_new_candle_alert"] = alert_obj
@@ -1466,6 +1514,9 @@ def evaluate_profit_math_and_entry(
     before_next_candle = bool((candle_timing or {}).get("before_next_candle", False))
     rem_sec = int((candle_timing or {}).get("seconds_to_next_candle", 0) or 0)
 
+    side_verb = "VENDI (SHORT)" if early_dir == "SHORT" else "COMPRA (LONG)"
+    side_icon = "📉" if early_dir == "SHORT" else "📈"
+
     bull_aligned = (ema_dir > 0) and (mom_dir > -10) and (vol_dir >= -20)
     bear_aligned = (ema_dir < 0) and (mom_dir < 10) and (vol_dir <= 20)
 
@@ -1499,15 +1550,15 @@ def evaluate_profit_math_and_entry(
     manual_sign = {
         "show_enter_now": False,
         "status": "ACTIVE_SIGNAL",
-        "badge": f"📊 SEGNALE ATTIVO {signal}",
-        "reason": f"Segnale {signal} ({confidence}%) • Prossima candela tra {candle_timing.get('countdown_str')}."
+        "badge": f"📊 SEGNALE ATTIVO {side_icon} {side_verb}",
+        "reason": f"{side_verb} ({signal}, {confidence}%) • Prossima candela tra {candle_timing.get('countdown_str')}."
     }
 
     if sn_rejected:
         manual_sign = {
             "show_enter_now": False,
             "status": "REJECTED_SN",
-            "badge": sn_rejection.get("badge", "🛑 RIFIUTO: SN CANDELA ALTA OPPOSTA"),
+            "badge": f"{sn_rejection.get('badge', '🛑 RIFIUTO: SN CANDELA ALTA OPPOSTA')} • {side_verb}",
             "reason": sn_rejection.get("reason", "Rifiuto per livello SN con candela alta sul lato opposto.")
         }
         entry_rule = {
@@ -1519,7 +1570,7 @@ def evaluate_profit_math_and_entry(
         manual_sign = {
             "show_enter_now": False,
             "status": "OVER_THRESHOLD",
-            "badge": entry_window.get("status_badge", "🛑 OLTRE SOGLIA — NON ENTRARE"),
+            "badge": f"{entry_window.get('status_badge', '🛑 OLTRE SOGLIA — NON ENTRARE')} • {side_verb}",
             "reason": entry_window.get("reason", "Soglia massima di ingresso superata: non entrare.")
         }
         entry_rule = {
@@ -1531,8 +1582,8 @@ def evaluate_profit_math_and_entry(
         manual_sign = {
             "show_enter_now": False,
             "status": "CANCELLED_REVERSAL",
-            "badge": "❌ SEGNALE ANNULLATO (INVERSIONE)",
-            "reason": f"Direzione {early_dir} annullata per inversione del momentum/struttura."
+            "badge": f"❌ SEGNALE ANNULLATO (INVERSIONE) • {side_verb}",
+            "reason": f"Direzione {side_verb} annullata per inversione del momentum/struttura."
         }
         entry_rule = {
             "action": "CANCELLED",
@@ -1543,9 +1594,9 @@ def evaluate_profit_math_and_entry(
         manual_sign = {
             "show_enter_now": True,
             "status": "ENTER_NOW_PRE_CANDLE",
-            "badge": f"🟢 ENTRA ORA • {early_dir} (PRE-CANDELA -{rem_sec}s)",
+            "badge": f"🟢 ENTRA ORA • {side_icon} {side_verb} (PRE-CANDELA -{rem_sec}s)",
             "reason": (
-                f"{certain_signal}: mancano {rem_sec}s all'inizio della prossima candela {candle_timing.get('timeframe')}, "
+                f"{side_verb} ({certain_signal}): mancano {rem_sec}s all'inizio della prossima candela {candle_timing.get('timeframe')}, "
                 f"entro soglia {entry_window.get('threshold_price')} e SN libero."
             )
         }
@@ -1558,9 +1609,9 @@ def evaluate_profit_math_and_entry(
         manual_sign = {
             "show_enter_now": False,
             "status": "ARMED_WAIT_PRE_CANDLE",
-            "badge": f"⏳ SEGNALE CERTO {early_dir} • ATTESA PRE-CANDELA ({candle_timing.get('countdown_str')})",
+            "badge": f"⏳ SEGNALE CERTO {side_icon} {side_verb} • ATTESA PRE-CANDELA ({candle_timing.get('countdown_str')})",
             "reason": (
-                f"{certain_signal} attivo nel verso {early_dir}: il cartello ENTRA ORA scatterà negli ultimi "
+                f"{side_verb} ({certain_signal}) attivo: il cartello ENTRA ORA scatterà negli ultimi "
                 f"{candle_timing.get('pre_close_window_sec')}s prima della nuova candela (tra {candle_timing.get('countdown_str')})."
             )
         }
@@ -1573,8 +1624,8 @@ def evaluate_profit_math_and_entry(
         manual_sign = {
             "show_enter_now": False,
             "status": "EARLY_SETUP",
-            "badge": f"🎯 ANTICIPO {early_dir} ({early_setup.get('setup_type')})",
-            "reason": f"{early_setup.get('setup_type')} • Prossima candela tra {candle_timing.get('countdown_str')}."
+            "badge": f"🎯 ANTICIPO {side_icon} {side_verb} ({early_setup.get('setup_type')})",
+            "reason": f"{side_verb} • {early_setup.get('setup_type')} • Prossima candela tra {candle_timing.get('countdown_str')}."
         }
         entry_rule = {
             "action": "EARLY ACTIVE",
@@ -1584,14 +1635,14 @@ def evaluate_profit_math_and_entry(
     elif not session_ok:
         entry_rule = {
             "action": "OUT OF SESSION",
-            "badge": "🟡 FUORI ORARIO",
-            "reason": f"Segnale {signal} attivo • Mercato {session_info.get('session_name')} ({session_info.get('hours_window')})."
+            "badge": f"🟡 FUORI ORARIO • {side_icon} {side_verb}",
+            "reason": f"{side_verb} ({signal}) attivo • Mercato {session_info.get('session_name')} ({session_info.get('hours_window')})."
         }
     else:
         entry_rule = {
             "action": "SIGNAL ACTIVE",
-            "badge": f"📊 {signal}",
-            "reason": f"Segnale {signal} ({confidence}%) • Prossima candela tra {candle_timing.get('countdown_str')}."
+            "badge": f"📊 {side_icon} {side_verb}",
+            "reason": f"{side_verb} ({signal}, {confidence}%) • Prossima candela tra {candle_timing.get('countdown_str')}."
         }
 
     recommended_params = {
@@ -1603,7 +1654,8 @@ def evaluate_profit_math_and_entry(
         "expectancy_r": expectancy_r,
         "half_kelly_pct": half_kelly_pct,
         "certain_signal": certain_signal,
-        "summary": f"Lev {rec_leverage}x • Size {qty_fmt} • Exp {expectancy_r:+.2f}R • Kelly {half_kelly_pct}%"
+        "action_label": side_verb,
+        "summary": f"{side_verb} • Lev {rec_leverage}x • Size {qty_fmt} • Exp {expectancy_r:+.2f}R • Kelly {half_kelly_pct}%"
     }
     return entry_rule, recommended_params, certain_signal, manual_sign
 
@@ -1633,6 +1685,8 @@ def register_sound_alert_if_exact_moment(analysis: dict):
     if not analysis.get("session", {}).get("session_ok", True):
         return
 
+    raw_dir = str(certain or early.get("direction") or analysis.get("signal") or "LONG").upper()
+    action_txt = "VENDI (SHORT)" if "SHORT" in raw_dir else "COMPRA (LONG)"
     sym = analysis["symbol"]
     side = certain or f"ANTICIPO_{early.get('direction')}_{early.get('setup_type')}"
     candle_id = early.get("candle_id", 0)
@@ -1647,12 +1701,14 @@ def register_sound_alert_if_exact_moment(analysis: dict):
         "key": alert_key,
         "time": time.strftime("%H:%M:%S"),
         "symbol": analysis["bingx_name"],
-        "title": certain or early.get("setup_type"),
+        "title": f"{action_txt} — {certain or early.get('setup_type')}",
         "order_type": early.get("order_type"),
         "price": analysis["price"],
         "limit_price": early.get("limit_price"),
         "sl": analysis["levels"]["sl"],
-        "tp2": analysis["levels"]["tp2"]
+        "tp1": analysis["levels"]["tp1"],
+        "tp2": analysis["levels"]["tp2"],
+        "tp3": analysis["levels"]["tp3"]
     })
     AUTO_SCAN_STATE["audio_alerts"] = AUTO_SCAN_STATE["audio_alerts"][:25]
 
