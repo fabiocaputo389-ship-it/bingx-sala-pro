@@ -1,705 +1,946 @@
 import os
-import time
 import json
+import time
 import hmac
 import hashlib
 import threading
-from datetime import datetime, timezone
+import urllib.parse
+from datetime import datetime
 from zoneinfo import ZoneInfo
-from urllib.parse import urlencode
-
-import numpy as np
 import requests
-from flask import Flask, jsonify, request, send_from_directory
+import numpy as np
+from flask import Flask, render_template, jsonify, request
+from dotenv import load_dotenv
 
-app = Flask(__name__, static_folder=".", static_url_path="")
+load_dotenv()
 
-BINGX_BASE_URL = "https://open-api.bingx.com"
+app = Flask(__name__)
+
+KEYS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".bingx_keys.json")
+BASE_URL = "https://open-api.bingx.com"
 ROME_TZ = ZoneInfo("Europe/Rome")
-KEYS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "bingx_keys.json")
-
-STATE_LOCK = threading.Lock()
-
-API_KEYS = {
-    "api_key": os.environ.get("BINGX_API_KEY", "").strip(),
-    "secret_key": os.environ.get("BINGX_SECRET_KEY", "").strip(),
-}
-
-BRAIN_WEIGHTS = {
-    "ema_weight": 35.0,
-    "momentum_weight": 30.0,
-    "volatility_weight": 20.0,
-    "sentiment_weight": 15.0,
-    "min_confidence": 70.0,
-    "account_capital": 0.0,
-    "risk_per_trade_pct": 1.5,
-    "max_daily_loss_usdt": 1.0,
-    "sl_mult": 1.4,
-    "tp1_mult": 1.8,
-    "tp2_mult": 3.2,
-    "tp3_mult": 4.8,
-    "breakeven_at_tp_pct": 50.0,
-    "auto_profile_enabled": True,
-}
-
-AUTO_MONITOR = {
-    "enabled": True,
-    "auto_trade_enabled": False,
-    "interval": "15m",
-    "active_category": "ALL",
-    "last_run": None,
-    "signals": {},
-    "trade_logs": [],
-    "audio_alerts": [],
-    "open_positions": {},
-    "breakeven_done": set(),
-    "auto_traded_keys": set(),
-    "balance_info": {
-        "balance_usdt": 0.0,
-        "available_usdt": 0.0,
-        "unrealized_pnl_usdt": 0.0,
-        "last_sync": None,
-        "source": "init",
-    },
-}
-
-MARKETS_CACHE = {
-    "data": [],
-    "by_symbol": {},
-    "last_fetch": 0.0,
-}
-
-KLINES_CACHE = {}
-KLINES_TTL = 8.0
 
 
-def _mask_key(val: str) -> str:
-    if not val:
-        return ""
-    if len(val) <= 8:
-        return "*" * len(val)
-    return f"{val[:4]}...{val[-4:]}"
-
-
-def load_saved_keys_on_startup():
+def load_saved_keys():
+    api_key = os.getenv("BINGX_API_KEY", "")
+    secret_key = os.getenv("BINGX_SECRET_KEY", "")
     if os.path.exists(KEYS_FILE):
         try:
             with open(KEYS_FILE, "r", encoding="utf-8") as f:
-                saved = json.load(f)
-            ak = str(saved.get("api_key", "")).strip()
-            sk = str(saved.get("secret_key", "")).strip()
-            if ak and sk:
-                with STATE_LOCK:
-                    API_KEYS["api_key"] = ak
-                    API_KEYS["secret_key"] = sk
+                data = json.load(f)
+                if data.get("api_key"):
+                    api_key = data["api_key"].strip()
+                if data.get("secret_key"):
+                    secret_key = data["secret_key"].strip()
         except Exception as e:
-            print("Errore caricamento chiavi salvate:", e)
+            print(f"[Keys Load Error] {e}")
+    return api_key, secret_key
 
 
-def persist_keys_to_disk(ak: str, sk: str):
+def save_keys_to_disk(api_key: str, secret_key: str):
     with open(KEYS_FILE, "w", encoding="utf-8") as f:
-        json.dump({"api_key": ak, "secret_key": sk}, f, indent=2)
+        json.dump({
+            "api_key": api_key.strip(),
+            "secret_key": secret_key.strip(),
+            "updated_at": time.strftime("%Y-%m-%d %H:%M:%S")
+        }, f, indent=2)
+    try:
+        os.chmod(KEYS_FILE, 0o600)
+    except Exception:
+        pass
 
 
-def classify_market(symbol: str) -> str:
-    s = symbol.upper()
-    majors = {
-        "BTC-USDT", "ETH-USDT", "BNB-USDT", "SOL-USDT", "XRP-USDT",
-        "ADA-USDT", "DOGE-USDT", "AVAX-USDT", "LINK-USDT", "TON-USDT", "TRX-USDT"
+BINGX_API_KEY, BINGX_SECRET_KEY = load_saved_keys()
+
+TIMEFRAME_PROFILES = {
+    "1m": {
+        "label": "1m Scalping HFT",
+        "ema_weight": 20,
+        "momentum_weight": 35,
+        "volatility_weight": 25,
+        "sentiment_weight": 20,
+        "min_confidence": 72,
+        "sl_mult": 1.4,
+        "tp1_mult": 2.0,
+        "tp2_mult": 3.0,
+        "tp3_mult": 4.2,
+        "breakeven_at_tp_pct": 45.0,
+        "risk_per_trade_pct": 1.0,
+        "auto_scan_interval": 12
+    },
+    "5m": {
+        "label": "5m Intraday Fast",
+        "ema_weight": 25,
+        "momentum_weight": 35,
+        "volatility_weight": 22,
+        "sentiment_weight": 18,
+        "min_confidence": 74,
+        "sl_mult": 1.5,
+        "tp1_mult": 2.2,
+        "tp2_mult": 3.2,
+        "tp3_mult": 4.6,
+        "breakeven_at_tp_pct": 50.0,
+        "risk_per_trade_pct": 1.25,
+        "auto_scan_interval": 15
+    },
+    "15m": {
+        "label": "15m Istituzionale",
+        "ema_weight": 35,
+        "momentum_weight": 30,
+        "volatility_weight": 20,
+        "sentiment_weight": 15,
+        "min_confidence": 75,
+        "sl_mult": 1.5,
+        "tp1_mult": 2.2,
+        "tp2_mult": 3.5,
+        "tp3_mult": 5.0,
+        "breakeven_at_tp_pct": 50.0,
+        "risk_per_trade_pct": 1.5,
+        "auto_scan_interval": 20
+    },
+    "1h": {
+        "label": "1H Swing Trend",
+        "ema_weight": 38,
+        "momentum_weight": 28,
+        "volatility_weight": 20,
+        "sentiment_weight": 14,
+        "min_confidence": 77,
+        "sl_mult": 1.6,
+        "tp1_mult": 2.4,
+        "tp2_mult": 3.8,
+        "tp3_mult": 5.5,
+        "breakeven_at_tp_pct": 55.0,
+        "risk_per_trade_pct": 1.75,
+        "auto_scan_interval": 30
+    },
+    "4h": {
+        "label": "4H Macro Trend",
+        "ema_weight": 42,
+        "momentum_weight": 25,
+        "volatility_weight": 20,
+        "sentiment_weight": 13,
+        "min_confidence": 78,
+        "sl_mult": 1.8,
+        "tp1_mult": 2.6,
+        "tp2_mult": 4.2,
+        "tp3_mult": 6.0,
+        "breakeven_at_tp_pct": 55.0,
+        "risk_per_trade_pct": 2.0,
+        "auto_scan_interval": 45
     }
-    metals_comm = {
-        "XAU-USDT", "GOLD-USDT", "XAG-USDT", "SILVER-USDT",
-        "WTI-USDT", "OIL-USDT", "BRENT-USDT", "NATGAS-USDT", "XPT-USDT", "XPD-USDT", "COPPER-USDT"
+}
+
+MARKET_PROFILES = {
+    "CRYPTO MAJOR": {
+        "label": "Crypto Major 24/7",
+        "ema_delta": 0,
+        "momentum_delta": 5,
+        "volatility_delta": -5,
+        "sentiment_delta": 0,
+        "conf_delta": 0,
+        "sl_mult": 1.5,
+        "tp1_mult": 2.2,
+        "tp2_mult": 3.6,
+        "tp3_mult": 5.2,
+        "breakeven_at_tp_pct": 50.0,
+        "risk_per_trade_pct": 1.5
+    },
+    "ALTCOIN & DEFI": {
+        "label": "Altcoin & DeFi Alta Beta",
+        "ema_delta": -5,
+        "momentum_delta": 5,
+        "volatility_delta": -5,
+        "sentiment_delta": 5,
+        "conf_delta": 2,
+        "sl_mult": 1.7,
+        "tp1_mult": 2.5,
+        "tp2_mult": 4.0,
+        "tp3_mult": 5.8,
+        "breakeven_at_tp_pct": 45.0,
+        "risk_per_trade_pct": 1.0
+    },
+    "METALLI & COMMODITIES": {
+        "label": "Metalli & Commodities (Gold/Silver/Oil)",
+        "ema_delta": 5,
+        "momentum_delta": 0,
+        "volatility_delta": 5,
+        "sentiment_delta": -10,
+        "conf_delta": 1,
+        "sl_mult": 1.5,
+        "tp1_mult": 2.2,
+        "tp2_mult": 3.5,
+        "tp3_mult": 5.0,
+        "breakeven_at_tp_pct": 50.0,
+        "risk_per_trade_pct": 1.5
+    },
+    "FOREX & VALUTE": {
+        "label": "Forex & Valute",
+        "ema_delta": 5,
+        "momentum_delta": -5,
+        "volatility_delta": 5,
+        "sentiment_delta": -5,
+        "conf_delta": 2,
+        "sl_mult": 1.4,
+        "tp1_mult": 2.0,
+        "tp2_mult": 3.2,
+        "tp3_mult": 4.5,
+        "breakeven_at_tp_pct": 50.0,
+        "risk_per_trade_pct": 1.25
+    },
+    "INDICI & AZIONI": {
+        "label": "Indici & Azioni US",
+        "ema_delta": 5,
+        "momentum_delta": 0,
+        "volatility_delta": 0,
+        "sentiment_delta": -5,
+        "conf_delta": 1,
+        "sl_mult": 1.5,
+        "tp1_mult": 2.2,
+        "tp2_mult": 3.5,
+        "tp3_mult": 5.0,
+        "breakeven_at_tp_pct": 50.0,
+        "risk_per_trade_pct": 1.5
     }
-    forex = {
-        "EUR-USDT", "GBP-USDT", "USD-JPY-USDT", "AUD-USDT", "CAD-USDT", "CHF-USDT",
-        "EURUSD-USDT", "GBPUSD-USDT", "USDJPY-USDT"
-    }
-    indices_stocks = {
-        "NAS100-USDT", "NASDAQ100-USDT", "US30-USDT", "SP500-USDT", "GER40-USDT",
-        "NVDA-USDT", "TSLA-USDT", "AAPL-USDT", "MSFT-USDT", "META-USDT", "AMZN-USDT",
-        "GOOGL-USDT", "SOXL-USDT", "GS-USDT", "COIN-USDT", "MSTR-USDT"
-    }
-    if s in majors:
-        return "CRYPTO MAJOR"
-    if s in metals_comm or any(k in s for k in ["XAU", "GOLD", "XAG", "SILVER", "OIL", "WTI", "BRENT"]):
+}
+
+BRAIN_WEIGHTS = {
+    "ema_weight": 35,
+    "momentum_weight": 30,
+    "volatility_weight": 20,
+    "sentiment_weight": 15,
+    "min_confidence": 70,
+    "sl_mult": 1.5,
+    "tp1_mult": 2.2,
+    "tp2_mult": 3.5,
+    "tp3_mult": 5.0,
+    "auto_scan_interval": 20,
+    "auto_monitor_enabled": True,
+    "auto_trade_enabled": False,
+    "auto_trade_cooldown_sec": 300,
+    "breakeven_at_tp_pct": 50.0,
+    "max_daily_loss_usdt": 100.0,
+    "account_capital": 0.0,
+    "risk_per_trade_pct": 1.5
+}
+
+BALANCE_STATE = {
+    "balance_usdt": 0.0,
+    "available_usdt": 0.0,
+    "unrealized_pnl_usdt": 0.0,
+    "equity_usdt": 0.0,
+    "source": "init",
+    "last_sync": None,
+    "last_error": None
+}
+
+API_TO_BINGX_NAME = {
+    "NCCOGOLD2USD-USDT": "GOLD(XAU)",
+    "GOLD-USDT": "GOLD(XAU)",
+    "XAU-USDT": "GOLD(XAU)",
+    "XAUT-USDT": "XAUT(GOLD)USDT",
+    "PAXG-USDT": "PAXG(GOLD)USDT",
+    "XAUXPT-USDT": "XAUXPT",
+    "XAUEUR-USDT": "XAUEUR",
+    "XAUZAR-USDT": "XAUZAR",
+    "XAUJPY-USDT": "XAUJPY",
+    "XAUAUD-USDT": "XAUAUD",
+    "XAUKRW-USDT": "XAUKRW",
+    "XAG-USDT": "SILVER(XAG)",
+    "SILVER-USDT": "SILVER(XAG)",
+    "WTI-USDT": "Oil WTI",
+    "OILWTI-USDT": "Oil WTI",
+    "BRENT-USDT": "Oil Brent",
+    "OILBRENT-USDT": "Oil Brent",
+    "NDX-USDT": "NASDAQ100",
+    "NAS100-USDT": "NASDAQ100",
+    "NASDAQ100-USDT": "NASDAQ100",
+    "SOXL-USDT": "SOXL",
+    "GS-USDT": "GS",
+    "EUR-USDT": "EURUSDT",
+    "EURUSD-USDT": "EURUSDT",
+    "BTC-USDT": "BTCUSDT",
+    "ETH-USDT": "ETHUSDT",
+    "SOL-USDT": "SOLUSDT",
+    "XRP-USDT": "XRPUSDT",
+    "BNB-USDT": "BNBUSDT",
+    "HYPE-USDT": "HYPEUSDT",
+    "ZEC-USDT": "ZECUSDT",
+    "JTO-USDT": "JTOUSDT",
+    "PEOPLE-USDT": "PEOPLEUSDT",
+    "SUI-USDT": "SUIUSDT",
+    "PENDLE-USDT": "PENDLEUSDT"
+}
+
+BINGX_NAME_TO_API = {
+    "GOLD(XAU)": ["NCCOGOLD2USD-USDT", "XAUT-USDT", "PAXG-USDT", "GOLD-USDT", "XAU-USDT"],
+    "XAUT(GOLD)USDT": ["XAUT-USDT"],
+    "PAXG(GOLD)USDT": ["PAXG-USDT"],
+    "XAUXPT": ["XAUXPT-USDT", "XAUT-USDT", "PAXG-USDT"],
+    "XAUEUR": ["XAUEUR-USDT", "XAUT-USDT", "PAXG-USDT"],
+    "XAUZAR": ["XAUZAR-USDT", "XAUT-USDT"],
+    "XAUJPY": ["XAUJPY-USDT", "XAUT-USDT"],
+    "XAUAUD": ["XAUAUD-USDT", "XAUT-USDT"],
+    "XAUKRW": ["XAUKRW-USDT", "XAUT-USDT"],
+    "SILVER(XAG)": ["XAG-USDT", "SILVER-USDT"],
+    "OIL WTI": ["WTI-USDT", "OILWTI-USDT"],
+    "OIL BRENT": ["BRENT-USDT", "OILBRENT-USDT"],
+    "NASDAQ100": ["NDX-USDT", "NAS100-USDT", "NASDAQ100-USDT"],
+    "SOXL": ["SOXL-USDT"],
+    "GS": ["GS-USDT"],
+    "EURUSDT": ["EUR-USDT", "EURUSD-USDT"],
+    "BTCUSDT": ["BTC-USDT"],
+    "ETHUSDT": ["ETH-USDT"],
+    "SOLUSDT": ["SOL-USDT"],
+    "XRPUSDT": ["XRP-USDT"],
+    "BNBUSDT": ["BNB-USDT"],
+    "HYPEUSDT": ["HYPE-USDT"],
+    "ZECUSDT": ["ZEC-USDT"],
+    "JTOUSDT": ["JTO-USDT"],
+    "PEOPLEUSDT": ["PEOPLE-USDT"],
+    "SUIUSDT": ["SUI-USDT"],
+    "PENDLEUSDT": ["PENDLE-USDT"]
+}
+
+CONTRACTS_CACHE = {
+    "timestamp": 0,
+    "data": [],
+    "symbol_set": set(),
+    "max_lev_map": {},
+    "contract_meta": {}
+}
+
+AUTO_SCAN_STATE = {
+    "running": False,
+    "last_run": None,
+    "interval": "15m",
+    "active_category": "ALL",
+    "only_certain_and_early": True,
+    "signals": {},
+    "last_auto_trade": {},
+    "breakeven_moved": set(),
+    "trade_logs": [],
+    "open_positions": {},
+    "audio_alerts": []
+}
+
+
+def bingx_exact_name(api_symbol: str) -> str:
+    s = api_symbol.upper()
+    if s in API_TO_BINGX_NAME:
+        return API_TO_BINGX_NAME[s]
+    return s.replace("-", "")
+
+
+def categorize_symbol(bingx_name: str, api_symbol: str) -> str:
+    s = f"{bingx_name} {api_symbol}".upper()
+    if any(k in s for k in ["GOLD", "XAU", "SILVER", "XAG", "WTI", "BRENT", "OIL", "NATGAS", "COPPER"]):
         return "METALLI & COMMODITIES"
-    if s in forex:
+    if any(k in s for k in ["EURUSDT", "EUR-", "GBP", "JPY", "AUD", "CAD", "CHF", "NZD"]):
         return "FOREX & VALUTE"
-    if s in indices_stocks or any(k in s for k in ["NAS100", "NASDAQ", "US30", "SP500", "SOXL", "NVDA", "TSLA"]):
+    if any(k in s for k in ["NASDAQ100", "NDX", "NAS100", "SPX", "US30", "SOXL", "GS", "TSLA", "NVDA", "AAPL"]):
         return "INDICI & AZIONI"
+    if any(k in s for k in ["BTCUSDT", "ETHUSDT", "SOLUSDT", "XRPUSDT", "BNBUSDT", "HYPEUSDT", "ZECUSDT", "JTOUSDT", "PEOPLEUSDT", "SUIUSDT", "PENDLEUSDT"]):
+        return "CRYPTO MAJOR"
     return "ALTCOIN & DEFI"
 
 
-def format_bingx_display_name(symbol: str, category: str) -> str:
-    clean = symbol.replace("-USDT", "").replace("-", "")
-    mapping = {
-        "XAU": "GOLD (XAU)",
-        "GOLD": "GOLD (XAU)",
-        "XAG": "SILVER (XAG)",
-        "SILVER": "SILVER (XAG)",
-        "WTI": "OIL WTI",
-        "OIL": "OIL WTI",
-        "BRENT": "OIL BRENT",
-        "NASDAQ100": "NASDAQ100",
-        "NAS100": "NASDAQ100",
+def auto_tune_brain_for_category_and_tf(interval: str, category: str):
+    clean_cat = category if category in MARKET_PROFILES else "CRYPTO MAJOR"
+    tf = TIMEFRAME_PROFILES.get(interval, TIMEFRAME_PROFILES["15m"])
+    mk = MARKET_PROFILES[clean_cat]
+
+    w_ema = max(10, min(70, int(tf["ema_weight"] + mk["ema_delta"])))
+    w_mom = max(10, min(70, int(tf["momentum_weight"] + mk["momentum_delta"])))
+    w_vol = max(10, min(60, int(tf["volatility_weight"] + mk["volatility_delta"])))
+    w_sent = max(5, min(50, int(tf["sentiment_weight"] + mk["sentiment_delta"])))
+
+    auto_min_conf = max(62, min(82, int(tf["min_confidence"] + mk["conf_delta"] - 5)))
+    sl_mult = round((tf["sl_mult"] + mk["sl_mult"]) / 2.0, 2)
+    tp1_mult = round((tf["tp1_mult"] + mk["tp1_mult"]) / 2.0, 2)
+    tp2_mult = round((tf["tp2_mult"] + mk["tp2_mult"]) / 2.0, 2)
+    tp3_mult = round((tf["tp3_mult"] + mk["tp3_mult"]) / 2.0, 2)
+    be_pct = round((tf["breakeven_at_tp_pct"] + mk["breakeven_at_tp_pct"]) / 2.0, 1)
+    risk_pct = round((tf["risk_per_trade_pct"] + mk["risk_per_trade_pct"]) / 2.0, 2)
+
+    BRAIN_WEIGHTS["ema_weight"] = w_ema
+    BRAIN_WEIGHTS["momentum_weight"] = w_mom
+    BRAIN_WEIGHTS["volatility_weight"] = w_vol
+    BRAIN_WEIGHTS["sentiment_weight"] = w_sent
+    BRAIN_WEIGHTS["min_confidence"] = auto_min_conf
+    BRAIN_WEIGHTS["sl_mult"] = sl_mult
+    BRAIN_WEIGHTS["tp1_mult"] = tp1_mult
+    BRAIN_WEIGHTS["tp2_mult"] = tp2_mult
+    BRAIN_WEIGHTS["tp3_mult"] = tp3_mult
+    BRAIN_WEIGHTS["breakeven_at_tp_pct"] = be_pct
+    BRAIN_WEIGHTS["risk_per_trade_pct"] = risk_pct
+    BRAIN_WEIGHTS["auto_scan_interval"] = tf["auto_scan_interval"]
+
+    return {
+        "profile_name": f"AUTO • {mk['label']} • {tf['label']}",
+        "category": clean_cat,
+        "timeframe": interval,
+        "min_confidence": auto_min_conf,
+        "weights": dict(BRAIN_WEIGHTS)
     }
-    base = mapping.get(clean, clean)
-    return f"{base}USDT"
 
 
-def get_market_session_info(symbol: str, category: str) -> dict:
+def get_market_session_info(category: str, bingx_name: str = "", api_symbol: str = ""):
     now_rome = datetime.now(ROME_TZ)
-    hour_float = now_rome.hour + now_rome.minute / 60.0
     weekday = now_rome.weekday()
-    rome_str = now_rome.strftime("%H:%M CET")
+    minutes = now_rome.hour * 60 + now_rome.minute
+    time_str = now_rome.strftime("%H:%M CET")
+    combined = f"{category} {bingx_name} {api_symbol}".upper()
 
-    if category in ("CRYPTO MAJOR", "ALTCOIN & DEFI"):
-        sess_name = "Notte/Asia" if hour_float < 8 else ("Sessione Europea" if hour_float < 14.5 else ("Overlap US/EU" if hour_float < 17 else "Sessione USA"))
+    if category in ("CRYPTO MAJOR", "ALTCOIN & DEFI") or any(k in combined for k in ["BTC", "ETH", "SOL", "XRP", "BNB", "HYPE", "ZEC", "JTO", "PEOPLE", "SUI", "PENDLE"]):
+        peak = (8 * 60) <= minutes <= (23 * 60)
         return {
-            "market_type": "Crypto 24/7",
-            "session_name": sess_name,
-            "hours_window": "00:00-24:00 (24/7)",
-            "is_open": True,
-            "badge": f"🟢 24/7 • {sess_name.upper()}",
-            "rome_time": rome_str,
+            "market_type": "CRYPTO 24/7",
+            "session_name": "Sessione Attiva (Liquidità Alta)" if peak else "Sessione Notturna 24/7",
+            "hours_window": "00:00–24:00 (24/7)",
+            "rome_time": time_str,
+            "status": "OPEN",
+            "session_ok": True,
+            "badge": "🟢 24/7 APERTO" if peak else "🟡 24/7 NOTTE"
         }
 
-    is_weekend = weekday >= 5
-    if category == "METALLI & COMMODITIES":
-        open_now = (not is_weekend) and not (weekday == 4 and hour_float >= 23.0) and not (weekday == 6 and hour_float < 0.0)
+    if weekday >= 5:
         return {
-            "market_type": "Commodities / Metalli",
-            "session_name": "Sessione Globale / NY-LDN",
-            "hours_window": "00:00-23:00 (Lun-Ven)",
-            "is_open": open_now,
-            "badge": "🟢 APERTO" if open_now else "🔴 CHIUSO / PAUSA",
-            "rome_time": rome_str,
+            "market_type": category,
+            "session_name": "Chiusura Weekend",
+            "hours_window": "Lun–Ven",
+            "rome_time": time_str,
+            "status": "CLOSED",
+            "session_ok": False,
+            "badge": "🔴 CHIUSO (WKND)"
         }
 
-    if category == "FOREX & VALUTE":
-        open_now = (not is_weekend) and not (weekday == 4 and hour_float >= 23.0)
-        return {
-            "market_type": "Forex",
-            "session_name": "Mercato FX 24/5",
-            "hours_window": "00:00-23:00 (Lun-Ven)",
-            "is_open": open_now,
-            "badge": "🟢 FX ATTIVO" if open_now else "🔴 WEEKEND FX",
-            "rome_time": rome_str,
-        }
-
-    open_now = (not is_weekend) and (15.5 <= hour_float <= 22.0)
-    return {
-        "market_type": "Indici & Azioni",
-        "session_name": "Wall Street Cash" if open_now else "Pre/Post Market",
-        "hours_window": "15:30-22:00 CET",
-        "is_open": open_now,
-        "badge": "🟢 WALL STREET" if open_now else "🟡 FUORI ORARIO",
-        "rome_time": rome_str,
-    }
-
-
-def get_auto_profile(category: str, interval: str) -> dict:
-    tf_map = {
-        "1m": {"sl_mult": 1.15, "tp1_mult": 1.5, "tp2_mult": 2.5, "tp3_mult": 3.8, "min_conf": 68.0, "tf_label": "1m (2-4 candele)"},
-        "5m": {"sl_mult": 1.30, "tp1_mult": 1.7, "tp2_mult": 3.0, "tp3_mult": 4.5, "min_conf": 69.0, "tf_label": "5m (2-3 candele)"},
-        "15m": {"sl_mult": 1.40, "tp1_mult": 1.8, "tp2_mult": 3.2, "tp3_mult": 4.8, "min_conf": 70.0, "tf_label": "15m (2-3 candele)"},
-        "1h": {"sl_mult": 1.55, "tp1_mult": 2.0, "tp2_mult": 3.5, "tp3_mult": 5.2, "min_conf": 71.0, "tf_label": "1h (2 candele)"},
-        "4h": {"sl_mult": 1.75, "tp1_mult": 2.2, "tp2_mult": 3.8, "tp3_mult": 5.8, "min_conf": 72.0, "tf_label": "4h (1-2 candele)"},
-    }
-    base = tf_map.get(interval, tf_map["15m"]).copy()
-
-    cat_adj = {
-        "CRYPTO MAJOR": (35.0, 30.0, 20.0, 15.0, 0.0, "Crypto Major"),
-        "ALTCOIN & DEFI": (30.0, 32.0, 22.0, 16.0, 0.15, "Altcoin & DeFi"),
-        "METALLI & COMMODITIES": (38.0, 28.0, 22.0, 12.0, 0.10, "Metalli & Commodities"),
-        "FOREX & VALUTE": (40.0, 30.0, 18.0, 12.0, -0.10, "Forex & Valute"),
-        "INDICI & AZIONI": (38.0, 32.0, 20.0, 10.0, 0.05, "Indici & Azioni"),
-    }
-    w_ema, w_mom, w_vol, w_sent, mult_adj, cat_label = cat_adj.get(
-        category, (35.0, 30.0, 20.0, 15.0, 0.0, category)
-    )
-    return {
-        "profile_name": f"{interval} {cat_label}",
-        "ema_weight": w_ema,
-        "momentum_weight": w_mom,
-        "volatility_weight": w_vol,
-        "sentiment_weight": w_sent,
-        "min_confidence": base["min_conf"],
-        "sl_mult": round(base["sl_mult"] + mult_adj, 2),
-        "tp1_mult": round(base["tp1_mult"] + mult_adj, 2),
-        "tp2_mult": round(base["tp2_mult"] + mult_adj * 1.5, 2),
-        "tp3_mult": round(base["tp3_mult"] + mult_adj * 2.0, 2),
-        "tp_label": base["tf_label"],
-    }
-
-
-def _sign_bingx_query(params: dict, secret_key: str) -> str:
-    sorted_items = sorted((k, v) for k, v in params.items() if v is not None and v != "")
-    query_str = urlencode(sorted_items)
-    signature = hmac.new(secret_key.encode("utf-8"), query_str.encode("utf-8"), hashlib.sha256).hexdigest()
-    return f"{query_str}&signature={signature}"
-
-
-def bingx_signed_request(method: str, path: str, params: dict = None):
-    with STATE_LOCK:
-        api_key = API_KEYS["api_key"]
-        secret_key = API_KEYS["secret_key"]
-    if not api_key or not secret_key:
-        return {"code": -1, "msg": "Chiavi API BingX non configurate"}
-
-    req_params = dict(params or {})
-    req_params["timestamp"] = int(time.time() * 1000)
-    req_params.setdefault("recvWindow", 10000)
-    signed_qs = _sign_bingx_query(req_params, secret_key)
-    url = f"{BINGX_BASE_URL}{path}?{signed_qs}"
-    headers = {"X-BX-APIKEY": api_key}
-    try:
-        if method.upper() == "GET":
-            resp = requests.get(url, headers=headers, timeout=10)
-        elif method.upper() == "DELETE":
-            resp = requests.delete(url, headers=headers, timeout=10)
+    if category == "INDICI & AZIONI" or any(k in combined for k in ["NASDAQ100", "NDX", "NAS100", "SOXL", "GS"]):
+        if (15 * 60 + 30) <= minutes <= (22 * 60):
+            return {
+                "market_type": "INDICI & AZIONI US",
+                "session_name": "Wall Street Cash Session",
+                "hours_window": "15:30–22:00 CET",
+                "rome_time": time_str,
+                "status": "OPEN",
+                "session_ok": True,
+                "badge": "🟢 WS APERTO"
+            }
+        elif (14 * 60) <= minutes <= (23 * 60):
+            return {
+                "market_type": "INDICI & AZIONI US",
+                "session_name": "Pre/Post Market US",
+                "hours_window": "14:00–23:00 CET",
+                "rome_time": time_str,
+                "status": "PRE_POST",
+                "session_ok": True,
+                "badge": "🟡 PRE/POST WS"
+            }
         else:
-            resp = requests.post(url, headers=headers, timeout=10)
+            return {
+                "market_type": "INDICI & AZIONI US",
+                "session_name": "Fuori Sessione US",
+                "hours_window": "15:30–22:00 CET",
+                "rome_time": time_str,
+                "status": "CLOSED",
+                "session_ok": False,
+                "badge": "🔴 FUORI ORARIO"
+            }
+
+    if category == "FOREX & VALUTE" or "EUR" in combined:
+        if (8 * 60) <= minutes <= (22 * 60):
+            overlap = (13 * 60 + 30) <= minutes <= (17 * 60 + 30)
+            return {
+                "market_type": "FOREX FX",
+                "session_name": "Overlap Londra + NY" if overlap else "Sessione EU / US",
+                "hours_window": "08:00–22:00 CET",
+                "rome_time": time_str,
+                "status": "OPEN",
+                "session_ok": True,
+                "badge": "🟢 FX OVERLAP" if overlap else "🟢 FX APERTO"
+            }
+        return {
+            "market_type": "FOREX FX",
+            "session_name": "Sessione Asiatica / Bassa Volatilità",
+            "hours_window": "08:00–22:00 CET",
+            "rome_time": time_str,
+            "status": "LOW_VOL",
+            "session_ok": False,
+            "badge": "🟡 FX CALMO"
+        }
+
+    if (8 * 60) <= minutes <= (23 * 60):
+        us_open = (14 * 60 + 30) <= minutes <= (22 * 60)
+        return {
+            "market_type": "METALLI & COMMODITIES",
+            "session_name": "Sessione US + London" if us_open else "Sessione Europea",
+            "hours_window": "08:00–23:00 CET",
+            "rome_time": time_str,
+            "status": "OPEN",
+            "session_ok": True,
+            "badge": "🟢 COMM APERTO"
+        }
+
+    return {
+        "market_type": "METALLI & COMMODITIES",
+        "session_name": "Pausa Notturna / Bassa Liquidità",
+        "hours_window": "08:00–23:00 CET",
+        "rome_time": time_str,
+        "status": "CLOSED",
+        "session_ok": False,
+        "badge": "🔴 NOTTE COMM"
+    }
+
+
+def log_trade_event(symbol_label: str, side: str, qty, sl, tp, response):
+    AUTO_SCAN_STATE["trade_logs"].insert(0, {
+        "time": time.strftime("%H:%M:%S"),
+        "symbol": symbol_label,
+        "side": side,
+        "qty": qty,
+        "sl": sl,
+        "tp": tp,
+        "response": response
+    })
+    AUTO_SCAN_STATE["trade_logs"] = AUTO_SCAN_STATE["trade_logs"][:40]
+
+
+def sign_request(params: dict) -> str:
+    clean_params = {k: v for k, v in params.items() if v is not None and v != ""}
+    sorted_items = sorted(clean_params.items(), key=lambda x: str(x[0]))
+    query_string = urllib.parse.urlencode(sorted_items, quote_via=urllib.parse.quote)
+    signature = hmac.new(
+        BINGX_SECRET_KEY.strip().encode("utf-8"),
+        query_string.encode("utf-8"),
+        hashlib.sha256
+    ).hexdigest()
+    return f"{query_string}&signature={signature}"
+
+
+def bingx_public_get(endpoint: str, params: dict = None):
+    url = f"{BASE_URL}{endpoint}"
+    try:
+        resp = requests.get(url, params=params, timeout=8)
+        data = resp.json()
+        if data.get("code") == 0:
+            return data.get("data")
+    except Exception as e:
+        print(f"[BingX Public GET Error] {endpoint}: {e}")
+    return None
+
+
+def bingx_private_get(endpoint: str, params: dict = None):
+    if not BINGX_API_KEY or not BINGX_SECRET_KEY:
+        BALANCE_STATE["last_error"] = "Chiavi API / Secret Key BingX mancanti"
+        return None
+    p = dict(params or {})
+    p.setdefault("recvWindow", 5000)
+    p["timestamp"] = int(time.time() * 1000)
+    signed_qs = sign_request(p)
+    url = f"{BASE_URL}{endpoint}?{signed_qs}"
+    headers = {"X-BX-APIKEY": BINGX_API_KEY.strip()}
+    try:
+        resp = requests.get(url, headers=headers, timeout=8)
+        data = resp.json()
+        if data.get("code") == 0:
+            BALANCE_STATE["last_error"] = None
+            return data.get("data")
+        BALANCE_STATE["last_error"] = f"code {data.get('code')}: {data.get('msg')}"
+    except Exception as e:
+        BALANCE_STATE["last_error"] = str(e)
+    return None
+
+
+def bingx_private_post(endpoint: str, params: dict):
+    if not BINGX_API_KEY or not BINGX_SECRET_KEY:
+        return {"code": -1, "msg": "API Key / Secret Key BingX mancanti."}
+    p = dict(params or {})
+    p.setdefault("recvWindow", 5000)
+    p["timestamp"] = int(time.time() * 1000)
+    signed_qs = sign_request(p)
+    url = f"{BASE_URL}{endpoint}?{signed_qs}"
+    headers = {"X-BX-APIKEY": BINGX_API_KEY.strip()}
+    try:
+        resp = requests.post(url, headers=headers, timeout=8)
         return resp.json()
     except Exception as e:
         return {"code": -1, "msg": str(e)}
 
 
-def fetch_bingx_real_balance() -> dict:
-    with STATE_LOCK:
-        has_keys = bool(API_KEYS["api_key"] and API_KEYS["secret_key"])
-        prev = dict(AUTO_MONITOR["balance_info"])
+def sync_bingx_balance_realtime() -> dict:
+    now_str = time.strftime("%H:%M:%S")
+    raw_bal = bingx_private_get("/openApi/swap/v3/user/balance")
+    if raw_bal is None:
+        raw_bal = bingx_private_get("/openApi/swap/v2/user/balance")
 
-    now_str = datetime.now(ROME_TZ).strftime("%H:%M:%S")
-    if not has_keys:
-        return {
-            "ok": False,
-            "balance_usdt": 0.0,
-            "available_usdt": 0.0,
-            "unrealized_pnl_usdt": 0.0,
-            "last_sync": now_str,
-            "msg": "Chiavi API non impostate",
-        }
+    if raw_bal is None:
+        BALANCE_STATE["last_sync"] = now_str
+        BALANCE_STATE["source"] = "offline"
+        return dict(BALANCE_STATE)
 
-    res = bingx_signed_request("GET", "/openApi/swap/v2/user/balance")
-    if isinstance(res, dict) and res.get("code") == 0:
-        data = res.get("data", {})
-        bal_obj = data.get("balance", data) if isinstance(data, dict) else {}
-        if isinstance(bal_obj, list):
-            usdt_item = next((x for x in bal_obj if str(x.get("asset", "")).upper() == "USDT"), {})
+    balance_usdt = 0.0
+    available_usdt = 0.0
+    unrealized_pnl = 0.0
+    equity_usdt = 0.0
+
+    items = []
+    if isinstance(raw_bal, list):
+        items = raw_bal
+    elif isinstance(raw_bal, dict):
+        if isinstance(raw_bal.get("balance"), list):
+            items = raw_bal["balance"]
+        elif isinstance(raw_bal.get("data"), list):
+            items = raw_bal["data"]
+        elif isinstance(raw_bal.get("balance"), dict):
+            items = [raw_bal["balance"]]
         else:
-            usdt_item = bal_obj if isinstance(bal_obj, dict) else {}
+            items = [raw_bal]
 
-        eq = float(usdt_item.get("equity", usdt_item.get("balance", 0.0)) or 0.0)
-        avail = float(usdt_item.get("availableMargin", usdt_item.get("availableBalance", eq)) or 0.0)
-        upnl = float(usdt_item.get("unrealizedProfit", 0.0) or 0.0)
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        asset = str(item.get("asset", "USDT")).upper()
+        if len(items) > 1 and asset != "USDT":
+            continue
+        balance_usdt = float(item.get("balance") or item.get("walletBalance") or item.get("equity") or 0.0)
+        available_usdt = float(item.get("availableMargin") or item.get("availableBalance") or item.get("free") or balance_usdt)
+        unrealized_pnl = float(item.get("unrealizedProfit") or item.get("crossUnPnl") or 0.0)
+        equity_usdt = float(item.get("equity") or (balance_usdt + unrealized_pnl))
+        break
 
-        info = {
-            "ok": True,
-            "balance_usdt": round(eq, 4),
-            "available_usdt": round(avail, 4),
-            "unrealized_pnl_usdt": round(upnl, 4),
-            "last_sync": now_str,
-            "msg": "OK",
-        }
-        with STATE_LOCK:
-            AUTO_MONITOR["balance_info"] = info
-            if eq > 0:
-                BRAIN_WEIGHTS["account_capital"] = round(eq, 4)
-        return info
+    balance_usdt = round(max(0.0, balance_usdt), 4)
+    available_usdt = round(max(0.0, available_usdt), 4)
+    unrealized_pnl = round(unrealized_pnl, 4)
+    equity_usdt = round(max(0.0, equity_usdt), 4)
 
-    prev["ok"] = False
-    prev["last_sync"] = now_str
-    prev["msg"] = res.get("msg", "Errore saldo BingX") if isinstance(res, dict) else "Errore saldo BingX"
-    return prev
+    BALANCE_STATE.update({
+        "balance_usdt": balance_usdt,
+        "available_usdt": available_usdt,
+        "unrealized_pnl_usdt": unrealized_pnl,
+        "equity_usdt": equity_usdt,
+        "source": "bingx_live",
+        "last_sync": now_str,
+        "last_error": None
+    })
+    BRAIN_WEIGHTS["account_capital"] = balance_usdt
+    return dict(BALANCE_STATE)
 
 
-def fetch_bingx_open_positions() -> dict:
-    with STATE_LOCK:
-        has_keys = bool(API_KEYS["api_key"] and API_KEYS["secret_key"])
-        signals_snapshot = dict(AUTO_MONITOR["signals"])
-        be_done = set(AUTO_MONITOR["breakeven_done"])
+def get_all_bingx_contracts(force: bool = False):
+    now = time.time()
+    if not force and CONTRACTS_CACHE["data"] and (now - CONTRACTS_CACHE["timestamp"] < 120):
+        return CONTRACTS_CACHE["data"]
 
-    if not has_keys:
-        return {}
+    raw_contracts = bingx_public_get("/openApi/swap/v2/quote/contracts")
+    tickers = bingx_public_get("/openApi/swap/v2/quote/ticker")
+    ticker_map = {t["symbol"]: t for t in (tickers or [])}
 
-    res = bingx_signed_request("GET", "/openApi/swap/v2/user/positions")
-    if not isinstance(res, dict) or res.get("code") != 0:
-        return {}
+    results = []
+    symbol_set = set()
+    max_lev_map = {}
+    contract_meta = {}
 
-    raw_list = res.get("data", [])
-    if isinstance(raw_list, dict):
-        raw_list = raw_list.get("positions", [])
-    if not isinstance(raw_list, list):
-        return {}
+    if raw_contracts:
+        for c in raw_contracts:
+            if c.get("status") != 1:
+                continue
+            sym = c.get("symbol")
+            max_lev = int(c.get("maxLeverage", 50) or 50)
+            min_qty = float(c.get("tradeMinQuantity") or c.get("minTradeQuantity") or 0.0)
+            step_size = float(c.get("stepSize") or c.get("quantityPrecision") or 0.0)
+            qty_precision = int(c.get("quantityPrecision", 3) or 3)
+            price_precision = int(c.get("pricePrecision", 4) or 4)
 
-    positions = {}
-    for p in raw_list:
-        amt = float(p.get("positionAmt", 0.0) or 0.0)
+            symbol_set.add(sym)
+            max_lev_map[sym] = max_lev
+            contract_meta[sym] = {
+                "min_qty": min_qty,
+                "step_size": step_size,
+                "qty_precision": qty_precision,
+                "price_precision": price_precision
+            }
+
+            tk = ticker_map.get(sym, {})
+            vol_24h = float(tk.get("quoteVolume", 0) or 0)
+            exact_name = bingx_exact_name(sym)
+            cat = categorize_symbol(exact_name, sym)
+            sess = get_market_session_info(cat, exact_name, sym)
+            results.append({
+                "symbol": sym,
+                "bingxName": exact_name,
+                "displayName": exact_name,
+                "category": cat,
+                "session": sess,
+                "maxLeverage": max_lev,
+                "minQty": min_qty,
+                "pricePrecision": price_precision,
+                "lastPrice": float(tk.get("lastPrice", 0) or 0),
+                "priceChangePercent": float(tk.get("priceChangePercent", 0) or 0),
+                "volume24h": vol_24h,
+                "high24h": float(tk.get("highPrice", 0) or 0),
+                "low24h": float(tk.get("lowPrice", 0) or 0),
+            })
+        results.sort(key=lambda x: x["volume24h"], reverse=True)
+        CONTRACTS_CACHE["data"] = results
+        CONTRACTS_CACHE["symbol_set"] = symbol_set
+        CONTRACTS_CACHE["max_lev_map"] = max_lev_map
+        CONTRACTS_CACHE["contract_meta"] = contract_meta
+        CONTRACTS_CACHE["timestamp"] = now
+    return results
+
+
+def resolve_bingx_symbol(query_symbol: str) -> str:
+    clean = query_symbol.strip().upper().replace("/", "-")
+    if clean in CONTRACTS_CACHE["symbol_set"]:
+        return clean
+    if clean in BINGX_NAME_TO_API:
+        for cand in BINGX_NAME_TO_API[clean]:
+            if cand in CONTRACTS_CACHE["symbol_set"]:
+                return cand
+        return BINGX_NAME_TO_API[clean][0]
+    if "-" not in clean and clean.endswith("USDT"):
+        return clean[:-4] + "-USDT"
+    return clean
+
+
+def fetch_open_bingx_positions(signal_map: dict = None):
+    raw_pos = bingx_private_get("/openApi/swap/v2/user/positions")
+    pos_dict = {}
+    if not isinstance(raw_pos, list):
+        return pos_dict
+
+    for p in raw_pos:
+        amt = float(p.get("positionAmt", 0) or 0)
         if abs(amt) <= 0:
             continue
-        sym = str(p.get("symbol", "")).upper()
-        side_raw = str(p.get("positionSide", "")).upper()
-        if side_raw in ("LONG", "SHORT"):
-            side = side_raw
-        else:
-            side = "LONG" if amt > 0 else "SHORT"
-        size = abs(amt)
-        entry_price = float(p.get("avgPrice", p.get("entryPrice", 0.0)) or 0.0)
-        mark_price = float(p.get("markPrice", entry_price) or entry_price)
-        upnl = float(p.get("unrealizedProfit", 0.0) or 0.0)
-        lev = int(float(p.get("leverage", 10) or 10))
+        sym = p.get("symbol")
+        side = (p.get("positionSide") or ("LONG" if amt > 0 else "SHORT")).upper()
+        entry_px = float(p.get("avgPrice", 0) or 0)
+        mark_px = float(p.get("markPrice", 0) or entry_px)
+        pnl = float(p.get("unrealizedProfit", 0) or 0)
+        lev = float(p.get("leverage", 1) or 1)
 
-        sig_data = signals_snapshot.get(sym, {})
-        tp2 = float(sig_data.get("levels", {}).get("tp2", 0.0) or 0.0)
-        sl = float(sig_data.get("levels", {}).get("sl", 0.0) or 0.0)
+        sig_info = (signal_map or {}).get(sym, {})
+        tp_target = float(sig_info.get("levels", {}).get("tp2", 0) or 0)
+        sl_target = float(sig_info.get("levels", {}).get("sl", 0) or 0)
 
-        tp_pct = 0.0
-        if tp2 > 0 and entry_price > 0 and abs(tp2 - entry_price) > 1e-12:
+        if tp_target <= 0 and entry_px > 0:
+            tp_target = entry_px * 1.025 if side == "LONG" else entry_px * 0.975
+
+        progress_pct = 0.0
+        if entry_px > 0 and tp_target != entry_px:
             if side == "LONG":
-                tp_pct = ((mark_price - entry_price) / (tp2 - entry_price)) * 100.0
+                progress_pct = ((mark_px - entry_px) / (tp_target - entry_px)) * 100.0
             else:
-                tp_pct = ((entry_price - mark_price) / (entry_price - tp2)) * 100.0
-        tp_pct = round(max(0.0, min(100.0, tp_pct)), 1)
+                progress_pct = ((entry_px - mark_px) / (entry_px - tp_target)) * 100.0
 
-        with STATE_LOCK:
-            be_target = float(BRAIN_WEIGHTS.get("breakeven_at_tp_pct", 50.0))
-        pos_key = f"{sym}_{side}"
-        if tp_pct >= be_target and pos_key not in be_done and entry_price > 0:
-            be_res = bingx_signed_request("POST", "/openApi/swap/v2/trade/order", {
+        progress_clamped = round(max(0.0, min(100.0, progress_pct)), 1)
+
+        be_threshold = float(BRAIN_WEIGHTS.get("breakeven_at_tp_pct", 50.0))
+        be_key = f"{sym}_{side}"
+        if progress_clamped >= be_threshold and be_key not in AUTO_SCAN_STATE["breakeven_moved"] and entry_px > 0:
+            be_price = round(entry_px * (1.001 if side == "LONG" else 0.999), 6)
+            bingx_private_post("/openApi/swap/v2/trade/order", {
                 "symbol": sym,
                 "side": "SELL" if side == "LONG" else "BUY",
                 "positionSide": side,
                 "type": "STOP_MARKET",
-                "stopPrice": round(entry_price, 6),
-                "closePosition": "true",
+                "stopPrice": be_price,
+                "workingType": "MARK_PRICE",
+                "quantity": abs(amt)
             })
-            if isinstance(be_res, dict) and be_res.get("code") == 0:
-                with STATE_LOCK:
-                    AUTO_MONITOR["breakeven_done"].add(pos_key)
-                    AUTO_MONITOR["trade_logs"].insert(0, {
-                        "time": datetime.now(ROME_TZ).strftime("%H:%M:%S"),
-                        "symbol": sym,
-                        "side": f"BE-{side}",
-                        "qty": size,
-                        "tp": tp2,
-                        "sl": round(entry_price, 6),
-                        "response": be_res,
-                    })
+            AUTO_SCAN_STATE["breakeven_moved"].add(be_key)
 
-        positions[sym] = {
+        pos_dict[sym] = {
             "symbol": sym,
+            "bingx_name": bingx_exact_name(sym),
             "side": side,
-            "size": size,
-            "entry_price": round(entry_price, 6),
-            "mark_price": round(mark_price, 6),
-            "unrealized_pnl": round(upnl, 4),
-            "leverage": lev,
-            "tp2": tp2,
-            "sl": sl,
-            "tp_progress_pct": tp_pct,
+            "size": abs(amt),
+            "entry_price": round(entry_px, 6),
+            "mark_price": round(mark_px, 6),
+            "tp_price": round(tp_target, 6),
+            "sl_price": round(sl_target, 6),
+            "tp_progress_pct": progress_clamped,
+            "unrealized_pnl": round(pnl, 2),
+            "leverage": lev
         }
-
-    with STATE_LOCK:
-        AUTO_MONITOR["open_positions"] = positions
-    return positions
+    return pos_dict
 
 
-def load_markets_from_bingx(force: bool = False) -> list:
-    now = time.time()
-    with STATE_LOCK:
-        if not force and MARKETS_CACHE["data"] and (now - MARKETS_CACHE["last_fetch"] < 120):
-            return MARKETS_CACHE["data"]
-
-    markets = []
-    try:
-        resp = requests.get(f"{BINGX_BASE_URL}/openApi/swap/v2/quote/contracts", timeout=10)
-        raw = resp.json()
-        contracts = raw.get("data", []) if isinstance(raw, dict) else []
-    except Exception:
-        contracts = []
-
-    tickers_map = {}
-    try:
-        t_resp = requests.get(f"{BINGX_BASE_URL}/openApi/swap/v2/quote/ticker", timeout=10)
-        t_raw = t_resp.json()
-        t_list = t_raw.get("data", []) if isinstance(t_raw, dict) else []
-        if isinstance(t_list, list):
-            for item in t_list:
-                sym = str(item.get("symbol", "")).upper()
-                if sym:
-                    tickers_map[sym] = item
-    except Exception:
-        pass
-
-    for c in contracts:
-        sym = str(c.get("symbol", "")).upper()
-        if not sym or not sym.endswith("-USDT"):
-            continue
-        if str(c.get("status", "1")) not in ("1", "ONLINE", "TRADING", ""):
-            continue
-        cat = classify_market(sym)
-        b_name = format_bingx_display_name(sym, cat)
-        t_info = tickers_map.get(sym, {})
-        last_p = float(t_info.get("lastPrice", c.get("lastPrice", 0.0)) or 0.0)
-        chg_pct = float(t_info.get("priceChangePercent", 0.0) or 0.0)
-        vol_24h = float(t_info.get("quoteVolume", t_info.get("volume", 0.0)) or 0.0)
-        max_lev = int(float(c.get("maxLongLeverage", c.get("maxLeverage", 50)) or 50))
-        sess = get_market_session_info(sym, cat)
-
-        markets.append({
-            "symbol": sym,
-            "bingxName": b_name,
-            "category": cat,
-            "lastPrice": last_p,
-            "priceChangePercent": chg_pct,
-            "quoteVolume": vol_24h,
-            "maxLeverage": max_lev,
-            "session": sess,
-        })
-
-    if not markets:
-        fallback_syms = [
-            ("BTC-USDT", "CRYPTO MAJOR", 92000.0, 50),
-            ("ETH-USDT", "CRYPTO MAJOR", 3150.0, 50),
-            ("SOL-USDT", "CRYPTO MAJOR", 185.0, 50),
-            ("XRP-USDT", "CRYPTO MAJOR", 1.45, 50),
-            ("INJ-USDT", "ALTCOIN & DEFI", 5.95, 50),
-            ("ADA-USDT", "ALTCOIN & DEFI", 0.145, 50),
-            ("XAU-USDT", "METALLI & COMMODITIES", 2750.0, 50),
-            ("XAG-USDT", "METALLI & COMMODITIES", 31.5, 50),
-            ("EUR-USDT", "FOREX & VALUTE", 1.085, 50),
-            ("NAS100-USDT", "INDICI & AZIONI", 20500.0, 50),
-        ]
-        for sym, cat, px, lev in fallback_syms:
-            markets.append({
-                "symbol": sym,
-                "bingxName": format_bingx_display_name(sym, cat),
-                "category": cat,
-                "lastPrice": px,
-                "priceChangePercent": 0.0,
-                "quoteVolume": 1000000.0,
-                "maxLeverage": lev,
-                "session": get_market_session_info(sym, cat),
-            })
-
-    priority_order = {"CRYPTO MAJOR": 0, "METALLI & COMMODITIES": 1, "INDICI & AZIONI": 2, "FOREX & VALUTE": 3, "ALTCOIN & DEFI": 4}
-    markets.sort(key=lambda x: (priority_order.get(x["category"], 9), -x["quoteVolume"]))
-
-    by_sym = {m["symbol"]: m for m in markets}
-    with STATE_LOCK:
-        MARKETS_CACHE["data"] = markets
-        MARKETS_CACHE["by_symbol"] = by_sym
-        MARKETS_CACHE["last_fetch"] = now
-    return markets
+def set_bingx_leverage(symbol: str, position_side: str, leverage: int):
+    return bingx_private_post("/openApi/swap/v2/trade/leverage", {
+        "symbol": symbol,
+        "side": position_side,
+        "leverage": int(leverage)
+    })
 
 
-def _generate_synthetic_klines(base_price: float, count: int = 240):
-    rng = np.random.default_rng(42)
-    rets = rng.normal(0.0, 0.004, size=count)
-    closes = base_price * np.cumprod(1.0 + rets)
-    opens = np.roll(closes, 1)
-    opens[0] = closes[0] * 0.999
-    highs = np.maximum(opens, closes) * (1.0 + np.abs(rng.normal(0.0015, 0.001, size=count)))
-    lows = np.minimum(opens, closes) * (1.0 - np.abs(rng.normal(0.0015, 0.001, size=count)))
-    volumes = rng.uniform(50000, 250000, size=count)
-    return opens, highs, lows, closes, volumes
+def normalize_order_qty(symbol: str, raw_qty: float, price: float, leverage: int, capital: float) -> float:
+    meta = CONTRACTS_CACHE["contract_meta"].get(symbol, {})
+    min_qty = float(meta.get("min_qty", 0.0) or 0.0)
+    precision = int(meta.get("qty_precision", 3) or 3)
+    precision = max(0, min(precision, 6))
+
+    qty = max(0.0, float(raw_qty or 0.0))
+    if qty > 0:
+        qty = round(qty, precision)
+
+    if qty > 0 and price > 0 and capital > 0:
+        max_notional = capital * max(leverage, 1) * 0.90
+        max_affordable_qty = round(max_notional / price, precision)
+        if max_affordable_qty > 0 and qty > max_affordable_qty:
+            qty = max_affordable_qty
+
+    if min_qty > 0 and qty > 0 and qty < min_qty:
+        min_notional = min_qty * price
+        if capital > 0 and min_notional <= capital * max(leverage, 1) * 0.95:
+            qty = round(min_qty, precision)
+    return qty
 
 
-def fetch_klines(symbol: str, interval: str = "15m", limit: int = 240):
-    cache_key = f"{symbol}_{interval}"
-    now = time.time()
-    with STATE_LOCK:
-        cached = KLINES_CACHE.get(cache_key)
-        if cached and (now - cached["ts"] < KLINES_TTL):
-            return cached["arrays"]
+def place_bingx_real_order(symbol: str, side: str, quantity, sl, tp, leverage: int = None):
+    real_symbol = resolve_bingx_symbol(symbol)
+    position_side = "LONG" if side == "BUY" else "SHORT"
+    exact_label = bingx_exact_name(real_symbol)
 
-    tf_map = {"1m": "1m", "5m": "5m", "15m": "15m", "1h": "1h", "4h": "4h"}
-    bx_interval = tf_map.get(interval, "15m")
+    if float(quantity or 0) <= 0:
+        err = {"code": -2, "msg": "Quantità ordine nulla o insufficiente per il saldo corrente."}
+        log_trade_event(exact_label, side, quantity, sl, tp, err)
+        return err
 
-    try:
-        resp = requests.get(
-            f"{BINGX_BASE_URL}/openApi/swap/v3/quote/klines",
-            params={"symbol": symbol, "interval": bx_interval, "limit": limit},
-            timeout=8,
-        )
-        raw = resp.json()
-        rows = raw.get("data", []) if isinstance(raw, dict) else []
-        if isinstance(rows, list) and len(rows) >= 60:
-            opens, highs, lows, closes, volumes = [], [], [], [], []
-            for r in rows:
-                if isinstance(r, dict):
-                    o = float(r.get("open", 0))
-                    h = float(r.get("high", 0))
-                    l = float(r.get("low", 0))
-                    c = float(r.get("close", 0))
-                    v = float(r.get("volume", 0))
-                else:
-                    o, h, l, c, v = float(r[1]), float(r[2]), float(r[3]), float(r[4]), float(r[5])
-                if c > 0:
-                    opens.append(o)
-                    highs.append(h)
-                    lows.append(l)
-                    closes.append(c)
-                    volumes.append(max(v, 1.0))
-            if len(closes) >= 60:
-                arrs = (
-                    np.array(opens, dtype=float),
-                    np.array(highs, dtype=float),
-                    np.array(lows, dtype=float),
-                    np.array(closes, dtype=float),
-                    np.array(volumes, dtype=float),
-                )
-                with STATE_LOCK:
-                    KLINES_CACHE[cache_key] = {"ts": now, "arrays": arrs}
-                return arrs
-    except Exception:
-        pass
+    if leverage:
+        set_bingx_leverage(real_symbol, position_side, leverage)
 
-    with STATE_LOCK:
-        m_info = MARKETS_CACHE["by_symbol"].get(symbol, {})
-    base_px = float(m_info.get("lastPrice", 100.0) or 100.0)
-    arrs = _generate_synthetic_klines(base_px, limit)
-    with STATE_LOCK:
-        KLINES_CACHE[cache_key] = {"ts": now, "arrays": arrs}
-    return arrs
+    order_params = {
+        "symbol": real_symbol,
+        "side": side,
+        "positionSide": position_side,
+        "type": "MARKET",
+        "quantity": str(quantity)
+    }
+    if sl is not None and float(sl) > 0:
+        order_params["stopLoss"] = json.dumps({
+            "type": "STOP_MARKET",
+            "stopPrice": float(sl),
+            "workingType": "MARK_PRICE"
+        }, separators=(",", ":"))
+    if tp is not None and float(tp) > 0:
+        order_params["takeProfit"] = json.dumps({
+            "type": "TAKE_PROFIT_MARKET",
+            "stopPrice": float(tp),
+            "workingType": "MARK_PRICE"
+        }, separators=(",", ":"))
+
+    res = bingx_private_post("/openApi/swap/v2/trade/order", order_params)
+    log_trade_event(exact_label, side, quantity, sl, tp, res)
+    sync_bingx_balance_realtime()
+    return res
 
 
-def _ema_series(arr: np.ndarray, period: int) -> np.ndarray:
+def close_bingx_position(symbol: str, side: str, quantity):
+    real_symbol = resolve_bingx_symbol(symbol)
+    exact_label = bingx_exact_name(real_symbol)
+    close_side = "SELL" if side.upper() == "LONG" else "BUY"
+    res = bingx_private_post("/openApi/swap/v2/trade/order", {
+        "symbol": real_symbol,
+        "side": close_side,
+        "positionSide": side.upper(),
+        "type": "MARKET",
+        "quantity": str(quantity)
+    })
+    log_trade_event(exact_label, f"CLOSE_{side.upper()}", quantity, "-", "-", res)
+    sync_bingx_balance_realtime()
+    return res
+
+
+def calc_ema(prices: np.ndarray, period: int) -> np.ndarray:
     alpha = 2.0 / (period + 1.0)
-    out = np.empty_like(arr, dtype=float)
-    out[0] = arr[0]
-    for i in range(1, len(arr)):
-        out[i] = alpha * arr[i] + (1.0 - alpha) * out[i - 1]
+    ema = np.zeros_like(prices)
+    ema[0] = prices[0]
+    for i in range(1, len(prices)):
+        ema[i] = alpha * prices[i] + (1.0 - alpha) * ema[i - 1]
+    return ema
+
+
+def calc_ema_series(values: np.ndarray, period: int) -> np.ndarray:
+    alpha = 2.0 / (period + 1.0)
+    out = np.zeros_like(values, dtype=float)
+    out[0] = values[0]
+    for i in range(1, len(values)):
+        out[i] = alpha * values[i] + (1.0 - alpha) * out[i - 1]
     return out
 
 
-def compute_indicators(opens, highs, lows, closes, volumes):
-    ema9 = _ema_series(closes, 9)
-    ema21 = _ema_series(closes, 21)
-    ema50 = _ema_series(closes, 50)
-    ema200 = _ema_series(closes, min(200, len(closes)))
-
-    # RSI (14) Wilder
-    deltas = np.diff(closes)
+def calc_rsi(prices: np.ndarray, period: int = 14) -> float:
+    if len(prices) < period + 1:
+        return 50.0
+    deltas = np.diff(prices)
     gains = np.where(deltas > 0, deltas, 0.0)
     losses = np.where(deltas < 0, -deltas, 0.0)
-    period = 14
-    avg_gain = np.mean(gains[:period]) if len(gains) >= period else 0.001
-    avg_loss = np.mean(losses[:period]) if len(losses) >= period else 0.001
+    avg_gain = np.mean(gains[:period])
+    avg_loss = np.mean(losses[:period])
     for i in range(period, len(gains)):
         avg_gain = (avg_gain * (period - 1) + gains[i]) / period
         avg_loss = (avg_loss * (period - 1) + losses[i]) / period
-    rs = avg_gain / max(avg_loss, 1e-12)
-    rsi = 100.0 - (100.0 / (1.0 + rs))
+    if avg_loss == 0:
+        return 100.0
+    rs = avg_gain / avg_loss
+    return float(100.0 - (100.0 / (1.0 + rs)))
 
-    # MACD (12, 26, 9)
-    ema12 = _ema_series(closes, 12)
-    ema26 = _ema_series(closes, 26)
-    macd_line = ema12 - ema26
-    signal_line = _ema_series(macd_line, 9)
-    macd_hist = float(macd_line[-1] - signal_line[-1])
 
-    # ATR (14)
-    prev_close = np.roll(closes, 1)
-    prev_close[0] = closes[0]
-    tr = np.maximum(highs - lows, np.maximum(np.abs(highs - prev_close), np.abs(lows - prev_close)))
-    atr_series = _ema_series(tr, 14)
-    atr = float(atr_series[-1])
+def calc_atr_series(highs: np.ndarray, lows: np.ndarray, closes: np.ndarray, period: int = 14) -> np.ndarray:
+    if len(closes) < 2:
+        return np.array([float(highs[-1] - lows[-1])])
+    tr = np.maximum(
+        highs[1:] - lows[1:],
+        np.maximum(np.abs(highs[1:] - closes[:-1]), np.abs(lows[1:] - closes[:-1]))
+    )
+    atr_s = calc_ema_series(tr, min(period, len(tr)))
+    return np.concatenate([[atr_s[0]], atr_s])
 
-    # ADX (14)
+
+def calc_adx(highs: np.ndarray, lows: np.ndarray, closes: np.ndarray, period: int = 14) -> float:
+    if len(closes) < period * 2:
+        return 20.0
     up_move = highs[1:] - highs[:-1]
     down_move = lows[:-1] - lows[1:]
     plus_dm = np.where((up_move > down_move) & (up_move > 0), up_move, 0.0)
     minus_dm = np.where((down_move > up_move) & (down_move > 0), down_move, 0.0)
-    tr_14 = _ema_series(tr[1:], 14) + 1e-12
-    plus_di = 100.0 * _ema_series(plus_dm, 14) / tr_14
-    minus_di = 100.0 * _ema_series(minus_dm, 14) / tr_14
-    dx = 100.0 * np.abs(plus_di - minus_di) / np.maximum(plus_di + minus_di, 1e-12)
-    adx_series = _ema_series(dx, 14)
-    adx = float(adx_series[-1])
-
-    # Z-score e R² su ultimi 30 periodi
-    win = closes[-30:] if len(closes) >= 30 else closes
-    mean_w = float(np.mean(win))
-    std_w = float(np.std(win)) + 1e-12
-    z_score = float((closes[-1] - mean_w) / std_w)
-
-    x_idx = np.arange(len(win), dtype=float)
-    slope, intercept = np.polyfit(x_idx, win, 1)
-    y_pred = slope * x_idx + intercept
-    ss_res = float(np.sum((win - y_pred) ** 2))
-    ss_tot = float(np.sum((win - mean_w) ** 2)) + 1e-12
-    r_squared = max(0.0, min(1.0, 1.0 - (ss_res / ss_tot)))
-
-    bb_mid = float(np.mean(closes[-20:]))
-    bb_std = float(np.std(closes[-20:])) + 1e-12
-    bb_upper = bb_mid + 2.0 * bb_std
-    bb_lower = bb_mid - 2.0 * bb_std
-    bb_percent = round(max(0.0, min(100.0, ((closes[-1] - bb_lower) / max(bb_upper - bb_lower, 1e-12)) * 100.0)), 1)
-
-    return {
-        "ema9": round(float(ema9[-1]), 6),
-        "ema21": round(float(ema21[-1]), 6),
-        "ema50": round(float(ema50[-1]), 6),
-        "ema200": round(float(ema200[-1]), 6),
-        "ema21_series": ema21,
-        "ema50_series": ema50,
-        "atr_series": atr_series,
-        "rsi": round(float(rsi), 2),
-        "macd_hist": round(macd_hist, 6),
-        "atr": round(atr, 6),
-        "adx": round(adx, 2),
-        "z_score": round(z_score, 3),
-        "r_squared": round(r_squared, 3),
-        "bb_percent": bb_percent,
-        "funding_rate": 0.010,
-    }
+    tr = np.maximum(
+        highs[1:] - lows[1:],
+        np.maximum(np.abs(highs[1:] - closes[:-1]), np.abs(lows[1:] - closes[:-1]))
+    )
+    atr_s = np.convolve(tr, np.ones(period) / period, mode='valid')
+    p_di = 100 * (np.convolve(plus_dm, np.ones(period) / period, mode='valid') / (atr_s + 1e-9))
+    m_di = 100 * (np.convolve(minus_dm, np.ones(period) / period, mode='valid') / (atr_s + 1e-9))
+    dx = 100 * np.abs(p_di - m_di) / (p_di + m_di + 1e-9)
+    return float(np.mean(dx[-period:]))
 
 
 def detect_early_entry_setup(opens, highs, lows, closes, volumes, ema20_arr, ema50_arr, ema200_val, atr_series, rsi, z_score):
-    price = float(closes[-1])
-    prev_high, prev_low = float(highs[-2]), float(lows[-2])
-    curr_open, curr_high, curr_low, curr_close = float(opens[-1]), float(highs[-1]), float(lows[-1]), float(closes[-1])
+    price = closes[-1]
+    prev_high, prev_low = highs[-2], lows[-2]
+    curr_open, curr_high, curr_low, curr_close = opens[-1], highs[-1], lows[-1], closes[-1]
 
-    atr_val = float(atr_series[-1]) + 1e-9
     atr_sma20 = float(np.mean(atr_series[-20:])) if len(atr_series) >= 20 else float(atr_series[-1])
-    is_compressed = bool(atr_series[-1] < (atr_sma20 * 0.92))
+    is_compressed = atr_series[-1] < (atr_sma20 * 0.92)
 
-    candle_body = curr_close - curr_open
-    candle_body_pct = abs(candle_body) / atr_val
-    not_chasing = bool(candle_body_pct < 1.35 and abs(z_score) <= 2.25)
+    candle_body_pct = abs(curr_close - curr_open) / (atr_series[-1] + 1e-9)
+    not_chasing = candle_body_pct < 1.45 and abs(z_score) <= 2.35
 
-    e20 = float(ema20_arr[-1])
-    e50 = float(ema50_arr[-1])
+    trend_bias = "BULL" if price >= ema200_val else "BEAR"
 
-    # Blocchi anti-controtendenza severi:
-    # Evita SHORT quando la candela spinge verso l'alto o il prezzo è sopra EMA20/EMA50 con RSI > 52
-    bullish_push_against_short = bool(
-        (candle_body > 0 and candle_body_pct > 0.30)
-        or (price > e20 and price > e50 and rsi > 52.0)
-        or (curr_close > prev_high and candle_body > 0)
-    )
-    # Evita LONG quando la candela spinge verso il basso o il prezzo è sotto EMA20/EMA50 con RSI < 48
-    bearish_push_against_long = bool(
-        (candle_body < 0 and candle_body_pct > 0.30)
-        or (price < e20 and price < e50 and rsi < 48.0)
-        or (curr_close < prev_low and candle_body < 0)
-    )
+    e20 = ema20_arr[-1]
+    e50 = ema50_arr[-1]
+    dist_e20_atr = abs(price - e20) / (atr_series[-1] + 1e-9)
+    dist_e50_atr = abs(price - e50) / (atr_series[-1] + 1e-9)
+    pullback_bull = (trend_bias == "BULL") and (min(dist_e20_atr, dist_e50_atr) <= 0.75) and (rsi < 60)
+    pullback_bear = (trend_bias == "BEAR") and (min(dist_e20_atr, dist_e50_atr) <= 0.75) and (rsi > 40)
 
-    trend_bias = "BULL" if price >= float(ema200_val) else "BEAR"
-
-    dist_e20_atr = abs(price - e20) / atr_val
-    dist_e50_atr = abs(price - e50) / atr_val
-    pullback_bull = bool((trend_bias == "BULL") and (min(dist_e20_atr, dist_e50_atr) <= 0.75) and (rsi < 60.0) and not bearish_push_against_long)
-    pullback_bear = bool((trend_bias == "BEAR") and (min(dist_e20_atr, dist_e50_atr) <= 0.75) and (rsi > 40.0) and not bullish_push_against_short)
-
-    sweep_bull = bool((curr_low < prev_low) and (curr_close > prev_low) and (curr_close > curr_open) and (curr_close >= e20 * 0.995) and not bearish_push_against_long)
-    sweep_bear = bool((curr_high > prev_high) and (curr_close < prev_high) and (curr_close < curr_open) and (curr_close <= e20 * 1.005) and not bullish_push_against_short)
+    sweep_bull = (curr_low < prev_low) and (curr_close > prev_low) and (curr_close > curr_open) and (curr_close >= e20 * 0.995)
+    sweep_bear = (curr_high > prev_high) and (curr_close < prev_high) and (curr_close < curr_open) and (curr_close <= e20 * 1.005)
 
     vol_avg20 = float(np.mean(volumes[-20:])) if len(volumes) >= 20 else float(volumes[-1])
-    vol_calm_or_sweep = bool((volumes[-1] <= vol_avg20 * 1.35) or sweep_bull or sweep_bear)
+    vol_calm_or_sweep = (volumes[-1] <= vol_avg20 * 1.35) or sweep_bull or sweep_bear
 
     setup_type = "NESSUN SETUP ANTICIPATO"
     direction = None
@@ -729,632 +970,734 @@ def detect_early_entry_setup(opens, highs, lows, closes, volumes, ema20_arr, ema
         direction = "SHORT"
         order_type = "SELL LIMIT SU ZONA VALORE"
         trigger_sound = True
-    elif pullback_bull and not_chasing and rsi < 50.0:
+    elif pullback_bull and not_chasing and rsi < 50:
         setup_type = "PULLBACK SU EMA 20/50 LONG"
         direction = "LONG"
         order_type = "BUY LIMIT / PULLBACK"
         trigger_sound = True
-    elif pullback_bear and not_chasing and rsi > 50.0:
+    elif pullback_bear and not_chasing and rsi > 50:
         setup_type = "PULLBACK SU EMA 20/50 SHORT"
         direction = "SHORT"
         order_type = "SELL LIMIT / PULLBACK"
+        trigger_sound = True
+    elif is_compressed and not_chasing:
+        setup_type = "FASE ACCUMULAZIONE / SQUEEZE"
+        direction = "LONG" if trend_bias == "BULL" else "SHORT"
+        order_type = "LIMIT IN ATTESA ROTTURA"
         trigger_sound = True
 
     return {
         "setup_type": setup_type,
         "direction": direction,
-        "is_compressed": is_compressed,
-        "not_chasing": not_chasing,
+        "is_compressed": bool(is_compressed),
+        "not_chasing": bool(not_chasing),
         "sweep_detected": bool(sweep_bull or sweep_bear),
         "pullback_detected": bool(pullback_bull or pullback_bear),
         "order_type": order_type,
         "limit_price": limit_price,
-        "trigger_sound": trigger_sound,
-        "candle_id": int(len(closes)),
+        "trigger_sound": bool(trigger_sound),
+        "candle_id": int(len(closes))
     }
 
 
-def compute_entry_pre_alert(price: float, early_setup: dict, certain_signal: str, interval: str) -> dict:
-    direction = early_setup.get("direction")
-    if not direction and certain_signal:
-        direction = "LONG" if "LONG" in certain_signal.upper() else ("SHORT" if "SHORT" in certain_signal.upper() else None)
+def compute_tp_timeframe_plan(interval: str, adx: float):
+    tf_map = {
+        "1m":  {"tp_tf": "5m",  "candles": 4 if adx >= 25 else 7, "minutes_per_candle": 5},
+        "5m":  {"tp_tf": "15m", "candles": 3 if adx >= 25 else 6, "minutes_per_candle": 15},
+        "15m": {"tp_tf": "1h",  "candles": 2 if adx >= 25 else 4, "minutes_per_candle": 60},
+        "1h":  {"tp_tf": "4h",  "candles": 2 if adx >= 25 else 3, "minutes_per_candle": 240},
+        "4h":  {"tp_tf": "1d",  "candles": 2 if adx >= 25 else 3, "minutes_per_candle": 1440},
+    }
+    cfg = tf_map.get(interval, {"tp_tf": "1h", "candles": 3, "minutes_per_candle": 60})
+    est_hours = round((cfg["candles"] * cfg["minutes_per_candle"]) / 60.0, 1)
+    return {
+        "tp_timeframe": cfg["tp_tf"],
+        "tp_candles": cfg["candles"],
+        "est_duration_h": est_hours,
+        "label": f"{cfg['tp_tf']} ({cfg['candles']} candele • ~{est_hours}h)"
+    }
 
-    limit_px = float(early_setup.get("limit_price") or 0.0)
-    not_chasing = bool(early_setup.get("not_chasing", True))
-    is_certain = bool(certain_signal)
 
-    tf_sec_map = {"1m": 60, "5m": 300, "15m": 900, "1h": 3600, "4h": 14400}
-    tf_sec = tf_sec_map.get(interval, 900)
-    now_sec = int(time.time())
-    rem = tf_sec - (now_sec % tf_sec)
-    sec_to_next = 0 if rem == tf_sec else rem
+def calc_recommended_leverage(atr_pct: float, max_contract_lev: int, capital: float) -> int:
+    if atr_pct <= 0.15:
+        base_lev = 25
+    elif atr_pct <= 0.35:
+        base_lev = 15
+    elif atr_pct <= 0.75:
+        base_lev = 10
+    elif atr_pct <= 1.50:
+        base_lev = 6
+    else:
+        base_lev = 3
 
-    if not direction:
-        return {
-            "status": "WAIT",
-            "direction": None,
-            "limit_price": limit_px,
-            "dist_pct": None,
-            "sec_to_next_candle": sec_to_next,
-            "enter_now": False,
-            "pre_alert": False,
-            "do_not_enter": False,
-            "label": "IN ATTESA",
+    if 0 < capital <= 2.0:
+        base_lev = min(base_lev, 20)
+    return max(1, min(base_lev, max_contract_lev))
+
+
+def evaluate_profit_math_and_entry(
+    symbol, signal, confidence, rr_ratio, adx, r_squared, z_score, rsi,
+    min_conf, capital, risk_pct, stop_dist, price, rec_leverage,
+    ema_dir, mom_dir, vol_dir, final_sentiment, session_info, early_setup
+):
+    p_win = float(np.clip(0.48 + (confidence - 50.0) * 0.0045 + (r_squared - 0.25) * 0.14, 0.38, 0.78))
+    p_loss = 1.0 - p_win
+    reward_r = max(rr_ratio, 0.5)
+    expectancy_r = round((p_win * reward_r) - (p_loss * 1.0), 2)
+
+    kelly_raw = p_win - (p_loss / max(reward_r, 0.1))
+    half_kelly_pct = round(max(0.0, min(kelly_raw * 0.5 * 100.0, 5.0)), 2)
+
+    effective_capital = capital if capital > 0 else 0.0
+    risk_usd = effective_capital * (risk_pct / 100.0)
+    raw_qty = (risk_usd / stop_dist) if (stop_dist > 0 and risk_usd > 0) else 0.0
+    qty_fmt = normalize_order_qty(symbol, raw_qty, price, rec_leverage, effective_capital)
+    notional_usd = qty_fmt * price
+    margin_needed = round(notional_usd / max(rec_leverage, 1), 2)
+
+    session_ok = bool(session_info.get("session_ok", True))
+    early_dir = early_setup.get("direction")
+    is_early_active = bool(early_setup.get("trigger_sound") and early_dir)
+
+    bull_aligned = (ema_dir > 5) and (mom_dir > 5) and (vol_dir >= -10) and (final_sentiment >= -20)
+    bear_aligned = (ema_dir < -5) and (mom_dir < -5) and (vol_dir <= 10) and (final_sentiment <= 20)
+
+    certain_long = (
+        early_dir == "LONG"
+        and is_early_active
+        and early_setup.get("not_chasing", True)
+        and bull_aligned
+        and confidence >= min_conf
+        and expectancy_r > 0.10
+        and abs(z_score) <= 2.45
+        and rsi <= 78
+        and session_ok
+    )
+    certain_short = (
+        early_dir == "SHORT"
+        and is_early_active
+        and early_setup.get("not_chasing", True)
+        and bear_aligned
+        and confidence >= min_conf
+        and expectancy_r > 0.10
+        and abs(z_score) <= 2.45
+        and rsi >= 22
+        and session_ok
+    )
+
+    certain_signal = None
+    if certain_long:
+        certain_signal = "SEGNALE CERTO ANTICIPO LONG"
+    elif certain_short:
+        certain_signal = "SEGNALE CERTO ANTICIPO SHORT"
+
+    if not early_setup.get("not_chasing", True) or abs(z_score) > 2.45:
+        entry_rule = {
+            "action": "NO ENTRY",
+            "badge": "🚫 NON INSEGUIRE",
+            "reason": f"Candela già estesa (Z={z_score:+.2f}σ): attendi ritracciamento."
+        }
+    elif not session_ok:
+        entry_rule = {
+            "action": "NO ENTRY",
+            "badge": "🚫 FUORI ORARIO",
+            "reason": f"Mercato {session_info.get('session_name')} ({session_info.get('hours_window')})."
+        }
+    elif certain_signal:
+        entry_rule = {
+            "action": "ENTER NOW",
+            "badge": f"💎 {certain_signal}",
+            "reason": f"Auto-allineato • {early_setup.get('setup_type')} • {early_setup.get('order_type')} @ {early_setup.get('limit_price')}"
+        }
+    elif is_early_active:
+        entry_rule = {
+            "action": "ENTER NOW",
+            "badge": f"🎯 ANTICIPO {early_dir}",
+            "reason": f"{early_setup.get('setup_type')} • {early_setup.get('order_type')} @ {early_setup.get('limit_price')}"
+        }
+    elif effective_capital <= 0:
+        entry_rule = {
+            "action": "WAIT BALANCE",
+            "badge": "⏳ MONITOR ANTICIPO",
+            "reason": f"{early_setup.get('setup_type')} rilevato • Saldo 0.00 USDT (calcolo automatico attivo)."
+        }
+    else:
+        entry_rule = {
+            "action": "WAIT CONFIRMATION",
+            "badge": f"⏳ {early_setup.get('setup_type')}",
+            "reason": f"Confidenza {confidence}%/{min_conf}% • {early_setup.get('order_type')} @ {early_setup.get('limit_price')}"
         }
 
-    max_over_pct = 0.25
-    past_threshold = False
-    over_pct = None
-    if limit_px > 0 and price > 0:
-        if direction == "LONG" and price > limit_px * (1.0 + max_over_pct / 100.0):
-            past_threshold = True
-            over_pct = round(((price - limit_px) / limit_px) * 100.0, 2)
-        elif direction == "SHORT" and price < limit_px * (1.0 - max_over_pct / 100.0):
-            past_threshold = True
-            over_pct = round(((limit_px - price) / limit_px) * 100.0, 2)
-
-    dist_pct = round(abs(price - limit_px) / limit_px * 100.0, 2) if (limit_px > 0 and price > 0) else None
-    near_trigger = bool((not past_threshold) and dist_pct is not None and dist_pct <= 0.50)
-    candle_imminent = bool((not past_threshold) and sec_to_next <= 25)
-    certain_ready = bool(is_certain and not_chasing and (not past_threshold))
-
-    do_not_enter = bool(past_threshold or (not not_chasing))
-    enter_now = bool((not do_not_enter) and (near_trigger or candle_imminent or certain_ready))
-    pre_alert = bool((not do_not_enter) and (not enter_now))
-
-    if do_not_enter:
-        status = "DO_NOT_ENTER"
-        label = f"NON ENTRARE (+{over_pct}%)" if (past_threshold and over_pct is not None) else "NON ENTRARE"
-    elif enter_now:
-        status = "ENTER_NOW"
-        label = f"ENTRA ORA ({dist_pct}%)" if dist_pct is not None else "ENTRA ORA"
-    else:
-        status = "PRE_ALERT"
-        label = f"PRE-AVVISO ({dist_pct}%)" if dist_pct is not None else "PRE-AVVISO"
-
-    return {
-        "status": status,
-        "direction": direction,
-        "limit_price": limit_px,
-        "dist_pct": dist_pct,
-        "over_pct": over_pct,
-        "sec_to_next_candle": sec_to_next,
-        "enter_now": enter_now,
-        "pre_alert": pre_alert,
-        "do_not_enter": do_not_enter,
-        "label": label,
+    recommended_params = {
+        "leverage": rec_leverage,
+        "qty": qty_fmt,
+        "margin_usdt": margin_needed,
+        "risk_usd": round(risk_usd, 4),
+        "p_win_pct": round(p_win * 100, 1),
+        "expectancy_r": expectancy_r,
+        "half_kelly_pct": half_kelly_pct,
+        "certain_signal": certain_signal,
+        "summary": f"Lev {rec_leverage}x • Size {qty_fmt} • Exp {expectancy_r:+.2f}R • Kelly {half_kelly_pct}%"
     }
+    return entry_rule, recommended_params, certain_signal
 
 
-def evaluate_profit_math_and_entry(price: float, ind: dict, weights: dict, early_setup: dict, interval: str, opens=None, closes=None) -> dict:
-    w_ema = float(weights.get("ema_weight", 35.0))
-    w_mom = float(weights.get("momentum_weight", 30.0))
-    w_vol = float(weights.get("volatility_weight", 20.0))
-    w_sent = float(weights.get("sentiment_weight", 15.0))
-    w_sum = max(w_ema + w_mom + w_vol + w_sent, 1.0)
+def is_certain_or_early_signal(analysis: dict) -> bool:
+    if not analysis:
+        return False
+    early = analysis.get("early_setup", {})
+    return bool(analysis.get("certain_signal") or early.get("trigger_sound") or early.get("direction"))
 
-    ema_bias = 0.0
-    if price > ind["ema9"] > ind["ema21"] > ind["ema50"]:
-        ema_bias = 75.0
-    elif price < ind["ema9"] < ind["ema21"] < ind["ema50"]:
-        ema_bias = -75.0
-    elif price > ind["ema50"]:
-        ema_bias = 35.0
-    elif price < ind["ema50"]:
-        ema_bias = -35.0
 
-    mom_bias = 0.0
-    if ind["rsi"] > 55 and ind["macd_hist"] > 0:
-        mom_bias += 45.0
-    elif ind["rsi"] < 45 and ind["macd_hist"] < 0:
-        mom_bias -= 45.0
-    if ind["adx"] >= 22:
-        mom_bias = mom_bias * 1.25
+def register_sound_alert_if_exact_moment(analysis: dict):
+    early = analysis.get("early_setup", {})
+    certain = analysis.get("certain_signal")
+    if not (early.get("trigger_sound") or certain):
+        return
+    if not analysis.get("session", {}).get("session_ok", True):
+        return
 
-    vol_bias = -np.clip(ind["z_score"], -2.5, 2.5) * 18.0
-    sent_bias = float(weights.get("custom_sentiment") or 0.0)
+    sym = analysis["symbol"]
+    side = certain or f"ANTICIPO_{early.get('direction')}_{early.get('setup_type')}"
+    candle_id = early.get("candle_id", 0)
+    alert_key = f"{sym}_{side}_{candle_id}"
 
-    raw_score = (ema_bias * w_ema + mom_bias * w_mom + vol_bias * w_vol + sent_bias * w_sent) / w_sum
-    composite_score = round(float(np.clip(raw_score, -100.0, 100.0)), 1)
+    existing_keys = {a["key"] for a in AUTO_SCAN_STATE["audio_alerts"][:25]}
+    if alert_key in existing_keys:
+        return
 
-    # Verifica impulso candela corrente per evitare SHORT contro candela verde rialzista
-    curr_green_push = False
-    curr_red_push = False
-    if opens is not None and closes is not None and len(opens) > 0 and len(closes) > 0:
-        atr_v = max(float(ind.get("atr", 0.0)), 1e-9)
-        body = float(closes[-1]) - float(opens[-1])
-        if body > 0 and (body / atr_v) > 0.30:
-            curr_green_push = True
-        elif body < 0 and (abs(body) / atr_v) > 0.30:
-            curr_red_push = True
+    AUTO_SCAN_STATE["audio_alerts"].insert(0, {
+        "id": int(time.time() * 1000),
+        "key": alert_key,
+        "time": time.strftime("%H:%M:%S"),
+        "symbol": analysis["bingx_name"],
+        "title": certain or early.get("setup_type"),
+        "order_type": early.get("order_type"),
+        "price": analysis["price"],
+        "limit_price": early.get("limit_price"),
+        "sl": analysis["levels"]["sl"],
+        "tp2": analysis["levels"]["tp2"]
+    })
+    AUTO_SCAN_STATE["audio_alerts"] = AUTO_SCAN_STATE["audio_alerts"][:25]
 
-    if curr_green_push and composite_score < 0:
-        composite_score = round(min(composite_score * 0.35, -3.0), 1)
-    if curr_red_push and composite_score > 0:
-        composite_score = round(max(composite_score * 0.35, 3.0), 1)
 
-    confidence = round(float(min(99.9, max(5.0, (abs(composite_score) * 1.1) + (ind["r_squared"] * 25.0) + (min(ind["adx"], 50.0) * 0.4)))), 1)
+def analyze_symbol_math(symbol: str, interval: str = "15m", custom_sentiment: float = None, apply_auto_profile: bool = True):
+    real_symbol = resolve_bingx_symbol(symbol)
+    exact_name = bingx_exact_name(real_symbol)
+    category = categorize_symbol(exact_name, real_symbol)
 
-    min_conf = float(weights.get("min_confidence", 70.0))
-    certain_signal = None
-    if confidence >= min_conf and composite_score >= 18.0 and not curr_red_push:
-        certain_signal = "CERTA LONG"
-    elif confidence >= min_conf and composite_score <= -18.0 and not curr_green_push and price <= ind["ema21"] * 1.003:
-        certain_signal = "CERTA SHORT"
+    applied_profile = None
+    if apply_auto_profile:
+        applied_profile = auto_tune_brain_for_category_and_tf(interval, category)
 
-    if certain_signal:
-        signal = "STRONG LONG" if "LONG" in certain_signal else "STRONG SHORT"
-    elif early_setup.get("direction") == "LONG":
-        signal = "LONG"
-    elif early_setup.get("direction") == "SHORT":
-        signal = "SHORT"
-    elif composite_score >= 20:
+    klines = bingx_public_get("/openApi/swap/v3/quote/klines", {
+        "symbol": real_symbol,
+        "interval": interval,
+        "limit": 220
+    })
+    depth = bingx_public_get("/openApi/swap/v2/quote/depth", {"symbol": real_symbol, "limit": 20})
+    premium = bingx_public_get("/openApi/swap/v2/quote/premiumIndex", {"symbol": real_symbol})
+
+    if not klines or len(klines) < 50:
+        return None
+
+    klines = sorted(klines, key=lambda x: int(x["time"]))
+    opens = np.array([float(k.get("open", k["close"])) for k in klines], dtype=float)
+    closes = np.array([float(k["close"]) for k in klines], dtype=float)
+    highs = np.array([float(k["high"]) for k in klines], dtype=float)
+    lows = np.array([float(k["low"]) for k in klines], dtype=float)
+    volumes = np.array([float(k["volume"]) for k in klines], dtype=float)
+
+    price = closes[-1]
+    ema9 = calc_ema(closes, 9)
+    ema20 = calc_ema(closes, 20)
+    ema21 = calc_ema(closes, 21)
+    ema50 = calc_ema(closes, 50)
+    ema200 = calc_ema(closes, 200 if len(closes) >= 200 else len(closes) - 1)
+
+    e9, e21, e50, e200 = ema9[-1], ema21[-1], ema50[-1], ema200[-1]
+    ema_slope = ((ema21[-1] - ema21[-5]) / (ema21[-5] + 1e-9)) * 100
+
+    ema_dir = 0.0
+    if e9 > e21: ema_dir += 30
+    else: ema_dir -= 30
+    if e21 > e50: ema_dir += 30
+    else: ema_dir -= 30
+    if price > e200: ema_dir += 25
+    else: ema_dir -= 25
+    ema_dir = float(np.clip(ema_dir + np.clip(ema_slope * 20, -15, 15), -100, 100))
+
+    rsi = calc_rsi(closes, 14)
+    ema12 = calc_ema(closes, 12)
+    ema26 = calc_ema(closes, 26)
+    macd_line = ema12 - ema26
+    signal_line = calc_ema(macd_line, 9)
+    macd_hist = macd_line[-1] - signal_line[-1]
+    adx = calc_adx(highs, lows, closes, 14)
+
+    mom_dir = 0.0
+    if 52 < rsi < 74: mom_dir += 40
+    elif rsi >= 74: mom_dir -= 20
+    elif 26 < rsi < 48: mom_dir -= 40
+    elif rsi <= 26: mom_dir += 20
+
+    if macd_hist > 0 and macd_line[-1] > signal_line[-1]:
+        mom_dir += 40
+    elif macd_hist < 0 and macd_line[-1] < signal_line[-1]:
+        mom_dir -= 40
+
+    adx_multiplier = 1.2 if adx >= 25 else 0.85
+    mom_dir = float(np.clip(mom_dir * adx_multiplier, -100, 100))
+
+    sma20 = np.mean(closes[-20:])
+    std20 = np.std(closes[-20:]) + 1e-9
+    bb_upper = sma20 + 2 * std20
+    bb_lower = sma20 - 2 * std20
+    bb_percent = ((price - bb_lower) / (bb_upper - bb_lower + 1e-9)) * 100
+    z_score = (price - sma20) / std20
+
+    x_idx = np.arange(20)
+    corr_matrix = np.corrcoef(x_idx, closes[-20:])
+    r_squared = float(corr_matrix[0, 1] ** 2) if not np.isnan(corr_matrix[0, 1]) else 0.0
+
+    vol_dir = 0.0
+    if 0.3 < z_score < 2.1: vol_dir += 50 * r_squared + 30
+    elif -2.1 < z_score < -0.3: vol_dir -= 50 * r_squared + 30
+    vol_dir = float(np.clip(vol_dir, -100, 100))
+
+    bid_vol = sum(float(b[1]) for b in (depth.get("bids", []) if depth else []))
+    ask_vol = sum(float(a[1]) for a in (depth.get("asks", []) if depth else []))
+    ob_imbalance = ((bid_vol - ask_vol) / (bid_vol + ask_vol + 1e-9)) * 100
+
+    funding_rate = float(premium.get("lastFundingRate", 0) or 0) * 100 if isinstance(premium, dict) else 0.0
+    vol_ratio = volumes[-1] / (np.mean(volumes[-20:]) + 1e-9)
+
+    calc_sentiment = float(np.clip(
+        ob_imbalance * 0.7 + (20 if vol_ratio > 1.3 and closes[-1] > closes[-2] else (-20 if vol_ratio > 1.3 else 0)),
+        -100,
+        100
+    ))
+    final_sentiment = float(custom_sentiment) if custom_sentiment is not None else calc_sentiment
+
+    w_ema = BRAIN_WEIGHTS["ema_weight"]
+    w_mom = BRAIN_WEIGHTS["momentum_weight"]
+    w_vol = BRAIN_WEIGHTS["volatility_weight"]
+    w_sent = BRAIN_WEIGHTS["sentiment_weight"]
+    total_w = max(w_ema + w_mom + w_vol + w_sent, 1)
+
+    composite_score = (
+        ema_dir * w_ema +
+        mom_dir * w_mom +
+        vol_dir * w_vol +
+        final_sentiment * w_sent
+    ) / total_w
+
+    atr_series = calc_atr_series(highs, lows, closes, 14)
+    atr = float(atr_series[-1])
+    atr_pct = (atr / (price + 1e-9)) * 100
+    decimals = len(str(price).split(".")[1]) if "." in str(price) else 2
+    decimals = min(max(decimals, 2), 6)
+
+    early_setup = detect_early_entry_setup(
+        opens, highs, lows, closes, volumes, ema20, ema50, e200, atr_series, rsi, z_score
+    )
+
+    if early_setup.get("trigger_sound") and early_setup.get("direction"):
+        if early_setup["direction"] == "LONG" and composite_score < 22:
+            composite_score = max(abs(composite_score), 26.0)
+        elif early_setup["direction"] == "SHORT" and composite_score > -22:
+            composite_score = -max(abs(composite_score), 26.0)
+
+    raw_conf = min(abs(composite_score) * 1.15 + (r_squared * 12) + (min(adx, 40) * 0.25), 99.4)
+    if early_setup.get("trigger_sound"):
+        raw_conf = max(raw_conf, float(BRAIN_WEIGHTS["min_confidence"]) + 2.0)
+    confidence = round(float(min(raw_conf, 99.4)), 1)
+
+    min_conf = BRAIN_WEIGHTS["min_confidence"]
+    if composite_score > 18 and confidence >= min_conf:
         signal = "STRONG LONG"
-    elif composite_score > 5:
+    elif composite_score > 10:
         signal = "LONG"
-    elif composite_score <= -20:
+    elif composite_score < -18 and confidence >= min_conf:
         signal = "STRONG SHORT"
-    elif composite_score < -5:
+    elif composite_score < -10:
         signal = "SHORT"
     else:
         signal = "NEUTRAL / WAIT"
 
-    atr = max(float(ind["atr"]), price * 0.002)
-    sl_mult = float(weights.get("sl_mult", 1.4))
-    tp1_mult = float(weights.get("tp1_mult", 1.8))
-    tp2_mult = float(weights.get("tp2_mult", 3.2))
-    tp3_mult = float(weights.get("tp3_mult", 4.8))
+    sl_m = float(BRAIN_WEIGHTS.get("sl_mult", 1.5))
+    tp1_m = float(BRAIN_WEIGHTS.get("tp1_mult", 2.2))
+    tp2_m = float(BRAIN_WEIGHTS.get("tp2_mult", 3.5))
+    tp3_m = float(BRAIN_WEIGHTS.get("tp3_mult", 5.0))
 
-    is_short = ("SHORT" in signal) or (early_setup.get("direction") == "SHORT")
-    if is_short:
-        sl = round(price + atr * sl_mult, 6)
-        tp1 = round(price - atr * tp1_mult, 6)
-        tp2 = round(price - atr * tp2_mult, 6)
-        tp3 = round(price - atr * tp3_mult, 6)
+    ref_dir = early_setup["direction"] if early_setup.get("direction") else ("LONG" if composite_score >= 0 else "SHORT")
+    if ref_dir == "LONG":
+        entry = round(price, decimals)
+        sl = round(price - sl_m * atr, decimals)
+        tp1 = round(price + tp1_m * atr, decimals)
+        tp2 = round(price + tp2_m * atr, decimals)
+        tp3 = round(price + tp3_m * atr, decimals)
     else:
-        sl = round(price - atr * sl_mult, 6)
-        tp1 = round(price + atr * tp1_mult, 6)
-        tp2 = round(price + atr * tp2_mult, 6)
-        tp3 = round(price + atr * tp3_mult, 6)
+        entry = round(price, decimals)
+        sl = round(price + sl_m * atr, decimals)
+        tp1 = round(price - tp1_m * atr, decimals)
+        tp2 = round(price - tp2_m * atr, decimals)
+        tp3 = round(price - tp3_m * atr, decimals)
 
-    rr = round(tp2_mult / max(sl_mult, 0.01), 2)
+    stop_dist = max(abs(entry - sl), 1e-9)
+    rr_ratio = round(abs(tp2 - entry) / stop_dist, 2)
+    tp_plan = compute_tp_timeframe_plan(interval, adx)
+    session_info = get_market_session_info(category, exact_name, real_symbol)
 
-    cap = float(weights.get("account_capital", 0.0) or 0.0)
-    risk_pct = float(weights.get("risk_per_trade_pct", 1.5) or 1.5)
-    max_loss = float(weights.get("max_daily_loss_usdt", 1.0) or 1.0)
-    risk_budget = min(cap * (risk_pct / 100.0), max_loss) if cap > 0 else max_loss
-    sl_dist = max(abs(price - sl), price * 0.002)
-    qty = round(max(0.001, risk_budget / sl_dist), 3)
-    lev = 10
-    margin_usdt = round((qty * price) / lev, 2)
-    p_win_pct = round(min(85.0, max(45.0, 50.0 + confidence * 0.25)), 1)
+    max_lev = CONTRACTS_CACHE["max_lev_map"].get(real_symbol, 50)
+    capital = float(BALANCE_STATE.get("balance_usdt", BRAIN_WEIGHTS.get("account_capital", 0.0)) or 0.0)
+    risk_pct = float(BRAIN_WEIGHTS.get("risk_per_trade_pct", 1.5))
+    rec_lev = calc_recommended_leverage(atr_pct, max_lev, capital)
 
-    entry_pre_alert = compute_entry_pre_alert(price, early_setup, certain_signal, interval)
+    entry_rule, recommended_params, certain_signal = evaluate_profit_math_and_entry(
+        symbol=real_symbol, signal=signal, confidence=confidence, rr_ratio=rr_ratio,
+        adx=adx, r_squared=r_squared, z_score=z_score, rsi=rsi,
+        min_conf=min_conf, capital=capital, risk_pct=risk_pct,
+        stop_dist=stop_dist, price=price, rec_leverage=rec_lev,
+        ema_dir=ema_dir, mom_dir=mom_dir, vol_dir=vol_dir, final_sentiment=final_sentiment,
+        session_info=session_info, early_setup=early_setup
+    )
 
-    if entry_pre_alert["do_not_enter"]:
-        entry_badge = "🚫 NON ENTRARE"
-        entry_reason = f"Prezzo oltre soglia ({entry_pre_alert['over_pct']}%) o candela già estesa."
-    elif entry_pre_alert["enter_now"]:
-        entry_badge = "🚨 ENTRA ORA"
-        entry_reason = f"Setup {early_setup.get('setup_type')} vicino al livello {early_setup.get('limit_price')}."
-    elif entry_pre_alert["pre_alert"]:
-        entry_badge = "⚡ ANTICIPO / PREP."
-        entry_reason = f"In attesa di avvicinamento a {early_setup.get('limit_price')} ({early_setup.get('order_type')})."
-    else:
-        entry_badge = "⏳ IN ATTESA"
-        entry_reason = "Nessun setup direzionale pulito senza contro-impulso."
-
-    profile = get_auto_profile(weights.get("_category", "CRYPTO MAJOR"), interval)
-
-    return {
-        "composite_score": composite_score,
-        "confidence": confidence,
-        "sentiment": sent_bias,
+    result_obj = {
+        "symbol": real_symbol,
+        "bingx_name": exact_name,
+        "display_name": exact_name,
+        "category": category,
+        "session": session_info,
+        "early_setup": early_setup,
+        "timeframe": interval,
+        "applied_profile": applied_profile,
+        "weights": dict(BRAIN_WEIGHTS),
+        "price": price,
         "signal": signal,
         "certain_signal": certain_signal,
-        "levels": {"entry": round(price, 6), "sl": sl, "tp1": tp1, "tp2": tp2, "tp3": tp3, "rr": rr},
-        "recommended_params": {
-            "leverage": lev,
-            "qty": qty,
-            "margin_usdt": margin_usdt,
-            "p_win_pct": p_win_pct,
-            "summary": f"Lev {lev}x • Size {qty} • R:R 1:{rr}",
+        "entry_rule": entry_rule,
+        "recommended_params": recommended_params,
+        "tp_plan": tp_plan,
+        "composite_score": round(float(composite_score), 1),
+        "confidence": confidence,
+        "sentiment": round(final_sentiment, 1),
+        "account_balance": capital,
+        "indicators": {
+            "ema9": round(float(e9), decimals),
+            "ema21": round(float(e21), decimals),
+            "ema50": round(float(e50), decimals),
+            "ema200": round(float(e200), decimals),
+            "rsi": round(rsi, 2),
+            "macd_hist": round(float(macd_hist), decimals + 2),
+            "adx": round(adx, 2),
+            "bb_percent": round(float(bb_percent), 1),
+            "z_score": round(float(z_score), 2),
+            "r_squared": round(r_squared, 3),
+            "atr": round(atr, decimals),
+            "ob_imbalance": round(float(ob_imbalance), 1),
+            "funding_rate": round(funding_rate, 4)
         },
-        "tp_plan": {"label": profile["tp_label"]},
-        "entry_rule": {"badge": entry_badge, "reason": entry_reason},
-        "entry_pre_alert": entry_pre_alert,
+        "levels": {
+            "entry": entry,
+            "sl": sl,
+            "tp1": tp1,
+            "tp2": tp2,
+            "tp3": tp3,
+            "rr": rr_ratio
+        }
     }
+    register_sound_alert_if_exact_moment(result_obj)
+    return result_obj
 
 
-def analyze_single_symbol(symbol: str, interval: str = "15m", custom_sentiment=None, apply_auto_profile: bool = True) -> dict:
-    with STATE_LOCK:
-        m_info = MARKETS_CACHE["by_symbol"].get(symbol, {
-            "symbol": symbol,
-            "bingxName": symbol.replace("-USDT", "USDT"),
-            "category": classify_market(symbol),
-            "lastPrice": 0.0,
-        })
-        base_weights = dict(BRAIN_WEIGHTS)
-        bal_usdt = float(AUTO_MONITOR["balance_info"].get("balance_usdt", 0.0) or 0.0)
-
-    cat = m_info.get("category", classify_market(symbol))
-    profile = get_auto_profile(cat, interval)
-    if apply_auto_profile and base_weights.get("auto_profile_enabled", True):
-        base_weights.update({
-            "ema_weight": profile["ema_weight"],
-            "momentum_weight": profile["momentum_weight"],
-            "volatility_weight": profile["volatility_weight"],
-            "sentiment_weight": profile["sentiment_weight"],
-            "min_confidence": profile["min_confidence"],
-            "sl_mult": profile["sl_mult"],
-            "tp1_mult": profile["tp1_mult"],
-            "tp2_mult": profile["tp2_mult"],
-            "tp3_mult": profile["tp3_mult"],
-        })
-    if custom_sentiment is not None:
-        base_weights["custom_sentiment"] = float(custom_sentiment)
-    base_weights["_category"] = cat
-    if bal_usdt > 0:
-        base_weights["account_capital"] = bal_usdt
-
-    opens, highs, lows, closes, volumes = fetch_klines(symbol, interval, limit=240)
-    price = float(closes[-1]) if len(closes) else float(m_info.get("lastPrice", 0.0) or 0.0)
-    ind = compute_indicators(opens, highs, lows, closes, volumes)
-    early_setup = detect_early_entry_setup(
-        opens, highs, lows, closes, volumes,
-        ind["ema21_series"], ind["ema50_series"], ind["ema200"],
-        ind["atr_series"], ind["rsi"], ind["z_score"]
-    )
-    ev = evaluate_profit_math_and_entry(price, ind, base_weights, early_setup, interval, opens=opens, closes=closes)
-
-    clean_ind = {k: v for k, v in ind.items() if not isinstance(v, np.ndarray)}
-    session_info = get_market_session_info(symbol, cat)
-
-    return {
-        "symbol": symbol,
-        "bingx_name": m_info.get("bingxName", symbol.replace("-USDT", "USDT")),
-        "category": cat,
-        "interval": interval,
-        "price": round(price, 6),
-        "session": session_info,
-        "indicators": clean_ind,
-        "early_setup": early_setup,
-        "composite_score": ev["composite_score"],
-        "confidence": ev["confidence"],
-        "sentiment": ev["sentiment"],
-        "signal": ev["signal"],
-        "certain_signal": ev["certain_signal"],
-        "levels": ev["levels"],
-        "recommended_params": ev["recommended_params"],
-        "tp_plan": ev["tp_plan"],
-        "entry_rule": ev["entry_rule"],
-        "entry_pre_alert": ev["entry_pre_alert"],
-        "weights": base_weights,
-        "applied_profile": profile,
-        "account_balance": bal_usdt,
-    }
-
-
-def _record_alerts_and_maybe_autotrades(analyses: list):
-    now_str = datetime.now(ROME_TZ).strftime("%H:%M:%S")
-    new_alerts = []
-    for a in analyses:
-        early = a.get("early_setup", {})
-        cert = a.get("certain_signal")
-        epa = a.get("entry_pre_alert", {})
-        if (early.get("trigger_sound") or cert) and not epa.get("do_not_enter"):
-            title = f"{'CERTO ' + cert if cert else 'ANTICIPO ' + str(early.get('direction', ''))}"
-            alert_id = f"{a['symbol']}_{a['interval']}_{early.get('candle_id')}_{title}"
-            new_alerts.append({
-                "id": alert_id,
-                "time": now_str,
-                "symbol": a["bingx_name"],
-                "title": title,
-                "order_type": early.get("order_type", "MARKET"),
-                "limit_price": early.get("limit_price", a["price"]),
-                "sl": a["levels"]["sl"],
-                "tp2": a["levels"]["tp2"],
-            })
-
-    with STATE_LOCK:
-        existing_ids = {x["id"] for x in AUTO_MONITOR["audio_alerts"]}
-        for al in new_alerts:
-            if al["id"] not in existing_ids:
-                AUTO_MONITOR["audio_alerts"].insert(0, al)
-        AUTO_MONITOR["audio_alerts"] = AUTO_MONITOR["audio_alerts"][:50]
-        auto_trade_on = bool(AUTO_MONITOR["auto_trade_enabled"])
-        traded_set = set(AUTO_MONITOR["auto_traded_keys"])
-
-    if not auto_trade_on:
+def maybe_auto_execute_trade(analysis: dict):
+    if not BRAIN_WEIGHTS.get("auto_trade_enabled", False):
+        return
+    if not BINGX_API_KEY or not BINGX_SECRET_KEY:
         return
 
-    for a in analyses:
-        epa = a.get("entry_pre_alert", {})
-        if not epa.get("enter_now") or epa.get("do_not_enter"):
-            continue
-        direction = epa.get("direction")
-        if direction not in ("LONG", "SHORT"):
-            continue
-        trade_key = f"{a['symbol']}_{a['interval']}_{direction}_{a.get('early_setup', {}).get('candle_id')}"
-        if trade_key in traded_set:
-            continue
-        qty = float(a.get("recommended_params", {}).get("qty", 0.0) or 0.0)
-        lev = int(a.get("recommended_params", {}).get("leverage", 10) or 10)
-        if qty <= 0:
-            continue
-        side = "BUY" if direction == "LONG" else "SELL"
-        res = bingx_signed_request("POST", "/openApi/swap/v2/trade/order", {
-            "symbol": a["symbol"],
-            "side": side,
-            "positionSide": direction,
-            "type": "MARKET",
-            "quantity": qty,
-            "leverage": lev,
-            "stopLoss": json.dumps({"type": "STOP_MARKET", "stopPrice": a["levels"]["sl"], "workingType": "MARK_PRICE"}),
-            "takeProfit": json.dumps({"type": "TAKE_PROFIT_MARKET", "stopPrice": a["levels"]["tp2"], "workingType": "MARK_PRICE"}),
-        })
-        with STATE_LOCK:
-            AUTO_MONITOR["auto_traded_keys"].add(trade_key)
-            AUTO_MONITOR["trade_logs"].insert(0, {
-                "time": now_str,
-                "symbol": a["symbol"],
-                "side": side,
-                "qty": qty,
-                "tp": a["levels"]["tp2"],
-                "sl": a["levels"]["sl"],
-                "response": res,
-            })
+    bal = float(BALANCE_STATE.get("balance_usdt", 0.0) or 0.0)
+    if bal <= 0:
+        return
+
+    if not analysis.get("session", {}).get("session_ok", True):
+        return
+
+    total_open_pnl = sum(p.get("unrealized_pnl", 0.0) for p in AUTO_SCAN_STATE["open_positions"].values())
+    if total_open_pnl <= -abs(float(BRAIN_WEIGHTS.get("max_daily_loss_usdt", 100.0))):
+        return
+
+    certain = analysis.get("certain_signal")
+    early = analysis.get("early_setup", {})
+    sig = analysis.get("signal", "")
+    action = analysis.get("entry_rule", {}).get("action", "")
+
+    is_valid_entry = (
+        (certain is not None)
+        or (early.get("trigger_sound") and action == "ENTER NOW")
+        or (action == "ENTER NOW" and sig in ("STRONG LONG", "STRONG SHORT"))
+    )
+    if not is_valid_entry:
+        return
+
+    sym = analysis["symbol"]
+    if sym in AUTO_SCAN_STATE["open_positions"]:
+        return
+
+    now = time.time()
+    cooldown = int(BRAIN_WEIGHTS.get("auto_trade_cooldown_sec", 300))
+    last_ts = AUTO_SCAN_STATE["last_auto_trade"].get(sym, 0)
+    if now - last_ts < cooldown:
+        return
+
+    rp = analysis.get("recommended_params", {})
+    qty = float(rp.get("qty", 0) or 0)
+    if qty <= 0:
+        return
+
+    chosen_dir = certain or early.get("direction") or sig
+    side = "BUY" if "LONG" in chosen_dir else "SELL"
+    sl = analysis["levels"]["sl"]
+    tp = analysis["levels"]["tp2"]
+    lev = rp.get("leverage", 10)
+
+    AUTO_SCAN_STATE["last_auto_trade"][sym] = now
+    place_bingx_real_order(sym, side, qty, sl, tp, leverage=lev)
 
 
-def background_monitor_loop():
+def auto_market_monitor_loop():
+    AUTO_SCAN_STATE["running"] = True
     while True:
         try:
-            with STATE_LOCK:
-                enabled = bool(AUTO_MONITOR["enabled"])
-                interval = str(AUTO_MONITOR["interval"] or "15m")
-                cat = str(AUTO_MONITOR["active_category"] or "ALL")
-            if enabled:
-                markets = load_markets_from_bingx(force=False)
-                pool = [m["symbol"] for m in markets if cat in ("ALL", "CERTAIN") or m["category"] == cat][:20]
-                results = {}
-                list_res = []
-                for sym in pool:
-                    an = analyze_single_symbol(sym, interval=interval, apply_auto_profile=True)
-                    results[sym] = an
-                    list_res.append(an)
-                _record_alerts_and_maybe_autotrades(list_res)
-                fetch_bingx_real_balance()
-                fetch_bingx_open_positions()
-                with STATE_LOCK:
-                    AUTO_MONITOR["signals"].update(results)
-                    AUTO_MONITOR["last_run"] = datetime.now(ROME_TZ).strftime("%H:%M:%S")
+            sync_bingx_balance_realtime()
+            if BRAIN_WEIGHTS.get("auto_monitor_enabled", True):
+                contracts = get_all_bingx_contracts()
+                active_cat = AUTO_SCAN_STATE.get("active_category", "ALL")
+                interval = AUTO_SCAN_STATE.get("interval", "15m")
+
+                cat_for_tune = active_cat if active_cat not in ("ALL", "CERTAIN") else "CRYPTO MAJOR"
+                auto_tune_brain_for_category_and_tf(interval, cat_for_tune)
+
+                if active_cat and active_cat not in ("ALL", "CERTAIN"):
+                    cat_contracts = [c for c in contracts if c.get("category") == active_cat]
+                else:
+                    cat_contracts = contracts
+
+                target_symbols = [c["symbol"] for c in cat_contracts[:30]]
+                updated = {}
+
+                for sym in target_symbols:
+                    res = analyze_symbol_math(sym, interval, apply_auto_profile=False)
+                    if res and is_certain_or_early_signal(res):
+                        updated[sym] = res
+                        maybe_auto_execute_trade(res)
+                    time.sleep(0.12)
+
+                AUTO_SCAN_STATE["signals"] = updated
+                AUTO_SCAN_STATE["open_positions"] = fetch_open_bingx_positions(updated)
+                AUTO_SCAN_STATE["last_run"] = time.strftime("%H:%M:%S")
         except Exception as e:
-            print("Background monitor error:", e)
-        time.sleep(5)
+            print(f"[AutoMonitor Error] {e}")
+
+        sleep_sec = max(8, int(BRAIN_WEIGHTS.get("auto_scan_interval", 20)))
+        time.sleep(sleep_sec)
+
+
+monitor_thread = threading.Thread(target=auto_market_monitor_loop, daemon=True)
+monitor_thread.start()
 
 
 @app.route("/")
 def index():
-    return send_from_directory(".", "index.html")
+    return render_template("index.html")
 
 
 @app.route("/api/keys", methods=["GET", "POST"])
 def api_keys():
-    if request.method == "GET":
-        with STATE_LOCK:
-            ak = API_KEYS["api_key"]
-            sk = API_KEYS["secret_key"]
+    global BINGX_API_KEY, BINGX_SECRET_KEY
+    if request.method == "POST":
+        data = request.json or {}
+        ak = (data.get("api_key") or "").strip()
+        sk = (data.get("secret_key") or "").strip()
+        if not ak or not sk:
+            return jsonify({"status": "error", "msg": "Inserisci sia API Key che Secret Key"}), 400
+        BINGX_API_KEY = ak
+        BINGX_SECRET_KEY = sk
+        save_keys_to_disk(ak, sk)
+        bal_info = sync_bingx_balance_realtime()
+        AUTO_SCAN_STATE["open_positions"] = fetch_open_bingx_positions(AUTO_SCAN_STATE["signals"])
         return jsonify({
             "status": "ok",
-            "has_keys": bool(ak and sk),
-            "masked_api_key": _mask_key(ak),
-            "masked_secret_key": _mask_key(sk),
+            "msg": f"Chiavi API BingX salvate! Saldo attuale: {bal_info['balance_usdt']:.2f} USDT"
         })
 
-    body = request.get_json(silent=True) or {}
-    ak = str(body.get("api_key", "")).strip()
-    sk = str(body.get("secret_key", "")).strip()
-    if not ak or not sk:
-        return jsonify({"status": "error", "msg": "Inserisci sia API Key che Secret Key."}), 400
-    with STATE_LOCK:
-        API_KEYS["api_key"] = ak
-        API_KEYS["secret_key"] = sk
-    persist_keys_to_disk(ak, sk)
-    return jsonify({"status": "ok", "msg": "Chiavi API BingX salvate con successo."})
+    masked_key = f"{BINGX_API_KEY[:6]}...{BINGX_API_KEY[-4:]}" if len(BINGX_API_KEY) > 10 else ("Configurata" if BINGX_API_KEY else "Non impostata")
+    masked_sec = f"{BINGX_SECRET_KEY[:4]}...{BINGX_SECRET_KEY[-4:]}" if len(BINGX_SECRET_KEY) > 8 else ("Configurata" if BINGX_SECRET_KEY else "Non impostata")
+    return jsonify({
+        "status": "ok",
+        "has_keys": bool(BINGX_API_KEY and BINGX_SECRET_KEY),
+        "masked_api_key": masked_key,
+        "masked_secret_key": masked_sec
+    })
 
 
 @app.route("/api/markets")
 def api_markets():
     force = request.args.get("force", "0") == "1"
-    data = load_markets_from_bingx(force=force)
-    return jsonify({"status": "ok", "markets": data})
-
-
-@app.route("/api/analyze", methods=["POST"])
-def api_analyze():
-    body = request.get_json(silent=True) or {}
-    symbol = str(body.get("symbol", "BTC-USDT")).upper()
-    interval = str(body.get("interval", "15m"))
-    custom_sent = body.get("custom_sentiment")
-    apply_prof = bool(body.get("apply_auto_profile", True))
-    an = analyze_single_symbol(symbol, interval=interval, custom_sentiment=custom_sent, apply_auto_profile=apply_prof)
-    _record_alerts_and_maybe_autotrades([an])
-    with STATE_LOCK:
-        AUTO_MONITOR["signals"][symbol] = an
-        alerts = list(AUTO_MONITOR["audio_alerts"])
-    return jsonify({"status": "ok", "data": an, "audio_alerts": alerts})
-
-
-@app.route("/api/scan_top", methods=["POST"])
-def api_scan_top():
-    body = request.get_json(silent=True) or {}
-    symbols = body.get("symbols") or []
-    interval = str(body.get("interval", "15m"))
-    overrides = body.get("overrides") or {}
-    out = []
-    for sym in symbols[:30]:
-        s_up = str(sym).upper()
-        ov = overrides.get(s_up, {}) if isinstance(overrides, dict) else {}
-        c_sent = ov.get("sentiment") if ov.get("sentiment") not in (None, 0, "0") else None
-        out.append(analyze_single_symbol(s_up, interval=interval, custom_sentiment=c_sent, apply_auto_profile=True))
-    _record_alerts_and_maybe_autotrades(out)
-    with STATE_LOCK:
-        for item in out:
-            AUTO_MONITOR["signals"][item["symbol"]] = item
-        alerts = list(AUTO_MONITOR["audio_alerts"])
-    return jsonify({"status": "ok", "signals": out, "audio_alerts": alerts})
-
-
-@app.route("/api/weights", methods=["POST"])
-def api_weights():
-    body = request.get_json(silent=True) or {}
-    with STATE_LOCK:
-        for k in ("ema_weight", "momentum_weight", "volatility_weight", "sentiment_weight", "min_confidence", "account_capital", "risk_per_trade_pct", "max_daily_loss_usdt"):
-            if k in body and body[k] is not None:
-                try:
-                    BRAIN_WEIGHTS[k] = float(body[k])
-                except Exception:
-                    pass
-        w_copy = dict(BRAIN_WEIGHTS)
-    return jsonify({"status": "ok", "weights": w_copy})
-
-
-@app.route("/api/account_balance")
-def api_account_balance():
-    info = fetch_bingx_real_balance()
-    return jsonify({
-        "status": "ok",
-        "balance": info.get("balance_usdt", 0.0),
-        "available": info.get("available_usdt", 0.0),
-        "unrealized_pnl": info.get("unrealized_pnl_usdt", 0.0),
-        "last_sync": info.get("last_sync"),
-        "msg": info.get("msg", ""),
-    })
-
-
-@app.route("/api/auto_monitor_status", methods=["GET", "POST"])
-def api_auto_monitor_status():
-    if request.method == "POST":
-        body = request.get_json(silent=True) or {}
-        with STATE_LOCK:
-            if "enabled" in body:
-                AUTO_MONITOR["enabled"] = bool(body["enabled"])
-            if "auto_trade_enabled" in body:
-                AUTO_MONITOR["auto_trade_enabled"] = bool(body["auto_trade_enabled"])
-            if "interval" in body and body["interval"]:
-                AUTO_MONITOR["interval"] = str(body["interval"])
-            if "active_category" in body and body["active_category"]:
-                AUTO_MONITOR["active_category"] = str(body["active_category"])
-            cur_tf = AUTO_MONITOR["interval"]
-            cur_cat = AUTO_MONITOR["active_category"]
-            prof = get_auto_profile(cur_cat if cur_cat not in ("ALL", "CERTAIN") else "CRYPTO MAJOR", cur_tf)
-            if body.get("apply_profile", True):
-                BRAIN_WEIGHTS.update({
-                    "ema_weight": prof["ema_weight"],
-                    "momentum_weight": prof["momentum_weight"],
-                    "volatility_weight": prof["volatility_weight"],
-                    "sentiment_weight": prof["sentiment_weight"],
-                    "min_confidence": prof["min_confidence"],
-                    "sl_mult": prof["sl_mult"],
-                    "tp1_mult": prof["tp1_mult"],
-                    "tp2_mult": prof["tp2_mult"],
-                    "tp3_mult": prof["tp3_mult"],
-                })
-            w_snap = dict(BRAIN_WEIGHTS)
-
-        return jsonify({"status": "ok", "weights": w_snap, "profile": prof})
-
-    with STATE_LOCK:
-        snap = {
-            "status": "ok",
-            "enabled": AUTO_MONITOR["enabled"],
-            "auto_trade_enabled": AUTO_MONITOR["auto_trade_enabled"],
-            "interval": AUTO_MONITOR["interval"],
-            "active_category": AUTO_MONITOR["active_category"],
-            "last_run": AUTO_MONITOR["last_run"],
-            "signals": dict(AUTO_MONITOR["signals"]),
-            "trade_logs": list(AUTO_MONITOR["trade_logs"]),
-            "audio_alerts": list(AUTO_MONITOR["audio_alerts"]),
-            "open_positions": dict(AUTO_MONITOR["open_positions"]),
-            "balance_info": dict(AUTO_MONITOR["balance_info"]),
-            "weights": dict(BRAIN_WEIGHTS),
-        }
-    return jsonify(snap)
-
-
-@app.route("/api/execute_order", methods=["POST"])
-def api_execute_order():
-    body = request.get_json(silent=True) or {}
-    symbol = str(body.get("symbol", "")).upper()
-    side = str(body.get("side", "BUY")).upper()
-    qty = float(body.get("quantity", 0.0) or 0.0)
-    lev = int(float(body.get("leverage", 10) or 10))
-    sl = body.get("sl")
-    tp = body.get("tp")
-
-    if not symbol or qty <= 0:
-        return jsonify({"status": "error", "msg": "Parametri ordine non validi"}), 400
-
-    pos_side = "LONG" if side == "BUY" else "SHORT"
-    params = {
-        "symbol": symbol,
-        "side": side,
-        "positionSide": pos_side,
-        "type": "MARKET",
-        "quantity": qty,
-        "leverage": lev,
-    }
-    if sl is not None:
-        params["stopLoss"] = json.dumps({"type": "STOP_MARKET", "stopPrice": sl, "workingType": "MARK_PRICE"})
-    if tp is not None:
-        params["takeProfit"] = json.dumps({"type": "TAKE_PROFIT_MARKET", "stopPrice": tp, "workingType": "MARK_PRICE"})
-
-    res = bingx_signed_request("POST", "/openApi/swap/v2/trade/order", params)
-    with STATE_LOCK:
-        AUTO_MONITOR["trade_logs"].insert(0, {
-            "time": datetime.now(ROME_TZ).strftime("%H:%M:%S"),
-            "symbol": symbol,
-            "side": side,
-            "qty": qty,
-            "tp": tp,
-            "sl": sl,
-            "response": res,
-        })
-    return jsonify({"status": "ok", "bingx_response": res})
+    contracts = get_all_bingx_contracts(force=force)
+    for c in contracts:
+        c["session"] = get_market_session_info(c["category"], c["bingxName"], c["symbol"])
+    return jsonify({"status": "ok", "count": len(contracts), "markets": contracts})
 
 
 @app.route("/api/close_position", methods=["POST"])
 def api_close_position():
-    body = request.get_json(silent=True) or {}
-    symbol = str(body.get("symbol", "")).upper()
-    side = str(body.get("side", "LONG")).upper()
-    qty = float(body.get("quantity", 0.0) or 0.0)
-    if not symbol or qty <= 0:
-        return jsonify({"status": "error", "msg": "Parametri chiusura non validi"}), 400
+    data = request.json or {}
+    sym = data.get("symbol")
+    side = data.get("side")
+    qty = data.get("quantity")
+    if not all([sym, side, qty]):
+        return jsonify({"status": "error", "msg": "Dati chiusura mancanti"}), 400
+    res = close_bingx_position(sym, side, qty)
+    AUTO_SCAN_STATE["open_positions"] = fetch_open_bingx_positions(AUTO_SCAN_STATE["signals"])
+    return jsonify(res)
 
-    close_side = "SELL" if side == "LONG" else "BUY"
-    res = bingx_signed_request("POST", "/openApi/swap/v2/trade/order", {
-        "symbol": symbol,
-        "side": close_side,
-        "positionSide": side,
-        "type": "MARKET",
-        "quantity": qty,
+
+@app.route("/api/auto_monitor_status", methods=["GET", "POST"])
+def api_auto_monitor_status():
+    profile = None
+    if request.method == "POST":
+        data = request.json or {}
+        if "enabled" in data:
+            BRAIN_WEIGHTS["auto_monitor_enabled"] = bool(data["enabled"])
+        if "auto_trade_enabled" in data:
+            BRAIN_WEIGHTS["auto_trade_enabled"] = bool(data["auto_trade_enabled"])
+        if "active_category" in data:
+            AUTO_SCAN_STATE["active_category"] = data["active_category"] or "ALL"
+        if "only_certain_and_early" in data:
+            AUTO_SCAN_STATE["only_certain_and_early"] = bool(data["only_certain_and_early"])
+        if "interval" in data:
+            AUTO_SCAN_STATE["interval"] = data["interval"]
+        if any(k in data for k in ("interval", "active_category")) and data.get("apply_profile", True):
+            cat_for_prof = AUTO_SCAN_STATE.get("active_category", "CRYPTO MAJOR")
+            if cat_for_prof in ("ALL", "CERTAIN"):
+                cat_for_prof = "CRYPTO MAJOR"
+            profile = auto_tune_brain_for_category_and_tf(AUTO_SCAN_STATE.get("interval", "15m"), cat_for_prof)
+        if "scan_interval_sec" in data:
+            BRAIN_WEIGHTS["auto_scan_interval"] = max(8, int(data["scan_interval_sec"]))
+
+    bal_info = sync_bingx_balance_realtime()
+    positions = fetch_open_bingx_positions(AUTO_SCAN_STATE["signals"])
+    AUTO_SCAN_STATE["open_positions"] = positions
+
+    return jsonify({
+        "status": "ok",
+        "running": AUTO_SCAN_STATE["running"],
+        "enabled": BRAIN_WEIGHTS.get("auto_monitor_enabled", True),
+        "auto_trade_enabled": BRAIN_WEIGHTS.get("auto_trade_enabled", False),
+        "active_category": AUTO_SCAN_STATE.get("active_category", "ALL"),
+        "only_certain_and_early": AUTO_SCAN_STATE.get("only_certain_and_early", True),
+        "last_run": AUTO_SCAN_STATE["last_run"],
+        "interval": AUTO_SCAN_STATE["interval"],
+        "profile": profile or {"profile_name": f"AUTO • {AUTO_SCAN_STATE.get('active_category', 'ALL')} • {TIMEFRAME_PROFILES.get(AUTO_SCAN_STATE['interval'], {}).get('label', AUTO_SCAN_STATE['interval'])}"},
+        "weights": BRAIN_WEIGHTS,
+        "scan_interval_sec": BRAIN_WEIGHTS.get("auto_scan_interval", 20),
+        "balance_info": bal_info,
+        "signals": AUTO_SCAN_STATE["signals"],
+        "open_positions": positions,
+        "trade_logs": AUTO_SCAN_STATE["trade_logs"],
+        "audio_alerts": AUTO_SCAN_STATE["audio_alerts"]
     })
-    with STATE_LOCK:
-        AUTO_MONITOR["trade_logs"].insert(0, {
-            "time": datetime.now(ROME_TZ).strftime("%H:%M:%S"),
-            "symbol": symbol,
-            "side": f"CLOSE-{side}",
-            "qty": qty,
-            "tp": "--",
-            "sl": "--",
-            "response": res,
-        })
-    return jsonify({"status": "ok", "bingx_response": res})
 
 
-load_saved_keys_on_startup()
-threading.Thread(target=background_monitor_loop, daemon=True).start()
+@app.route("/api/analyze", methods=["GET", "POST"])
+def api_analyze():
+    if request.method == "POST":
+        data = request.json or {}
+        symbol = data.get("symbol", "BTC-USDT")
+        interval = data.get("interval", "15m")
+        custom_sentiment = data.get("custom_sentiment", None)
+        apply_auto_profile = bool(data.get("apply_auto_profile", True))
+    else:
+        symbol = request.args.get("symbol", "BTC-USDT")
+        interval = request.args.get("interval", "15m")
+        custom_sentiment = None
+        apply_auto_profile = True
+
+    res = analyze_symbol_math(symbol, interval, custom_sentiment, apply_auto_profile=apply_auto_profile)
+    if not res:
+        return jsonify({"status": "error", "msg": "Contratto non trovato o dati insufficienti su BingX"}), 400
+    return jsonify({"status": "ok", "data": res, "audio_alerts": AUTO_SCAN_STATE["audio_alerts"]})
+
+
+@app.route("/api/scan_top", methods=["POST"])
+def api_scan_top():
+    data = request.json or {}
+    symbols = data.get("symbols", [])
+    interval = data.get("interval", "15m")
+    overrides = data.get("overrides", {})
+    only_ce = bool(data.get("only_certain_and_early", True))
+
+    results = []
+    for sym in symbols[:30]:
+        ov = overrides.get(sym, {})
+        custom_sent = ov.get("sentiment", None)
+        analysis = analyze_symbol_math(sym, interval, custom_sent, apply_auto_profile=False)
+        if analysis:
+            if "score_override" in ov and ov["score_override"] is not None:
+                analysis["composite_score"] = float(ov["score_override"])
+                analysis["confidence"] = min(round(abs(analysis["composite_score"]) * 1.15, 1), 99.9)
+            if not only_ce or is_certain_or_early_signal(analysis):
+                results.append(analysis)
+    return jsonify({"status": "ok", "signals": results, "audio_alerts": AUTO_SCAN_STATE["audio_alerts"]})
+
+
+@app.route("/api/weights", methods=["GET", "POST"])
+def api_weights():
+    if request.method == "POST":
+        data = request.json or {}
+        for k in BRAIN_WEIGHTS:
+            if k in data:
+                if k in ("auto_monitor_enabled", "auto_trade_enabled"):
+                    BRAIN_WEIGHTS[k] = bool(data[k])
+                else:
+                    BRAIN_WEIGHTS[k] = float(data[k])
+    return jsonify({"status": "ok", "weights": BRAIN_WEIGHTS})
+
+
+@app.route("/api/account_balance")
+def api_account_balance():
+    info = sync_bingx_balance_realtime()
+    return jsonify({
+        "status": "ok" if info.get("source") == "bingx_live" else "error",
+        "balance": info["balance_usdt"],
+        "available": info["available_usdt"],
+        "unrealized_pnl": info["unrealized_pnl_usdt"],
+        "equity": info["equity_usdt"],
+        "last_sync": info["last_sync"],
+        "error": info.get("last_error")
+    })
+
+
+@app.route("/api/execute_order", methods=["POST"])
+def api_execute_order():
+    data = request.json or {}
+    symbol = data.get("symbol", "")
+    side = data.get("side")
+    quantity = data.get("quantity")
+    sl = data.get("sl")
+    tp = data.get("tp")
+    leverage = data.get("leverage")
+
+    if not all([symbol, side, quantity]):
+        return jsonify({"status": "error", "msg": "Parametri ordine incompleti"}), 400
+
+    res = place_bingx_real_order(symbol, side, quantity, sl, tp, leverage=leverage)
+    AUTO_SCAN_STATE["open_positions"] = fetch_open_bingx_positions(AUTO_SCAN_STATE["signals"])
+    return jsonify(res)
+
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=False)
+    port = int(os.getenv("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=False)
