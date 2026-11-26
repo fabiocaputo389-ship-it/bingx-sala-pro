@@ -250,6 +250,11 @@
       background: linear-gradient(135deg, rgba(245, 185, 66, 0.14), rgba(9, 14, 26, 0.88));
     }
 
+    .radar-alert-tile.fakeout-guard {
+      border-color: rgba(244, 63, 94, 0.55);
+      background: linear-gradient(135deg, rgba(244, 63, 94, 0.14), rgba(9, 14, 26, 0.88));
+    }
+
     .candle-history {
       display: flex;
       flex-wrap: wrap;
@@ -710,6 +715,7 @@
       <span>👑 BingX VIP Signal Room</span>
       <span id="monitorPill" class="pill green">Monitor: ATTIVO</span>
       <span id="profilePill" class="pill amber">Profilo: AUTO-PRO</span>
+      <span id="fakeoutGuardPill" class="pill purple">Anti-Fakeout & Rottura: HARD</span>
     </div>
 
     <div class="controls-row">
@@ -736,6 +742,11 @@
       </label>
 
       <label class="toggle-label">
+        <input type="checkbox" id="strictBreakoutChk" checked onchange="renderAllDynamic()" />
+        Rottura & Anti-Fakeout Rigidi
+      </label>
+
+      <label class="toggle-label">
         <input type="checkbox" id="autoTradeChk" />
         Auto-Trade Reale
       </label>
@@ -759,7 +770,7 @@
     <!-- CARD DEDICATE AI TOP SETUP VIP DEL MOMENTO (CON SCORE MODIFICABILE AL VOLO) -->
     <div class="card">
       <div class="card-header">
-        <div class="card-title">⚡ Top Setup VIP del Momento (Parametri Auto • Score Modificabile)</div>
+        <div class="card-title">⚡ Top Setup VIP del Momento (Rottura Validata • Parametri Auto • Score Modificabile)</div>
         <div class="controls-row">
           <span id="topSetupsBadge" class="pill amber">0 setup</span>
           <button class="primary" onclick="applyBestAutoParams(true)">⚡ Auto-Ottimizza Parametri</button>
@@ -845,7 +856,7 @@
       <div class="card-header">
         <div class="card-title">🎯 Score Esatto Modificabile per Asset (Altri Parametri Auto-Ottimizzati)</div>
         <div class="controls-row">
-          <span id="autoParamsSummary" class="pill green">Auto: EMA 40 • Mom 30 • Vol 15 • Sent 15 • Conf 65% • Risk 1.5% • TP 1.8/3.0/4.5x</span>
+          <span id="autoParamsSummary" class="pill green">Auto: EMA 40 • Mom 30 • Vol 15 • Sent 15 • Conf 68% • Risk 1.5% • TP 1.9/3.2/4.8x</span>
           <button class="primary" onclick="applyBestAutoParams(true)">⚡ Reimposta Parametri Auto</button>
         </div>
       </div>
@@ -861,7 +872,7 @@
               <th>Sentiment (-100..+100)</th>
               <th>Conf.</th>
               <th>Segnale</th>
-              <th>Stato Operativo</th>
+              <th>Rottura / Fakeout</th>
               <th>Applica / Reset</th>
             </tr>
           </thead>
@@ -916,7 +927,7 @@
             <thead>
               <tr>
                 <th>Asset, Avviso & Candela</th>
-                <th>Direzione / Stato</th>
+                <th>Direzione / Rottura</th>
                 <th>Conf.</th>
                 <th>Prezzo / Limite</th>
                 <th>SL / TP1 / TP2 / TP3</th>
@@ -939,7 +950,7 @@
             <button class="primary" onclick="analyzeSingle()">Analizza</button>
           </div>
         </div>
-        <div id="singleAnalysisBox" class="muted">Seleziona o analizza un contratto per vedere dettagli, preparazione entrata, filtri e indicatori.</div>
+        <div id="singleAnalysisBox" class="muted">Seleziona o analizza un contratto per vedere dettagli, rottura, anti-fakeout, preparazione entrata e indicatori.</div>
       </div>
     </div>
 
@@ -986,7 +997,7 @@
 
       <div class="card">
         <div class="card-header">
-          <div class="card-title">🔔 Allarmi Acustici, Preparazione Entrata & Candela Profitto</div>
+          <div class="card-title">🔔 Allarmi Acustici, Anti-Fakeout, Entrata & Profitto</div>
         </div>
         <div id="audioAlertsBox" class="log-box">
           <div class="muted">Nessun allarme recente.</div>
@@ -1003,19 +1014,19 @@
       momentum_weight: 30,
       volatility_weight: 15,
       sentiment_weight: 15,
-      min_confidence: 65,
+      min_confidence: 68,
       risk_per_trade_pct: 1.5,
-      sl_mult: 1.35,
-      tp1_mult: 1.8,
-      tp2_mult: 3.0,
-      tp3_mult: 4.5,
-      max_entry_atr_stretch: 1.5,
-      max_entry_z_abs: 2.4,
+      sl_mult: 1.45,
+      tp1_mult: 1.9,
+      tp2_mult: 3.2,
+      tp3_mult: 4.8,
+      max_entry_atr_stretch: 1.25,
+      max_entry_z_abs: 2.0,
       anti_fomo_enabled: true,
-      anti_fomo_max_candle_atr: 1.65,
-      anti_fomo_max_vol_mult: 2.8,
-      anti_fomo_rsi_oversold: 25,
-      anti_fomo_rsi_overbought: 75
+      anti_fomo_max_candle_atr: 1.4,
+      anti_fomo_max_vol_mult: 2.4,
+      anti_fomo_rsi_oversold: 28,
+      anti_fomo_rsi_overbought: 72
     };
 
     let STATE = {
@@ -1030,9 +1041,13 @@
       preWarnedCandleKey: null,
       lastProfitAlertSignature: null,
       lastAlertId: null,
-      soundEnabled: true,
-      autoParamsAppliedOnce: false
+      soundEnabled: true
     };
+
+    function isStrictBreakoutEnabled() {
+      const el = document.getElementById("strictBreakoutChk");
+      return el ? Boolean(el.checked) : true;
+    }
 
     function toggleSound() {
       STATE.soundEnabled = !STATE.soundEnabled;
@@ -1125,20 +1140,93 @@
       };
     }
 
-    function isSignalBlocked(s) {
-      if (!s) return true;
+    function evaluateBreakoutAndFakeout(s) {
+      if (!s) {
+        return {
+          fakeoutRisk: true,
+          breakoutConfirmed: false,
+          badge: "⚠️ NESSUN SEGNALE",
+          reason: "Nessun dato disponibile"
+        };
+      }
+
       const ew = s.entry_window || {};
       const sn = s.sn_rejection || {};
       const af = s.anti_fomo || {};
       const ms = s.manual_sign || {};
       const sess = s.session || {};
-      return (
-        Boolean(ew.exceeded)
-        || Boolean(sn.rejected)
-        || Boolean(af.fomo_blocked)
-        || ["CANCELLED_REVERSAL", "REJECTED_SN", "OVER_THRESHOLD", "ANTI_FOMO_BLOCK"].includes(ms.status)
-        || sess.session_ok === false
+      const early = s.early_setup || {};
+      const sInfo = getSignalSideInfo(s);
+      const score = Number(s.composite_score ?? 0);
+      const conf = Number(s.confidence ?? 0);
+
+      const reasons = [];
+      let fakeoutRisk = false;
+
+      if (Boolean(af.fomo_blocked) || ms.status === "ANTI_FOMO_BLOCK") {
+        fakeoutRisk = true;
+        reasons.push(af.reason || "Strappo Anti-FOMO");
+      }
+      if (Boolean(sn.rejected) || ms.status === "REJECTED_SN") {
+        fakeoutRisk = true;
+        reasons.push(sn.reason || "Rifiuto SN lato opposto");
+      }
+      if (Boolean(ew.exceeded) || ms.status === "OVER_THRESHOLD") {
+        fakeoutRisk = true;
+        reasons.push(ew.reason || "Prezzo oltre soglia di rottura");
+      }
+      if (ms.status === "CANCELLED_REVERSAL") {
+        fakeoutRisk = true;
+        reasons.push(ms.reason || "Inversione / rientro nella zona");
+      }
+      if (sess.session_ok === false) {
+        fakeoutRisk = true;
+        reasons.push(sess.session_name || "Fuori sessione");
+      }
+
+      if (sInfo.isShort && score > 12) {
+        fakeoutRisk = true;
+        reasons.push(`Divergenza score (${score}) su setup SHORT`);
+      }
+      if (!sInfo.isShort && score < -12) {
+        fakeoutRisk = true;
+        reasons.push(`Divergenza score (${score}) su setup LONG`);
+      }
+
+      if (isStrictBreakoutEnabled()) {
+        if (conf < 65 && Math.abs(score) < 55) {
+          fakeoutRisk = true;
+          reasons.push(`Spinta breakout debole (Conf ${conf}%, Score ${score})`);
+        }
+        const distPct = Math.abs(Number(early.distance_pct ?? 0));
+        if (distPct > 1.2) {
+          fakeoutRisk = true;
+          reasons.push(`Rottura troppo distante (${distPct.toFixed(2)}%)`);
+        }
+      }
+
+      const breakoutConfirmed = !fakeoutRisk && (
+        Boolean(s.certain_signal)
+        || Math.abs(score) >= 50
+        || conf >= 68
       );
+
+      return {
+        fakeoutRisk,
+        breakoutConfirmed,
+        badge: fakeoutRisk
+          ? "⚠️ ANTI-FAKEOUT: RISCHIO RIENTRO"
+          : (breakoutConfirmed ? "🚀 ROTTURA CONFERMATA" : "🛡️ ROTTURA IN VALIDAZIONE"),
+        reason: reasons.length
+          ? reasons.join(" • ")
+          : "Direzione, soglia e momentum coerenti con rottura valida"
+      };
+    }
+
+    function isSignalBlocked(s) {
+      if (!s) return true;
+      const g = evaluateBreakoutAndFakeout(s);
+      return g.fakeoutRisk;
     }
 
     function isActionableSignal(s) {
@@ -1153,7 +1241,7 @@
       const early = s.early_setup || {};
       const ms = s.manual_sign || {};
       const distPct = Number(early.distance_pct ?? 999);
-      return Boolean(clk.isPre || early.trigger_sound || ms.show_enter_now || Math.abs(distPct) <= 0.8);
+      return Boolean(clk.isPre || early.trigger_sound || ms.show_enter_now || Math.abs(distPct) <= 0.75);
     }
 
     function getProfitCandleStatus(p, interval) {
@@ -1239,6 +1327,10 @@
         .filter(x => x.st.loading);
 
       const prepSignals = freeList.filter(s => isPreparingEntry(s, clk)).slice(0, 2);
+      const fakeoutSignals = Object.values(STATE.signals || {})
+        .filter(s => s && isActionableSignal(s) && evaluateBreakoutAndFakeout(s).fakeoutRisk)
+        .slice(0, 1);
+
       const tiles = [];
 
       profitPositions.slice(0, 2).forEach(({ st }) => {
@@ -1254,11 +1346,24 @@
         const sInfo = getSignalSideInfo(s);
         const lv = s.levels || {};
         const early = s.early_setup || {};
+        const brk = evaluateBreakoutAndFakeout(s);
         tiles.push(`
           <div class="radar-alert-tile entry-prep">
-            <div><span class="pill amber">🎯 PREPARAZIONE ALL'ENTRATA (${clk.countdownStr})</span></div>
+            <div><span class="pill amber">🎯 PREPARAZIONE ALL'ENTRATA • ${brk.badge}</span></div>
             <div style="color:#fef3c7; font-weight:700;">
               ${s.bingx_name || s.symbol} • ${sInfo.icon} ${sInfo.actionLabel} • Entry ${early.limit_price ?? lv.entry ?? s.price} • TP1 ${lv.tp1 ?? "--"} / TP2 ${lv.tp2 ?? "--"} • SL ${lv.sl ?? "--"}
+            </div>
+          </div>
+        `);
+      });
+
+      fakeoutSignals.forEach(s => {
+        const brk = evaluateBreakoutAndFakeout(s);
+        tiles.push(`
+          <div class="radar-alert-tile fakeout-guard">
+            <div><span class="pill red">${brk.badge}</span></div>
+            <div style="color:#fecdd3; font-weight:700;">
+              ${s.bingx_name || s.symbol}: ${brk.reason}
             </div>
           </div>
         `);
@@ -1312,69 +1417,38 @@
         };
       }
 
-      const ew = sig.entry_window || {};
-      const sn = sig.sn_rejection || {};
-      const af = sig.anti_fomo || {};
+      const brk = evaluateBreakoutAndFakeout(sig);
       const ms = sig.manual_sign || {};
-      const sess = sig.session || {};
       const lv = sig.levels || {};
       const rp = sig.recommended_params || {};
       const sInfo = getSignalSideInfo(sig);
       const tpSummary = `${sInfo.actionLabel} • Entry ${lv.entry ?? sig.price} • TP1 ${lv.tp1 ?? "--"} • TP2 ${lv.tp2 ?? "--"} • TP3 ${lv.tp3 ?? "--"} • SL ${lv.sl ?? "--"} • Lev ${rp.leverage ?? "--"}x`;
 
-      if (af.fomo_blocked) {
+      if (brk.fakeoutRisk) {
         return {
           cls: "timing-pill stop",
-          text: `🛑 ANTI-FOMO • ${sInfo.icon} ${sInfo.actionLabel}`,
-          title: `${af.reason || "Blocco Anti-FOMO"} | ${tpSummary}`
-        };
-      }
-      if (sn.rejected) {
-        return {
-          cls: "timing-pill stop",
-          text: `🛑 NON ENTRARE (SN) • ${sInfo.icon} ${sInfo.actionLabel}`,
-          title: `${sn.reason || "Rifiuto SN candela alta opposta"} | ${tpSummary}`
-        };
-      }
-      if (ew.exceeded) {
-        return {
-          cls: "timing-pill stop",
-          text: `🛑 NON ENTRARE (SOGLIA) • ${sInfo.icon} ${sInfo.actionLabel}`,
-          title: `${ew.reason || "Prezzo oltre soglia"} | ${tpSummary}`
-        };
-      }
-      if (ms.status === "CANCELLED_REVERSAL") {
-        return {
-          cls: "timing-pill stop",
-          text: `❌ ANNULLATO • ${sInfo.icon} ${sInfo.actionLabel}`,
-          title: `${ms.reason || "Segnale annullato per inversione"} | ${tpSummary}`
-        };
-      }
-      if (sess.session_ok === false) {
-        return {
-          cls: "timing-pill wait",
-          text: `🟡 FUORI ORARIO • ${sInfo.icon} ${sInfo.actionLabel} • TP2 ${lv.tp2 ?? "--"}`,
-          title: `${sess.session_name || "Fuori orario"} | ${tpSummary}`
+          text: `🛑 ANTI-FAKEOUT • ${brk.reason}`,
+          title: `${brk.reason} | ${tpSummary}`
         };
       }
       if (ms.show_enter_now || clk.isPre) {
         return {
           cls: sInfo.isShort ? "timing-pill go-short" : "timing-pill go",
           text: `🟢 ENTRA ORA • ${sInfo.icon} ${sInfo.actionLabel} (-${clk.rem}s) • TP1 ${lv.tp1 ?? "--"} / TP2 ${lv.tp2 ?? "--"} / TP3 ${lv.tp3 ?? "--"} • SL ${lv.sl ?? "--"}`,
-          title: tpSummary
+          title: `${brk.badge} | ${tpSummary}`
         };
       }
       if (isPreparingEntry(sig, clk)) {
         return {
           cls: "timing-pill prep",
           text: `🎯 PREPARA ENTRATA • ${sInfo.icon} ${sInfo.actionLabel} • Entry ${lv.entry ?? sig.price} • TP2 ${lv.tp2 ?? "--"}`,
-          title: tpSummary
+          title: `${brk.badge} | ${tpSummary}`
         };
       }
       return {
         cls: "timing-pill wait",
-        text: `🎯 FINESTRA OK • ${sInfo.icon} ${sInfo.actionLabel} • TP1 ${lv.tp1 ?? "--"} / TP2 ${lv.tp2 ?? "--"} / TP3 ${lv.tp3 ?? "--"} • SL ${lv.sl ?? "--"} (${clk.countdownStr})`,
-        title: tpSummary
+        text: `${brk.badge} • ${sInfo.icon} ${sInfo.actionLabel} • TP1 ${lv.tp1 ?? "--"} / TP2 ${lv.tp2 ?? "--"} • SL ${lv.sl ?? "--"} (${clk.countdownStr})`,
+        title: `${brk.reason} | ${tpSummary}`
       };
     }
 
@@ -1408,6 +1482,13 @@
       const interval = document.getElementById("timeframeSelect").value || "15m";
       const clk = computeLiveCandleClock(interval);
       clk.interval = interval;
+
+      const guardPill = document.getElementById("fakeoutGuardPill");
+      if (guardPill) {
+        const strict = isStrictBreakoutEnabled();
+        guardPill.textContent = strict ? "Anti-Fakeout & Rottura: HARD" : "Anti-Fakeout & Rottura: STD";
+        guardPill.className = strict ? "pill purple" : "pill blue";
+      }
 
       const globalBadge = document.getElementById("globalTimerBadge");
       globalBadge.textContent = clk.isPre
@@ -1449,25 +1530,21 @@
             time: clk.openClock,
             timeframe: interval,
             blocked: false,
-            text: `Nuova candela ${interval} aperta alle ${clk.openClock} — ENTRA ORA (${freeList.length} LIBERI): ${topParts.join(" • ")}`
+            text: `Nuova candela ${interval} aperta alle ${clk.openClock} — ROTTURA VALIDATA ENTRA ORA (${freeList.length} LIBERI): ${topParts.join(" • ")}`
           });
           playBeep(980, 220);
         } else {
-          const sigList = Object.values(STATE.signals || {});
-          const snCnt = sigList.filter(s => s && s.sn_rejection && s.sn_rejection.rejected).length;
-          const overCnt = sigList.filter(s => s && s.entry_window && s.entry_window.exceeded).length;
-          const fomoCnt = sigList.filter(s => s && s.anti_fomo && s.anti_fomo.fomo_blocked).length;
-          const reasons = [];
-          if (fomoCnt) reasons.push(`${fomoCnt} bloccati anti-FOMO`);
-          if (snCnt) reasons.push(`${snCnt} rifiutati per SN candela alta opposta`);
-          if (overCnt) reasons.push(`${overCnt} oltre soglia`);
-          const reasonTxt = reasons.length ? reasons.join(", ") : "nessun asset libero da blocchi";
+          const sigList = Object.values(STATE.signals || {}).filter(s => s && isActionableSignal(s));
+          const fakeoutCnt = sigList.filter(s => evaluateBreakoutAndFakeout(s).fakeoutRisk).length;
+          const reasonTxt = fakeoutCnt > 0
+            ? `${fakeoutCnt} setup bloccati da Anti-Fakeout / Rottura non confermata`
+            : "nessuna rottura confermata libera da blocchi";
           pushNewCandleWrittenAlert({
             id: candleKey,
             time: clk.openClock,
             timeframe: interval,
             blocked: true,
-            text: `Nuova candela ${interval} aperta alle ${clk.openClock} — NESSUN ASSET LIBERO (${reasonTxt}).`
+            text: `Nuova candela ${interval} aperta alle ${clk.openClock} — NESSUN INGRESSO (${reasonTxt}).`
           });
         }
       }
@@ -1482,7 +1559,6 @@
       });
       const d = await r.json();
       if (d.status === "ok") {
-        STATE.autoParamsAppliedOnce = true;
         await analyzeSingle();
         await pollMonitor();
         if (forceNotify) {
@@ -1509,8 +1585,8 @@
         const rp = s.recommended_params || {};
         const early = s.early_setup || {};
         const sInfo = getSignalSideInfo(s);
-        const blocked = isSignalBlocked(s);
-        const cardCls = blocked ? "setup-card" : (sInfo.isShort ? "setup-card short" : "setup-card go");
+        const brk = evaluateBreakoutAndFakeout(s);
+        const cardCls = brk.fakeoutRisk ? "setup-card" : (sInfo.isShort ? "setup-card short" : "setup-card go");
         const ov = (STATE.symbolOverrides || {})[s.symbol] || {};
         const currentScore = ov.score_override !== undefined && ov.score_override !== null
           ? ov.score_override
@@ -1526,10 +1602,11 @@
               </div>
               <span class="pill ${sInfo.isShort ? "red" : "green"}">${sInfo.icon} ${sInfo.actionLabel}</span>
             </div>
-            <div style="display:flex; justify-content:space-between; align-items:center; font-size:11.5px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; font-size:11.5px; gap:6px; flex-wrap:wrap;">
               <span>Conf: <strong>${s.confidence}%</strong></span>
-              <span class="pill ${blocked ? "red" : "amber"}">${blocked ? "FILTRATO" : "PRONTO"}</span>
+              <span class="pill ${brk.fakeoutRisk ? "red" : "green"}">${brk.badge}</span>
             </div>
+            <div class="muted" style="font-size:10.5px;">${brk.reason}</div>
             <div class="score-inline-bar">
               <span style="font-weight:700; color:#fde68a;">Score:</span>
               <input id="${safeId}" type="number" min="-100" max="100" step="0.5" value="${currentScore}" style="width:74px; padding:3px 6px;" />
@@ -1576,9 +1653,7 @@
         if (d.data && isActionableSignal(d.data)) {
           STATE.signals[d.data.symbol] = d.data;
         }
-        renderTopSetupsCards();
-        renderSignalsTable();
-        renderScoreParamsTable();
+        renderAllDynamic();
       }
     }
 
@@ -1701,9 +1776,9 @@
           : (sig ? sig.sentiment : 0);
         const confTxt = sig ? `${sig.confidence}%` : "--";
         const sigTxt = sig ? `${sig.signal}` : "--";
-        const blocked = sig ? isSignalBlocked(sig) : false;
-        const statusTxt = sig
-          ? `<span class="${blocked ? "neg" : "pos"}">${blocked ? "FILTRATO" : "PRONTO"}</span>`
+        const brk = sig ? evaluateBreakoutAndFakeout(sig) : null;
+        const statusTxt = brk
+          ? `<span class="${brk.fakeoutRisk ? "neg" : "pos"}" title="${brk.reason}">${brk.badge}</span>`
           : `<span class="pill blue">AUTO</span>`;
 
         const safeId = m.symbol.replace(/[^A-Z0-9_-]/gi, "_");
@@ -1750,18 +1825,10 @@
       const d = await r.json();
       if (d.status === "ok") {
         STATE.symbolOverrides = d.symbol_overrides || STATE.symbolOverrides;
-        if (d.data) {
-          if (isActionableSignal(d.data)) {
-            STATE.signals[d.data.symbol] = d.data;
-          }
-          if (document.getElementById("analyzeSymbolInput").value.trim().toUpperCase() === symbol.toUpperCase()) {
-            renderSingleAnalysis(d.data);
-          }
+        if (d.data && isActionableSignal(d.data)) {
+          STATE.signals[d.data.symbol] = d.data;
         }
-        renderTopSetupsCards();
-        renderSignalsTable();
-        renderMarketsTable();
-        renderScoreParamsTable();
+        renderAllDynamic();
       } else {
         alert(d.msg || "Errore aggiornamento score");
       }
@@ -1787,7 +1854,7 @@
       const freeCount = Object.values(STATE.signals || {}).filter(s => s && !isSignalBlocked(s)).length;
 
       document.getElementById("radarCount").textContent = freeCount > 0
-        ? `${freeCount} liberi`
+        ? `${freeCount} validati`
         : `${list.length} filtrati`;
       const tbody = document.getElementById("signalsBody");
       if (!list.length) {
@@ -1801,6 +1868,7 @@
         const early = s.early_setup || {};
         const ms = s.manual_sign || {};
         const sInfo = getSignalSideInfo(s);
+        const brk = evaluateBreakoutAndFakeout(s);
         const badgeText = ms.badge || s.certain_signal || s.signal;
         const tBadge = getEntryTimingBadge(s.symbol, s.timeframe || tf);
 
@@ -1818,7 +1886,7 @@
             <td>
               <div><span class="pill ${sInfo.isShort ? "red" : "green"}">${sInfo.icon} ${sInfo.actionLabel}</span></div>
               <div style="margin-top:3px;"><strong>${badgeText}</strong></div>
-              <div class="muted" style="font-size:11px;">${early.setup_type || ""}</div>
+              <div class="${brk.fakeoutRisk ? "neg" : "pos"}" style="font-size:10.5px;">${brk.badge}</div>
             </td>
             <td><strong>${s.confidence}%</strong> <span class="muted" style="font-size:10px;">(${s.composite_score})</span></td>
             <td>
@@ -1923,13 +1991,18 @@
         .slice(0, 3)
         .map(s => `<div class="log-item" style="color:#fde68a;">[PREP • ${clk.countdownStr}] 🎯 ${formatSignalFullSpecJs(s)}</div>`);
 
+      const fakeoutLines = Object.values(STATE.signals || {})
+        .filter(s => s && isActionableSignal(s) && evaluateBreakoutAndFakeout(s).fakeoutRisk)
+        .slice(0, 2)
+        .map(s => `<div class="log-item neg">[FAKEOUT GUARD] ⚠️ ${s.bingx_name || s.symbol}: ${evaluateBreakoutAndFakeout(s).reason}</div>`);
+
       const histLines = (STATE.audioAlerts || []).map(a => `
         <div class="log-item">
           [${a.time}] <strong>${a.symbol}</strong> — ${a.title} (${a.order_type}) @ ${a.price} | SL ${a.sl} | TP1 ${a.tp1 ?? "--"} / TP2 ${a.tp2} / TP3 ${a.tp3 ?? "--"}
         </div>
       `);
 
-      const combined = [...profitLines, ...prepLines, ...histLines];
+      const combined = [...profitLines, ...prepLines, ...fakeoutLines, ...histLines];
       if (!combined.length) {
         alertsBox.innerHTML = `<div class="muted">Nessun allarme recente.</div>`;
       } else {
@@ -1939,6 +2012,16 @@
         }
         alertsBox.innerHTML = combined.join("");
       }
+    }
+
+    function renderAllDynamic() {
+      renderTopSetupsCards();
+      renderSignalsTable();
+      renderMarketsTable();
+      renderScoreParamsTable();
+      renderPositionsTable();
+      renderLogsAndAlerts();
+      tickTimersAndCandleTransition();
     }
 
     async function syncMonitorSettings(payloadExtra = {}) {
@@ -2016,13 +2099,7 @@
         pushNewCandleWrittenAlert(d.latest_new_candle_alert);
       }
 
-      renderTopSetupsCards();
-      renderSignalsTable();
-      renderMarketsTable();
-      renderScoreParamsTable();
-      renderPositionsTable();
-      renderLogsAndAlerts();
-      tickTimersAndCandleTransition();
+      renderAllDynamic();
     }
 
     async function pollMonitor() {
@@ -2057,12 +2134,7 @@
         if (d.latest_new_candle_alert) {
           pushNewCandleWrittenAlert(d.latest_new_candle_alert);
         }
-        renderTopSetupsCards();
-        renderSignalsTable();
-        renderMarketsTable();
-        renderScoreParamsTable();
-        renderLogsAndAlerts();
-        tickTimersAndCandleTransition();
+        renderAllDynamic();
       }
     }
 
@@ -2100,6 +2172,7 @@
       const ind = a.indicators || {};
       const early = a.early_setup || {};
       const sInfo = getSignalSideInfo(a);
+      const brk = evaluateBreakoutAndFakeout(a);
       const tBadge = getEntryTimingBadge(a.symbol, a.timeframe);
 
       document.getElementById("singleAnalysisBox").innerHTML = `
@@ -2107,6 +2180,7 @@
           <div>
             <strong>${a.bingx_name}</strong> (${a.symbol}) • <span class="pill blue">${a.timeframe}</span>
             <span class="pill ${sInfo.isShort ? "red" : "green"}" style="margin-left:6px;">${sInfo.icon} ${sInfo.actionLabel}</span>
+            <span class="pill ${brk.fakeoutRisk ? "red" : "green"}" style="margin-left:6px;">${brk.badge}</span>
             <span class="${tBadge.cls}" style="margin-left:6px;" title="${tBadge.title}">${tBadge.text}</span>
             <span class="candle-badge live-candle-badge" data-tf="${a.timeframe}" style="display:inline-flex; margin-left:6px;">🕯️ ${a.timeframe}</span>
           </div>
@@ -2115,7 +2189,7 @@
             <span class="pill amber">Score: ${a.composite_score} • Conf: ${a.confidence}%</span>
           </div>
         </div>
-        <div class="muted" style="margin-bottom:8px;">${ms.reason || ""}</div>
+        <div class="muted" style="margin-bottom:8px;">${brk.reason} • ${ms.reason || ""}</div>
         <div class="analysis-detail">
           <div class="subbox">
             <div><strong>Direzione, Livelli & Piano TP</strong></div>
@@ -2133,13 +2207,13 @@
             <div>Setup: ${early.setup_type || "--"}</div>
           </div>
           <div class="subbox">
-            <div><strong>Preparazione, Anti-FOMO & SN</strong></div>
-            <div>${af.badge || "--"}</div>
+            <div><strong>Rottura, Anti-Fakeout & SN</strong></div>
+            <div><strong>${brk.badge}</strong></div>
+            <div class="muted" style="font-size:11px;">${brk.reason}</div>
+            <div style="margin-top:4px;">${af.badge || "--"}</div>
             <div class="muted" style="font-size:11px;">${af.reason || ""}</div>
             <div style="margin-top:4px;">${ew.status_badge || "--"}</div>
-            <div class="muted" style="font-size:11px;">${ew.reason || ""}</div>
             <div style="margin-top:4px;">${sn.badge || "--"}</div>
-            <div class="muted" style="font-size:11px;">${sn.reason || ""}</div>
           </div>
           <div class="subbox">
             <div><strong>Indicatori</strong></div>
@@ -2212,10 +2286,7 @@
 
     ["timeframeSelect", "categorySelect", "onlyCertainEarlyChk", "autoTradeChk"].forEach(id => {
       document.getElementById(id).addEventListener("change", () => {
-        renderTopSetupsCards();
-        renderMarketsTable();
-        renderScoreParamsTable();
-        renderSignalsTable();
+        renderAllDynamic();
         syncMonitorSettings();
       });
     });
