@@ -6,27 +6,40 @@
   <title>BingX HFT & Multi-Market Signal Terminal</title>
   <style>
     :root {
-      --bg: #080c14;
-      --panel: #0f1624;
-      --panel-2: #151f32;
-      --border: #233049;
-      --text: #e6edf7;
-      --muted: #8fa1bf;
+      --bg: #060a12;
+      --bg-glow-1: rgba(56, 189, 248, 0.08);
+      --bg-glow-2: rgba(168, 85, 247, 0.07);
+      --panel: rgba(13, 20, 35, 0.90);
+      --panel-2: rgba(21, 31, 52, 0.92);
+      --border: rgba(56, 78, 118, 0.42);
+      --border-strong: rgba(94, 126, 182, 0.55);
+      --text: #edf2fa;
+      --muted: #93a6c7;
       --accent: #38bdf8;
       --green: #22c55e;
       --red: #ef4444;
       --amber: #f59e0b;
       --purple: #a855f7;
+      --shadow-card: 0 12px 30px rgba(0, 0, 0, 0.36);
     }
 
     * { box-sizing: border-box; }
+
     body {
       margin: 0;
-      background: var(--bg);
+      background:
+        radial-gradient(circle at 12% 0%, var(--bg-glow-1), transparent 42%),
+        radial-gradient(circle at 88% 8%, var(--bg-glow-2), transparent 44%),
+        var(--bg);
       color: var(--text);
       font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       font-size: 13px;
-      line-height: 1.4;
+      line-height: 1.45;
+      min-height: 100vh;
+    }
+
+    .val, .tp-prog-top, .live-pos-head, td, th, .pill, .luminous-sign, #globalTimerBadge, #lastScanText, #balSyncBadge {
+      font-variant-numeric: tabular-nums;
     }
 
     .topbar {
@@ -35,9 +48,11 @@
       align-items: center;
       justify-content: space-between;
       gap: 10px;
-      padding: 10px 16px;
-      background: var(--panel);
+      padding: 11px 18px;
+      background: rgba(9, 15, 27, 0.88);
+      backdrop-filter: blur(14px);
       border-bottom: 1px solid var(--border);
+      box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
       position: sticky;
       top: 0;
       z-index: 50;
@@ -45,17 +60,26 @@
 
     .brand {
       display: flex;
+      flex-wrap: wrap;
       align-items: center;
-      gap: 10px;
-      font-weight: 700;
+      gap: 8px;
+      font-weight: 800;
       font-size: 15px;
+      letter-spacing: -0.01em;
+    }
+
+    .brand > span:first-child {
+      background: linear-gradient(90deg, #ffffff, #7dd3fc 55%, #d8b4fe);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
     }
 
     .pill {
       display: inline-flex;
       align-items: center;
       gap: 5px;
-      padding: 3px 8px;
+      padding: 3px 9px;
       border-radius: 999px;
       font-size: 11px;
       font-weight: 600;
@@ -64,85 +88,89 @@
       color: var(--text);
     }
 
-    .pill.green { border-color: rgba(34,197,94,.45); color: #86efac; background: rgba(34,197,94,.12); }
-    .pill.red { border-color: rgba(239,68,68,.45); color: #fca5a5; background: rgba(239,68,68,.12); }
-    .pill.amber { border-color: rgba(245,158,11,.45); color: #fcd34d; background: rgba(245,158,11,.12); }
-    .pill.blue { border-color: rgba(56,189,248,.45); color: #7dd3fc; background: rgba(56,189,248,.12); }
-    .pill.purple { border-color: rgba(168,85,247,.45); color: #d8b4fe; background: rgba(168,85,247,.14); }
+    .pill.green { border-color: rgba(34,197,94,.48); color: #86efac; background: rgba(34,197,94,.13); }
+    .pill.red { border-color: rgba(239,68,68,.48); color: #fca5a5; background: rgba(239,68,68,.13); }
+    .pill.amber { border-color: rgba(245,158,11,.48); color: #fcd34d; background: rgba(245,158,11,.13); }
+    .pill.blue { border-color: rgba(56,189,248,.48); color: #7dd3fc; background: rgba(56,189,248,.13); }
+    .pill.purple { border-color: rgba(168,85,247,.48); color: #d8b4fe; background: rgba(168,85,247,.15); }
 
     @keyframes pulseGlow {
       0%, 100% { box-shadow: 0 0 0 rgba(34,197,94,0); }
-      50% { box-shadow: 0 0 14px rgba(34,197,94,.38); }
+      50% { box-shadow: 0 0 16px rgba(34,197,94,.42); }
     }
 
     @keyframes amberGlow {
       0%, 100% { box-shadow: 0 0 0 rgba(245,158,11,0); }
-      50% { box-shadow: 0 0 14px rgba(245,158,11,.38); }
+      50% { box-shadow: 0 0 16px rgba(245,158,11,.42); }
     }
 
     .luminous-sign {
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      padding: 4px 10px;
-      border-radius: 7px;
+      padding: 5px 11px;
+      border-radius: 8px;
       font-size: 11px;
       font-weight: 800;
       letter-spacing: 0.02em;
     }
 
     .luminous-sign.enter-now {
-      background: rgba(34,197,94,.22);
-      border: 1px solid #22c55e;
+      background: rgba(34,197,94,.20);
+      border: 1px solid rgba(74,222,128,.85);
       color: #bbf7d0;
       animation: pulseGlow 1.3s infinite;
     }
 
     .luminous-sign.get-ready {
-      background: rgba(245,158,11,.22);
-      border: 1px solid #f59e0b;
+      background: rgba(245,158,11,.20);
+      border: 1px solid rgba(251,191,36,.85);
       color: #fde68a;
       animation: amberGlow 1.4s infinite;
     }
 
     .luminous-sign.anti-fomo {
-      background: rgba(239,68,68,.20);
-      border: 1px solid #ef4444;
+      background: rgba(239,68,68,.18);
+      border: 1px solid rgba(248,113,113,.8);
       color: #fecaca;
     }
 
     .container {
-      max-width: 1560px;
+      max-width: 1580px;
       margin: 0 auto;
-      padding: 14px 16px 36px;
+      padding: 16px 18px 42px;
       display: flex;
       flex-direction: column;
-      gap: 14px;
+      gap: 16px;
     }
 
     .candle-alert-box {
-      background: linear-gradient(90deg, rgba(56,189,248,.14), rgba(168,85,247,.12));
-      border: 1px solid rgba(56,189,248,.45);
-      border-radius: 10px;
-      padding: 10px 14px;
+      background: linear-gradient(125deg, rgba(16, 26, 46, 0.95), rgba(24, 21, 48, 0.92));
+      border: 1px solid rgba(56,189,248,.42);
+      border-radius: 14px;
+      padding: 13px 16px;
+      box-shadow: var(--shadow-card);
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 9px;
+      transition: border-color .25s ease, box-shadow .25s ease;
     }
 
     .candle-alert-box.ready {
-      background: linear-gradient(90deg, rgba(245,158,11,.18), rgba(56,189,248,.12));
-      border-color: rgba(245,158,11,.65);
+      background: linear-gradient(125deg, rgba(36, 28, 14, 0.95), rgba(18, 26, 44, 0.92));
+      border-color: rgba(245,158,11,.68);
+      box-shadow: 0 12px 32px rgba(245, 158, 11, 0.14);
     }
 
     .candle-alert-box.enter {
-      background: linear-gradient(90deg, rgba(34,197,94,.20), rgba(56,189,248,.12));
-      border-color: rgba(34,197,94,.75);
+      background: linear-gradient(125deg, rgba(14, 38, 28, 0.95), rgba(16, 27, 45, 0.92));
+      border-color: rgba(34,197,94,.78);
+      box-shadow: 0 12px 32px rgba(34, 197, 94, 0.16);
     }
 
     .candle-alert-box.blocked {
-      background: linear-gradient(90deg, rgba(239,68,68,.16), rgba(245,158,11,.12));
-      border-color: rgba(239,68,68,.5);
+      background: linear-gradient(125deg, rgba(38, 16, 24, 0.95), rgba(22, 22, 38, 0.92));
+      border-color: rgba(239,68,68,.55);
     }
 
     .candle-alert-main {
@@ -150,9 +178,9 @@
       flex-wrap: wrap;
       align-items: center;
       justify-content: space-between;
-      gap: 8px;
-      font-weight: 600;
-      font-size: 13px;
+      gap: 10px;
+      font-weight: 700;
+      font-size: 13.5px;
     }
 
     .signs-strip {
@@ -171,29 +199,36 @@
     }
 
     .candle-history span {
-      background: rgba(8,12,20,.65);
+      background: rgba(7,11,20,.72);
       border: 1px solid var(--border);
-      padding: 2px 7px;
-      border-radius: 6px;
+      padding: 3px 8px;
+      border-radius: 7px;
     }
 
     .grid-3 {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
-      gap: 12px;
+      gap: 14px;
     }
 
     .grid-2 {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(460px, 1fr));
-      gap: 12px;
+      gap: 14px;
     }
 
     .card {
       background: var(--panel);
+      backdrop-filter: blur(10px);
       border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 12px 14px;
+      border-radius: 14px;
+      padding: 14px 16px;
+      box-shadow: var(--shadow-card);
+      transition: border-color .2s ease, transform .2s ease;
+    }
+
+    .card:hover {
+      border-color: var(--border-strong);
     }
 
     .card-header {
@@ -202,14 +237,15 @@
       align-items: center;
       justify-content: space-between;
       gap: 8px;
-      margin-bottom: 10px;
-      padding-bottom: 8px;
-      border-bottom: 1px solid var(--border);
+      margin-bottom: 12px;
+      padding-bottom: 9px;
+      border-bottom: 1px solid rgba(56, 78, 118, 0.32);
     }
 
     .card-title {
-      font-weight: 700;
-      font-size: 13px;
+      font-weight: 800;
+      font-size: 13.5px;
+      letter-spacing: -0.01em;
       display: flex;
       align-items: center;
       gap: 6px;
@@ -226,50 +262,223 @@
       background: var(--panel-2);
       color: var(--text);
       border: 1px solid var(--border);
-      border-radius: 7px;
+      border-radius: 8px;
       padding: 6px 10px;
       font-size: 12px;
+      transition: border-color .15s ease, background .15s ease, filter .15s ease, transform .08s ease;
     }
 
     input:focus, select:focus {
       outline: none;
       border-color: var(--accent);
+      box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.18);
     }
 
     button {
       cursor: pointer;
-      font-weight: 600;
-      transition: filter .15s ease, transform .08s ease;
+      font-weight: 700;
     }
 
-    button:hover { filter: brightness(1.12); }
-    button:active { transform: scale(0.99); }
+    button:hover {
+      filter: brightness(1.13);
+      border-color: var(--border-strong);
+    }
 
-    button.primary { background: #0284c7; border-color: #38bdf8; color: #fff; }
-    button.green { background: #15803d; border-color: #22c55e; color: #fff; }
-    button.red { background: #b91c1c; border-color: #ef4444; color: #fff; }
+    button:active { transform: scale(0.985); }
+
+    button.primary {
+      background: linear-gradient(135deg, #0284c7, #0369a1);
+      border-color: rgba(125, 211, 252, 0.65);
+      color: #fff;
+    }
+
+    button.green {
+      background: linear-gradient(135deg, #16a34a, #15803d);
+      border-color: rgba(134, 239, 172, 0.6);
+      color: #fff;
+    }
+
+    button.red {
+      background: linear-gradient(135deg, #dc2626, #b91c1c);
+      border-color: rgba(252, 165, 165, 0.6);
+      color: #fff;
+    }
+
+    button.auto-btn {
+      background: linear-gradient(135deg, #1e293b, #0f172a);
+      border-color: rgba(56, 189, 248, 0.5);
+      color: #7dd3fc;
+      padding: 4px 8px;
+      font-size: 11px;
+    }
+
+    button.auto-btn.active {
+      background: linear-gradient(135deg, #7e22ce, #4f46e5);
+      border-color: rgba(216, 180, 254, 0.85);
+      color: #ffffff;
+      box-shadow: 0 0 12px rgba(168, 85, 247, 0.45);
+    }
+
+    .exec-chart-wrap {
+      position: relative;
+      background: linear-gradient(180deg, rgba(7, 12, 22, 0.95), rgba(11, 18, 32, 0.95));
+      border: 1px solid rgba(56, 78, 118, 0.45);
+      border-radius: 12px;
+      padding: 10px;
+      overflow: hidden;
+    }
+
+    #execChartCanvas {
+      width: 100%;
+      height: 230px;
+      display: block;
+    }
+
+    .exec-markers-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 9px;
+    }
+
+    .exec-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 8px;
+      border-radius: 7px;
+      font-size: 11px;
+      font-weight: 700;
+      border: 1px solid var(--border);
+      background: var(--panel-2);
+    }
+
+    .exec-tag.buy {
+      border-color: rgba(34, 197, 94, 0.65);
+      background: rgba(34, 197, 94, 0.14);
+      color: #86efac;
+    }
+
+    .exec-tag.sell {
+      border-color: rgba(239, 68, 68, 0.65);
+      background: rgba(239, 68, 68, 0.14);
+      color: #fca5a5;
+    }
+
+    .video-deck {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .video-ticket-card {
+      background: linear-gradient(155deg, rgba(20, 32, 56, 0.96), rgba(11, 18, 32, 0.96));
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      border-radius: 12px;
+      padding: 11px 13px;
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.32);
+    }
+
+    .video-ticket-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .video-step-box {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      background: rgba(7, 12, 22, 0.78);
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      padding: 5px 8px;
+      font-size: 11.5px;
+      font-weight: 700;
+    }
+
+    .video-step-btn {
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-size: 12px;
+      line-height: 1.2;
+    }
+
+    .video-switches {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      font-size: 11.5px;
+    }
+
+    .video-action-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .video-action-row button {
+      padding: 8px 10px;
+      font-size: 12px;
+      letter-spacing: 0.02em;
+    }
+
+    .video-pulse-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 8px;
+      border-radius: 7px;
+      font-size: 10.5px;
+      font-weight: 800;
+      background: rgba(34, 197, 94, 0.16);
+      border: 1px solid rgba(74, 222, 128, 0.55);
+      color: #86efac;
+    }
 
     .kpi-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(115px, 1fr));
-      gap: 8px;
+      gap: 9px;
     }
 
     .kpi {
-      background: var(--panel-2);
+      position: relative;
+      overflow: hidden;
+      background: linear-gradient(180deg, rgba(24, 36, 61, 0.95), rgba(15, 23, 40, 0.95));
       border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 8px 10px;
+      border-radius: 10px;
+      padding: 9px 11px;
     }
 
-    .kpi .label { font-size: 11px; color: var(--muted); }
-    .kpi .val { font-size: 14px; font-weight: 700; margin-top: 2px; }
+    .kpi::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, var(--accent), var(--purple));
+      opacity: 0.75;
+    }
+
+    .kpi .label { font-size: 11px; color: var(--muted); font-weight: 600; }
+    .kpi .val { font-size: 15px; font-weight: 800; margin-top: 3px; }
     .kpi .sub { font-size: 11px; margin-top: 2px; }
 
     .table-wrap {
       overflow-x: auto;
       max-height: 460px;
       overflow-y: auto;
+      border-radius: 10px;
+      border: 1px solid rgba(56, 78, 118, 0.25);
     }
 
     table {
@@ -279,8 +488,8 @@
     }
 
     th, td {
-      padding: 7px 8px;
-      border-bottom: 1px solid rgba(35,48,73,.65);
+      padding: 8px 9px;
+      border-bottom: 1px solid rgba(45,64,99,.45);
       text-align: left;
       white-space: nowrap;
     }
@@ -288,19 +497,23 @@
     th {
       position: sticky;
       top: 0;
-      background: var(--panel-2);
+      background: #121c30;
       color: var(--muted);
-      font-size: 11px;
+      font-size: 10.5px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
       text-transform: uppercase;
       z-index: 2;
+      border-bottom: 1px solid var(--border-strong);
     }
 
-    tr:hover td { background: rgba(56,189,248,.05); }
+    tbody tr:nth-child(even) td { background: rgba(16, 25, 44, 0.42); }
+    tr:hover td { background: rgba(56,189,248,.08); }
 
     .asset-cell {
       display: flex;
       flex-direction: column;
-      gap: 3px;
+      gap: 4px;
     }
 
     .asset-main {
@@ -315,8 +528,8 @@
       align-items: center;
       gap: 4px;
       font-size: 10px;
-      padding: 1px 6px;
-      border-radius: 5px;
+      padding: 2px 7px;
+      border-radius: 6px;
       background: rgba(56,189,248,.12);
       border: 1px solid rgba(56,189,248,.35);
       color: #bae6fd;
@@ -325,7 +538,7 @@
 
     .candle-badge.pre {
       background: rgba(245,158,11,.18);
-      border-color: rgba(245,158,11,.65);
+      border-color: rgba(245,158,11,.68);
       color: #fde68a;
       font-weight: 700;
     }
@@ -336,7 +549,7 @@
       gap: 4px;
       font-size: 10px;
       font-weight: 700;
-      padding: 2px 7px;
+      padding: 2px 8px;
       border-radius: 6px;
       border: 1px solid var(--border);
       background: var(--panel-2);
@@ -376,8 +589,8 @@
     .tp-prog-wrap {
       display: flex;
       flex-direction: column;
-      gap: 3px;
-      min-width: 128px;
+      gap: 4px;
+      min-width: 132px;
     }
 
     .tp-prog-top {
@@ -393,8 +606,8 @@
       width: 100%;
       height: 8px;
       border-radius: 999px;
-      background: rgba(8,12,20,.85);
-      border: 1px solid var(--border);
+      background: rgba(6,10,18,.9);
+      border: 1px solid rgba(72, 99, 148, 0.45);
       overflow: hidden;
     }
 
@@ -411,18 +624,19 @@
     .live-positions-strip {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(275px, 1fr));
-      gap: 8px;
-      margin-bottom: 10px;
+      gap: 10px;
+      margin-bottom: 12px;
     }
 
     .live-pos-card {
-      background: var(--panel-2);
+      background: linear-gradient(160deg, rgba(22, 33, 56, 0.94), rgba(13, 20, 35, 0.94));
       border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 8px 10px;
+      border-radius: 11px;
+      padding: 10px 12px;
       display: flex;
       flex-direction: column;
       gap: 6px;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
     }
 
     .live-pos-head {
@@ -441,12 +655,12 @@
     }
 
     .smart-score-box {
-      background: rgba(168,85,247,.08);
-      border: 1px solid rgba(168,85,247,.35);
-      border-radius: 8px;
-      padding: 8px 10px;
-      margin-top: 8px;
-      font-size: 11px;
+      background: rgba(168,85,247,.09);
+      border: 1px solid rgba(168,85,247,.38);
+      border-radius: 9px;
+      padding: 8px 12px;
+      margin-top: 4px;
+      font-size: 11.5px;
       display: flex;
       flex-wrap: wrap;
       align-items: center;
@@ -463,39 +677,47 @@
       display: inline-flex;
       align-items: center;
       gap: 5px;
+      padding: 4px 8px;
+      border-radius: 7px;
+      background: rgba(21, 31, 52, 0.65);
+      border: 1px solid rgba(56, 78, 118, 0.3);
       font-size: 12px;
       cursor: pointer;
       user-select: none;
     }
 
+    .toggle-label:hover {
+      border-color: var(--border-strong);
+    }
+
     .log-box {
-      max-height: 210px;
+      max-height: 215px;
       overflow-y: auto;
       font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
       font-size: 11px;
-      background: #070b12;
+      background: #060a12;
       border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 8px 10px;
+      border-radius: 10px;
+      padding: 9px 11px;
     }
 
     .log-item {
-      padding: 4px 0;
-      border-bottom: 1px dashed rgba(35,48,73,.55);
+      padding: 5px 0;
+      border-bottom: 1px dashed rgba(45,64,99,.5);
     }
 
     .analysis-detail {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
       gap: 10px;
-      margin-top: 8px;
+      margin-top: 10px;
     }
 
     .subbox {
-      background: var(--panel-2);
+      background: linear-gradient(180deg, rgba(22, 33, 56, 0.92), rgba(15, 23, 40, 0.92));
       border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 8px 10px;
+      border-radius: 10px;
+      padding: 10px 12px;
     }
   </style>
 </head>
@@ -542,7 +764,7 @@
       </label>
 
       <label class="toggle-label">
-        <input type="checkbox" id="autoTradeChk" />
+        <input type="checkbox" id="autoTradeChk" checked onchange="onAutoTradeGlobalChange()" />
         Auto-Trade Reale
       </label>
 
@@ -562,12 +784,32 @@
         <span id="signGetReady" class="luminous-sign get-ready">🟡 TIENITI PRONTO: In attesa carica potenza</span>
         <span id="signEnterNow" class="luminous-sign enter-now">🟢 ENTRA ORA: Attesa finestra valida</span>
         <span id="signAntiFomo" class="luminous-sign anti-fomo">🛡️ ANTI-FOMO: Attivo</span>
+        <span id="autoExecBadge" class="pill green">🤖 Auto-Trade BingX: ATTIVO SU SEGNALE</span>
       </div>
       <div id="smartScoreDiagBar" class="smart-score-box">
         <span id="smartScoreSummaryText">🧠 Score Smart: calcolo dinamico soglia e filtro Anti-FOMO in corso...</span>
         <span id="fomoBlockStatsBadge" class="pill">FOMO Bloccati: 0</span>
       </div>
       <div id="newCandleHistory" class="candle-history"></div>
+    </div>
+
+    <!-- GRAFICO LIVE PUNTI ESATTI DI COMPRA (BUY) E VENDITA (SELL) -->
+    <div class="card" id="executionChartCard">
+      <div class="card-header">
+        <div class="card-title">📈 Grafico Live Esecuzioni • Dove Compra (BUY) e Dove Vende (SELL) su BingX</div>
+        <div class="controls-row">
+          <span class="pill green">🟢 BUY = Compra</span>
+          <span class="pill red">🔴 SELL = Vendi</span>
+          <span id="chartAssetBadge" class="pill blue">Asset: BTC-USDT</span>
+          <span id="chartMarkersCount" class="pill purple">0 esecuzioni</span>
+        </div>
+      </div>
+      <div class="exec-chart-wrap">
+        <canvas id="execChartCanvas"></canvas>
+      </div>
+      <div id="execMarkersList" class="exec-markers-list">
+        <span class="muted" style="font-size:11px;">In attesa di esecuzioni automatiche o manuali per disegnare i punti BUY/SELL sul grafico.</span>
+      </div>
     </div>
 
     <!-- SALDO, % GIORNALIERA/MENSILE, CHIAVI API E CONTROLLI -->
@@ -671,9 +913,13 @@
     <div class="grid-2">
       <div class="card">
         <div class="card-header">
-          <div class="card-title">🎯 Radar Segnali Certi / Anticipo</div>
-          <span id="radarCount" class="pill blue">0 segnali</span>
+          <div class="card-title">🎯 Radar Segnali Certi / Anticipo & Auto-Trading Reale</div>
+          <div class="controls-row">
+            <span id="autoWatchedCountBadge" class="pill purple">0 in Auto</span>
+            <span id="radarCount" class="pill blue">0 segnali</span>
+          </div>
         </div>
+        <div id="videoStyleDeck" class="video-deck"></div>
         <div class="table-wrap">
           <table>
             <thead>
@@ -684,7 +930,7 @@
                 <th>Prezzo / Limite</th>
                 <th>SL / TP1 / TP2 / TP3</th>
                 <th>Piano / Lev</th>
-                <th>Azione</th>
+                <th>Auto / Azione</th>
               </tr>
             </thead>
             <tbody id="signalsBody">
@@ -726,7 +972,7 @@
               <th>Var. 24h</th>
               <th>Vol. 24h (USDT)</th>
               <th>Max Lev</th>
-              <th>Azioni</th>
+              <th>Auto / Azioni</th>
             </tr>
           </thead>
           <tbody id="marketsBody">
@@ -772,8 +1018,520 @@
       preWarnedCandleKey: null,
       lastAlertId: null,
       soundEnabled: true,
-      balanceInfo: {}
+      balanceInfo: {},
+      autoSymbols: {},
+      autoConfig: {
+        lotStep: 0.01,
+        customQty: null,
+        customLev: null,
+        useSl: true,
+        useTp: true,
+        lastExecutedKeys: {}
+      },
+      inFlightExecutions: {},
+      priceSeries: {},
+      executionMarkers: []
     };
+
+    function recordPricePoint(symbol, price) {
+      if (!symbol) return;
+      const p = Number(price);
+      if (!p || Number.isNaN(p) || p <= 0) return;
+      if (!STATE.priceSeries[symbol]) STATE.priceSeries[symbol] = [];
+      const arr = STATE.priceSeries[symbol];
+      const last = arr[arr.length - 1];
+      if (!last || Math.abs(last.price - p) > 0 || (Date.now() - last.ts) >= 2500) {
+        arr.push({ price: p, ts: Date.now() });
+        if (arr.length > 90) arr.shift();
+      }
+    }
+
+    function addExecutionMarker(symbol, side, price, mode = "AUTO", qty = 0) {
+      const p = Number(price);
+      if (!symbol || !p || Number.isNaN(p)) return;
+      const nowTime = new Date().toLocaleTimeString("it-IT", { timeZone: "Europe/Rome", hour12: false });
+      const normalizedSide = String(side || "").toUpperCase().includes("SELL") ? "SELL" : "BUY";
+      STATE.executionMarkers.unshift({
+        id: `${symbol}_${normalizedSide}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        symbol,
+        side: normalizedSide,
+        price: p,
+        mode,
+        qty: Number(qty || 0),
+        time: nowTime,
+        ts: Date.now()
+      });
+      STATE.executionMarkers = STATE.executionMarkers.slice(0, 40);
+      renderExecutionChart();
+    }
+
+    function syncMarkersFromTradeLogs() {
+      if (!Array.isArray(STATE.tradeLogs) || !STATE.tradeLogs.length) return;
+      for (const l of STATE.tradeLogs.slice(0, 20)) {
+        if (!l || !l.symbol || !l.side) continue;
+        const markerId = `LOG_${l.time}_${l.symbol}_${l.side}_${l.qty}`;
+        if (!STATE.executionMarkers.some(m => m.id === markerId)) {
+          const sigPrice = Number((STATE.signals[l.symbol] && STATE.signals[l.symbol].price) || (STATE.openPositions[l.symbol] && STATE.openPositions[l.symbol].entry_price) || 0);
+          if (sigPrice > 0) {
+            STATE.executionMarkers.push({
+              id: markerId,
+              symbol: l.symbol,
+              side: String(l.side).toUpperCase().includes("SELL") ? "SELL" : "BUY",
+              price: sigPrice,
+              mode: "BINGX",
+              qty: Number(l.qty || 0),
+              time: l.time || "--:--:--",
+              ts: Date.now()
+            });
+          }
+        }
+      }
+      STATE.executionMarkers = STATE.executionMarkers.slice(0, 40);
+    }
+
+    function getActiveChartSymbol() {
+      const inputSym = (document.getElementById("analyzeSymbolInput")?.value || "").trim();
+      if (inputSym) return inputSym;
+      const free = getFreeSignalsSorted();
+      if (free[0] && free[0].symbol) return free[0].symbol;
+      const pos = Object.values(STATE.openPositions || {});
+      if (pos[0] && pos[0].symbol) return pos[0].symbol;
+      return "BTC-USDT";
+    }
+
+    function renderExecutionChart() {
+      const canvas = document.getElementById("execChartCanvas");
+      const listEl = document.getElementById("execMarkersList");
+      const assetBadge = document.getElementById("chartAssetBadge");
+      const countBadge = document.getElementById("chartMarkersCount");
+      if (!canvas || !listEl) return;
+
+      const sym = getActiveChartSymbol();
+      const sig = (STATE.signals || {})[sym] || {};
+      const pos = (STATE.openPositions || {})[sym] || {};
+      const mkt = STATE.markets.find(m => m.symbol === sym) || {};
+      const lv = sig.levels || {};
+
+      const currentPrice = Number(sig.price || pos.mark_price || pos.entry_price || mkt.lastPrice || 0);
+      if (currentPrice > 0) recordPricePoint(sym, currentPrice);
+
+      const series = STATE.priceSeries[sym] || [];
+      const markers = STATE.executionMarkers.filter(m => m.symbol === sym);
+
+      if (assetBadge) assetBadge.textContent = `Asset: ${sig.bingx_name || mkt.bingxName || sym}`;
+      if (countBadge) countBadge.textContent = `${markers.length} BUY/SELL su ${sym}`;
+
+      const rect = canvas.getBoundingClientRect();
+      const width = Math.max(320, Math.floor(rect.width || canvas.parentElement.clientWidth || 760));
+      const height = 230;
+      if (canvas.width !== width || canvas.height !== height) {
+        canvas.width = width;
+        canvas.height = height;
+      }
+
+      const ctx = canvas.getContext("2d");
+      ctx.clearRect(0, 0, width, height);
+
+      const padLeft = 14;
+      const padRight = 72;
+      const padTop = 22;
+      const padBottom = 24;
+      const plotW = Math.max(40, width - padLeft - padRight);
+      const plotH = Math.max(40, height - padTop - padBottom);
+
+      // Griglia orizzontale
+      ctx.strokeStyle = "rgba(71, 98, 148, 0.22)";
+      ctx.lineWidth = 1;
+      for (let i = 0; i <= 4; i++) {
+        const y = padTop + (plotH / 4) * i;
+        ctx.beginPath();
+        ctx.moveTo(padLeft, y);
+        ctx.lineTo(padLeft + plotW, y);
+        ctx.stroke();
+      }
+
+      const prices = series.map(pt => pt.price);
+      if (currentPrice > 0) prices.push(currentPrice);
+      if (Number(lv.tp2) > 0) prices.push(Number(lv.tp2));
+      if (Number(lv.sl) > 0) prices.push(Number(lv.sl));
+      markers.forEach(mk => { if (mk.price > 0) prices.push(mk.price); });
+
+      if (!prices.length) {
+        ctx.fillStyle = "#93a6c7";
+        ctx.font = "12px Inter, sans-serif";
+        ctx.fillText("In attesa di dati prezzo e punti di acquisto/vendita...", padLeft + 8, padTop + 26);
+        return;
+      }
+
+      let minP = Math.min(...prices);
+      let maxP = Math.max(...prices);
+      if (minP === maxP) {
+        minP = minP * 0.998;
+        maxP = maxP * 1.002;
+      }
+      const span = Math.max(1e-8, maxP - minP);
+      const toY = p => padTop + (1 - (p - minP) / span) * plotH;
+
+      // Linee TP2 e SL se presenti
+      if (Number(lv.tp2) > 0) {
+        const yTp = toY(Number(lv.tp2));
+        ctx.save();
+        ctx.setLineDash([4, 4]);
+        ctx.strokeStyle = "rgba(74, 222, 128, 0.55)";
+        ctx.beginPath();
+        ctx.moveTo(padLeft, yTp);
+        ctx.lineTo(padLeft + plotW, yTp);
+        ctx.stroke();
+        ctx.fillStyle = "#86efac";
+        ctx.font = "10px Inter, sans-serif";
+        ctx.fillText(`TP2 ${lv.tp2}`, padLeft + plotW + 6, yTp + 3);
+        ctx.restore();
+      }
+
+      if (Number(lv.sl) > 0) {
+        const ySl = toY(Number(lv.sl));
+        ctx.save();
+        ctx.setLineDash([4, 4]);
+        ctx.strokeStyle = "rgba(248, 113, 113, 0.55)";
+        ctx.beginPath();
+        ctx.moveTo(padLeft, ySl);
+        ctx.lineTo(padLeft + plotW, ySl);
+        ctx.stroke();
+        ctx.fillStyle = "#fca5a5";
+        ctx.font = "10px Inter, sans-serif";
+        ctx.fillText(`SL ${lv.sl}`, padLeft + plotW + 6, ySl + 3);
+        ctx.restore();
+      }
+
+      // Curva prezzo live
+      const pts = series.length >= 2
+        ? series
+        : [{ price: currentPrice, ts: Date.now() - 5000 }, { price: currentPrice, ts: Date.now() }];
+
+      ctx.strokeStyle = "#38bdf8";
+      ctx.lineWidth = 2.2;
+      ctx.beginPath();
+      pts.forEach((pt, idx) => {
+        const x = padLeft + (idx / Math.max(1, pts.length - 1)) * plotW;
+        const y = toY(pt.price);
+        if (idx === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+
+      // Etichetta prezzo corrente
+      if (currentPrice > 0) {
+        const yCur = toY(currentPrice);
+        ctx.fillStyle = "#38bdf8";
+        ctx.font = "bold 11px Inter, sans-serif";
+        ctx.fillText(`${currentPrice}`, padLeft + plotW + 6, yCur + 4);
+      }
+
+      // Disegna i punti esatti di BUY (compra) e SELL (vende) sul grafico
+      const visibleMarkers = markers.slice(0, 12).reverse();
+      visibleMarkers.forEach((mk, idx) => {
+        const x = padLeft + ((idx + 1) / (visibleMarkers.length + 1)) * plotW;
+        const y = toY(mk.price);
+        const isBuy = mk.side === "BUY";
+        const color = isBuy ? "#22c55e" : "#ef4444";
+
+        // Linea verticale di riferimento al punto di esecuzione
+        ctx.save();
+        ctx.setLineDash([2, 3]);
+        ctx.strokeStyle = isBuy ? "rgba(34, 197, 94, 0.45)" : "rgba(239, 68, 68, 0.45)";
+        ctx.beginPath();
+        ctx.moveTo(x, padTop);
+        ctx.lineTo(x, padTop + plotH);
+        ctx.stroke();
+        ctx.restore();
+
+        // Cerchio e freccia BUY / SELL
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(x, y, 6, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = "#ffffff";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        // Badge testuale BUY / SELL sopra o sotto il punto
+        const label = `${isBuy ? "▲ COMPRA (BUY)" : "▼ VENDI (SELL)"} @ ${mk.price}`;
+        ctx.font = "bold 10.5px Inter, sans-serif";
+        const tw = ctx.measureText(label).width + 10;
+        const boxX = Math.max(padLeft, Math.min(padLeft + plotW - tw, x - tw / 2));
+        const boxY = isBuy ? Math.min(padTop + plotH - 18, y + 10) : Math.max(padTop + 2, y - 22);
+
+        ctx.fillStyle = isBuy ? "rgba(21, 128, 61, 0.92)" : "rgba(185, 28, 28, 0.92)";
+        ctx.fillRect(boxX, boxY, tw, 16);
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1;
+        ctx.strokeRect(boxX, boxY, tw, 16);
+
+        ctx.fillStyle = "#ffffff";
+        ctx.fillText(label, boxX + 5, boxY + 11.5);
+      });
+
+      if (!markers.length) {
+        listEl.innerHTML = `<span class="muted" style="font-size:11px;">Nessun punto BUY/SELL ancora registrato su ${sym}. Quando il bot compra o vende in automatico apparirà qui e sul grafico.</span>`;
+      } else {
+        listEl.innerHTML = markers.slice(0, 10).map(mk => `
+          <span class="exec-tag ${mk.side === "BUY" ? "buy" : "sell"}">
+            ${mk.side === "BUY" ? "🟢 COMPRA (BUY)" : "🔴 VENDI (SELL)"} <strong>${mk.bingx_name || mk.symbol}</strong> @ ${mk.price} • [${mk.mode}] ${mk.time}
+          </span>
+        `).join("");
+      }
+    }
+
+    function updateAutoBadges() {
+      const globalAuto = Boolean(document.getElementById("autoTradeChk")?.checked);
+      const perAssetCount = Object.values(STATE.autoSymbols || {}).filter(Boolean).length;
+      const badge = document.getElementById("autoExecBadge");
+      const cntBadge = document.getElementById("autoWatchedCountBadge");
+
+      if (cntBadge) {
+        cntBadge.textContent = globalAuto
+          ? "🤖 AUTO GLOBALE"
+          : `${perAssetCount} in Auto`;
+        cntBadge.className = (globalAuto || perAssetCount > 0) ? "pill green" : "pill purple";
+      }
+
+      if (!badge) return;
+      if (globalAuto) {
+        badge.textContent = "🤖 Auto-Trade BingX: ATTIVO SU SEGNALE";
+        badge.className = "pill green";
+      } else if (perAssetCount > 0) {
+        badge.textContent = `🤖 Auto-Trade BingX: ${perAssetCount} ASSET ATTIVI`;
+        badge.className = "pill purple";
+      } else {
+        badge.textContent = "🤖 Auto-Trade BingX: PRONTO (ON/OFF IN TABELLA)";
+        badge.className = "pill blue";
+      }
+    }
+
+    function toggleSymbolAuto(symbol) {
+      STATE.autoSymbols[symbol] = !STATE.autoSymbols[symbol];
+      updateAutoBadges();
+      renderSignalsTable();
+      renderMarketsTable();
+      renderVideoStyleDeck();
+      if (STATE.autoSymbols[symbol]) {
+        runAutoTradeOnSignals();
+      }
+    }
+
+    function onAutoTradeGlobalChange() {
+      updateAutoBadges();
+      syncMonitorSettings();
+      if (document.getElementById("autoTradeChk")?.checked) {
+        runAutoTradeOnSignals();
+      }
+    }
+
+    function stepTicketQty(delta) {
+      const base = Number(STATE.autoConfig.customQty || 0.01);
+      const next = Math.max(0.01, Number((base + delta).toFixed(4)));
+      STATE.autoConfig.customQty = next;
+      renderVideoStyleDeck();
+    }
+
+    function stepTicketLev(delta) {
+      const base = Number(STATE.autoConfig.customLev || 20);
+      const next = Math.max(1, Math.min(200, Math.round(base + delta)));
+      STATE.autoConfig.customLev = next;
+      renderVideoStyleDeck();
+    }
+
+    function toggleTicketFlag(key) {
+      STATE.autoConfig[key] = !STATE.autoConfig[key];
+      renderVideoStyleDeck();
+    }
+
+    function renderVideoStyleDeck() {
+      const deck = document.getElementById("videoStyleDeck");
+      if (!deck) return;
+
+      const sortedSigs = getFreeSignalsSorted();
+      const lead = sortedSigs[0] || Object.values(STATE.signals || {})[0];
+      const symbol = lead ? lead.symbol : ((document.getElementById("analyzeSymbolInput")?.value || "BTC-USDT").trim());
+      const name = lead ? (lead.bingx_name || lead.symbol) : symbol;
+      const lv = (lead && lead.levels) || {};
+      const rp = (lead && lead.recommended_params) || {};
+      const sInfo = lead ? getSignalSideInfo(lead) : { side: "BUY", actionLabel: "COMPRA (LONG)", icon: "📈" };
+
+      const qtyVal = STATE.autoConfig.customQty ?? (rp.qty || 0.01);
+      const levVal = STATE.autoConfig.customLev ?? (rp.leverage || 20);
+      const isAutoOn = Boolean(document.getElementById("autoTradeChk")?.checked || STATE.autoSymbols[symbol]);
+
+      deck.innerHTML = `
+        <div class="video-ticket-card">
+          <div class="video-ticket-top">
+            <div>
+              <strong>${name}</strong>
+              <span class="muted" style="font-size:11px; margin-left:4px;">${lead ? lead.price : "--"}</span>
+            </div>
+            <span class="video-pulse-tag">${isAutoOn ? "⚡ AUTO-SIGNAL LIVE" : "🎛️ PANNELLO RAPIDO"}</span>
+          </div>
+
+          <div class="video-step-box">
+            <span class="muted">Size / Lot</span>
+            <div style="display:flex; align-items:center; gap:6px;">
+              <button class="video-step-btn" onclick="stepTicketQty(-0.01)">-</button>
+              <span>${qtyVal}</span>
+              <button class="video-step-btn" onclick="stepTicketQty(0.01)">+</button>
+            </div>
+          </div>
+
+          <div class="video-step-box">
+            <span class="muted">Leverage</span>
+            <div style="display:flex; align-items:center; gap:6px;">
+              <button class="video-step-btn" onclick="stepTicketLev(-5)">-</button>
+              <span>${levVal}X</span>
+              <button class="video-step-btn" onclick="stepTicketLev(5)">+</button>
+            </div>
+          </div>
+
+          <div class="video-switches">
+            <label class="toggle-label">
+              <input type="checkbox" ${STATE.autoConfig.useSl ? "checked" : ""} onchange="toggleTicketFlag('useSl')" />
+              Stop Loss
+            </label>
+            <label class="toggle-label">
+              <input type="checkbox" ${STATE.autoConfig.useTp ? "checked" : ""} onchange="toggleTicketFlag('useTp')" />
+              Take Profit
+            </label>
+            <button class="auto-btn ${isAutoOn ? "active" : ""}" onclick="toggleSymbolAuto('${symbol}')">
+              ${isAutoOn ? "🤖 AUTO ON" : "🤖 AUTO"}
+            </button>
+          </div>
+
+          <div class="video-action-row">
+            <button class="green" onclick="triggerMarketFollowOrder('${symbol}', 'BUY', ${qtyVal}, ${levVal})">
+              Buy ${lead ? `• ${lead.price}` : ""}
+            </button>
+            <button class="red" onclick="triggerMarketFollowOrder('${symbol}', 'SELL', ${qtyVal}, ${levVal})">
+              Sell ${lead ? `• ${lead.price}` : ""}
+            </button>
+          </div>
+          <div class="muted" style="font-size:10.5px;">
+            Segnale attivo: <strong>${lead ? `${sInfo.icon} ${sInfo.actionLabel}` : "In attesa"}</strong> • SL ${STATE.autoConfig.useSl ? (lv.sl ?? "Auto") : "OFF"} / TP2 ${STATE.autoConfig.useTp ? (lv.tp2 ?? "Auto") : "OFF"}
+          </div>
+        </div>
+      `;
+    }
+
+    async function triggerMarketFollowOrder(symbol, side, qtyOverride, levOverride) {
+      const interval = document.getElementById("timeframeSelect").value;
+      const r = await fetch("/api/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ symbol, interval, apply_auto_profile: true })
+      });
+      const d = await r.json();
+      const a = (d && d.status === "ok" && d.data) ? d.data : null;
+      const lv = (a && a.levels) || {};
+      const rp = (a && a.recommended_params) || {};
+      const early = (a && a.early_setup) || {};
+      const timing = (a && a.candle_timing) || {};
+
+      const livePrice = Number((a && a.price) || (STATE.markets.find(m => m.symbol === symbol)?.lastPrice) || 0);
+      const qty = Number(qtyOverride ?? STATE.autoConfig.customQty ?? rp.qty ?? 0.01);
+      const lev = Number(levOverride ?? STATE.autoConfig.customLev ?? rp.leverage ?? 20);
+      const slVal = STATE.autoConfig.useSl ? (lv.sl || 0) : 0;
+      const tpVal = STATE.autoConfig.useTp ? (lv.tp2 || 0) : 0;
+
+      await executeFromAnalysis(
+        symbol,
+        side,
+        qty,
+        slVal,
+        tpVal,
+        lev,
+        livePrice,
+        early.candle_id || 0,
+        timing.candle_index || 0,
+        STATE.autoConfig.useTp ? (lv.tp1 || 0) : 0,
+        STATE.autoConfig.useTp ? (lv.tp3 || 0) : 0,
+        "MANUAL"
+      );
+    }
+
+    async function runAutoTradeOnSignals() {
+      const globalAuto = Boolean(document.getElementById("autoTradeChk")?.checked);
+      const sigs = Object.values(STATE.signals || {});
+      if (!sigs.length) return;
+
+      for (const s of sigs) {
+        if (!s || !s.symbol) continue;
+        const symbolAuto = Boolean(STATE.autoSymbols[s.symbol]);
+        if (!globalAuto && !symbolAuto) continue;
+
+        const ev = evaluateSmartSignal(s);
+        if (!ev.passesThreshold) continue;
+
+        const sInfo = getSignalSideInfo(s);
+        if (!sInfo.side) continue;
+
+        const candleIdx = (s.candle_timing && s.candle_timing.candle_index)
+          ?? (s.early_setup && s.early_setup.candle_id)
+          ?? computeLiveCandleClock(s.timeframe || document.getElementById("timeframeSelect").value || "15m").candleIndex;
+        const execKey = `${s.symbol}_${sInfo.side}_${candleIdx}`;
+
+        if (STATE.autoConfig.lastExecutedKeys[execKey] || STATE.inFlightExecutions[execKey]) {
+          continue;
+        }
+
+        const existingPos = (STATE.openPositions || {})[s.symbol];
+        if (existingPos && String(existingPos.side || "").toUpperCase() === (sInfo.isShort ? "SHORT" : "LONG")) {
+          STATE.autoConfig.lastExecutedKeys[execKey] = true;
+          continue;
+        }
+
+        const lv = s.levels || {};
+        const rp = s.recommended_params || {};
+        const early = s.early_setup || {};
+        const timing = s.candle_timing || {};
+        const qty = Number(STATE.autoConfig.customQty ?? rp.qty ?? 0);
+        const lev = Number(STATE.autoConfig.customLev ?? rp.leverage ?? 10);
+        const livePrice = Number(s.price || 0);
+        const slVal = STATE.autoConfig.useSl ? (lv.sl || 0) : 0;
+        const tpVal = STATE.autoConfig.useTp ? (lv.tp2 || 0) : 0;
+
+        if (!qty || qty <= 0) continue;
+
+        STATE.inFlightExecutions[execKey] = true;
+        try {
+          const r = await fetch("/api/execute_order", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              symbol: s.symbol,
+              side: sInfo.side,
+              quantity: qty,
+              sl: slVal,
+              tp: tpVal,
+              leverage: lev,
+              entry: livePrice,
+              candle_id: early.candle_id || candleIdx,
+              candle_index: timing.candle_index || candleIdx,
+              tp1: STATE.autoConfig.useTp ? (lv.tp1 || 0) : 0,
+              tp3: STATE.autoConfig.useTp ? (lv.tp3 || 0) : 0,
+              auto_signal: true
+            })
+          });
+          const d = await r.json();
+          if (d && (d.status === "ok" || d.success)) {
+            STATE.autoConfig.lastExecutedKeys[execKey] = true;
+            addExecutionMarker(s.symbol, sInfo.side, livePrice, "AUTO", qty);
+            playBeep(1040, 200);
+          }
+        } catch (err) {
+          console.error("Auto-trade execution error:", err);
+        } finally {
+          delete STATE.inFlightExecutions[execKey];
+        }
+      }
+    }
 
     function getSmartRegime() {
       const bal = STATE.balanceInfo || {};
@@ -902,6 +1660,7 @@
       updateSmartScoreUI();
       renderSignalsTable();
       renderMarketsTable();
+      renderVideoStyleDeck();
       tickTimersAndCandleTransition();
     }
 
@@ -1195,6 +1954,7 @@
       });
 
       updateSmartScoreUI();
+      updateAutoBadges();
 
       const candleKey = `${interval}_${clk.candleIndex}`;
       const freeList = getFreeSignalsSorted();
@@ -1225,6 +1985,7 @@
             text: `Nuova candela ${interval} aperta alle ${clk.openClock} — ENTRA ORA (${freeList.length} LIBERI): ${topParts.join(" • ")}`
           });
           playBeep(980, 220);
+          runAutoTradeOnSignals();
         } else {
           const sigList = Object.values(STATE.signals || {});
           const fomoCnt = sigList.filter(s => s && evaluateSmartSignal(s).fomoBlocked).length;
@@ -1284,7 +2045,9 @@
       const d = await r.json();
       if (d.status === "ok") {
         STATE.markets = d.markets || [];
+        STATE.markets.forEach(m => recordPricePoint(m.symbol, m.lastPrice));
         renderMarketsTable();
+        renderExecutionChart();
       }
     }
 
@@ -1314,6 +2077,7 @@
         const chgCls = chg >= 0 ? "pos" : "neg";
         const sessBadge = (m.session && m.session.badge) || "--";
         const tBadge = getEntryTimingBadge(m.symbol, tf);
+        const isAuto = Boolean(STATE.autoSymbols[m.symbol]);
         return `
           <tr>
             <td>
@@ -1333,9 +2097,12 @@
             <td>${Number(m.volume24h || 0).toLocaleString("it-IT", { maximumFractionDigits: 0 })}</td>
             <td>${m.maxLeverage}x</td>
             <td>
+              <button class="auto-btn ${isAuto ? "active" : ""}" onclick="toggleSymbolAuto('${m.symbol}')" title="Attiva Auto-Trading a segnale su ${m.bingxName}">
+                ${isAuto ? "🤖 AUTO ON" : "🤖 AUTO"}
+              </button>
               <button onclick="selectAndAnalyze('${m.symbol}')">Analizza</button>
-              <button class="green" onclick="quickOrder('${m.symbol}', 'BUY')">COMPRA</button>
-              <button class="red" onclick="quickOrder('${m.symbol}', 'SELL')">VENDI</button>
+              <button class="green" onclick="quickOrder('${m.symbol}', 'BUY')">Buy</button>
+              <button class="red" onclick="quickOrder('${m.symbol}', 'SELL')">Sell</button>
             </td>
           </tr>
         `;
@@ -1374,6 +2141,7 @@
           : (ms.badge || s.certain_signal || s.signal);
         const tBadge = getEntryTimingBadge(s.symbol, s.timeframe || tf);
         const scorePillCls = ev.passesThreshold ? "pill green" : (ev.fomoBlocked || ev.hardBlock ? "pill red" : "pill amber");
+        const isAuto = Boolean(STATE.autoSymbols[s.symbol]);
 
         return `
           <tr>
@@ -1408,9 +2176,12 @@
               <div>Lev ${rp.leverage ?? "--"}x • Qty ${rp.qty ?? 0}</div>
             </td>
             <td>
+              <button class="auto-btn ${isAuto ? "active" : ""}" onclick="toggleSymbolAuto('${s.symbol}')" title="Auto-Trading a segnale su ${s.bingx_name || s.symbol}">
+                ${isAuto ? "🤖 AUTO ON" : "🤖 AUTO"}
+              </button>
               <button onclick="selectAndAnalyze('${s.symbol}')">Dettagli</button>
-              <button class="${sInfo.side === "BUY" ? "green" : "red"}" onclick="executeFromAnalysis('${s.symbol}', '${sInfo.side}', ${rp.qty || 0}, ${lv.sl || 0}, ${lv.tp2 || 0}, ${rp.leverage || 10}, ${s.price}, ${early.candle_id || 0}, ${(s.candle_timing && s.candle_timing.candle_index) || 0}, ${lv.tp1 || 0}, ${lv.tp3 || 0})">
-                ${sInfo.side === "BUY" ? "COMPRA" : "VENDI"}
+              <button class="${sInfo.side === "BUY" ? "green" : "red"}" onclick="executeFromAnalysis('${s.symbol}', '${sInfo.side}', ${rp.qty || 0}, ${lv.sl || 0}, ${lv.tp2 || 0}, ${rp.leverage || 10}, ${s.price}, ${early.candle_id || 0}, ${(s.candle_timing && s.candle_timing.candle_index) || 0}, ${lv.tp1 || 0}, ${lv.tp3 || 0}, 'MANUAL')">
+                ${sInfo.side === "BUY" ? "Buy" : "Sell"}
               </button>
             </td>
           </tr>
@@ -1571,7 +2342,7 @@
               <div style="font-size:11px;">(${m.roiPct >= 0 ? "+" : ""}${m.roiPct.toFixed(1)}%)</div>
             </td>
             <td>
-              <button class="red" onclick="closePosition('${p.symbol}', '${p.side}', ${p.size})">Chiudi</button>
+              <button class="red" onclick="closePosition('${p.symbol}', '${p.side}', ${p.size}, ${p.mark_price})">Chiudi</button>
             </td>
           </tr>
         `;
@@ -1681,16 +2452,24 @@
       STATE.tradeLogs = d.trade_logs || [];
       STATE.audioAlerts = d.audio_alerts || [];
 
+      Object.values(STATE.signals).forEach(s => { if (s && s.symbol) recordPricePoint(s.symbol, s.price); });
+      Object.values(STATE.openPositions).forEach(p => { if (p && p.symbol) recordPricePoint(p.symbol, p.mark_price || p.entry_price); });
+      syncMarkersFromTradeLogs();
+
       if (d.latest_new_candle_alert) {
         pushNewCandleWrittenAlert(d.latest_new_candle_alert);
       }
 
       updateSmartScoreUI();
+      updateAutoBadges();
       renderSignalsTable();
       renderMarketsTable();
       renderPositionsTable();
+      renderVideoStyleDeck();
+      renderExecutionChart();
       renderLogsAndAlerts();
       tickTimersAndCandleTransition();
+      runAutoTradeOnSignals();
     }
 
     async function pollMonitor() {
@@ -1720,22 +2499,30 @@
       const d = await r.json();
       if (d.status === "ok") {
         const map = {};
-        (d.signals || []).forEach(s => { map[s.symbol] = s; });
+        (d.signals || []).forEach(s => {
+          map[s.symbol] = s;
+          recordPricePoint(s.symbol, s.price);
+        });
         STATE.signals = map;
         STATE.audioAlerts = d.audio_alerts || STATE.audioAlerts;
         if (d.latest_new_candle_alert) {
           pushNewCandleWrittenAlert(d.latest_new_candle_alert);
         }
         updateSmartScoreUI();
+        updateAutoBadges();
         renderSignalsTable();
         renderMarketsTable();
+        renderVideoStyleDeck();
+        renderExecutionChart();
         renderLogsAndAlerts();
         tickTimersAndCandleTransition();
+        await runAutoTradeOnSignals();
       }
     }
 
     function selectAndAnalyze(symbol) {
       document.getElementById("analyzeSymbolInput").value = symbol;
+      renderExecutionChart();
       analyzeSingle();
     }
 
@@ -1755,7 +2542,9 @@
       if (d.latest_new_candle_alert) {
         pushNewCandleWrittenAlert(d.latest_new_candle_alert);
       }
+      recordPricePoint(d.data.symbol, d.data.price);
       renderSingleAnalysis(d.data);
+      renderExecutionChart();
     }
 
     function renderSingleAnalysis(a) {
@@ -1836,11 +2625,11 @@
       const timing = a.candle_timing || {};
       await executeFromAnalysis(
         a.symbol, side, rp.qty, lv.sl, lv.tp2, rp.leverage,
-        a.price, early.candle_id, timing.candle_index, lv.tp1, lv.tp3
+        a.price, early.candle_id, timing.candle_index, lv.tp1, lv.tp3, "MANUAL"
       );
     }
 
-    async function executeFromAnalysis(symbol, side, quantity, sl, tp, leverage, entry, candleId, candleIndex, tp1, tp3) {
+    async function executeFromAnalysis(symbol, side, quantity, sl, tp, leverage, entry, candleId, candleIndex, tp1, tp3, mode = "MANUAL") {
       if (!quantity || Number(quantity) <= 0) {
         alert("Quantità ordine non valida o saldo insufficiente.");
         return;
@@ -1854,17 +2643,27 @@
         })
       });
       const d = await r.json();
-      alert(d.msg || JSON.stringify(d));
+      if (d && (d.status === "ok" || d.success)) {
+        addExecutionMarker(symbol, side, entry, mode, quantity);
+      }
+      if (mode === "MANUAL") {
+        alert(d.msg || JSON.stringify(d));
+      }
       await pollMonitor();
     }
 
-    async function closePosition(symbol, side, quantity) {
+    async function closePosition(symbol, side, quantity, markPrice = 0) {
+      const closeSide = String(side || "").toUpperCase() === "LONG" ? "SELL" : "BUY";
       const r = await fetch("/api/close_position", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ symbol, side, quantity })
       });
       const d = await r.json();
+      if (d && (d.status === "ok" || d.success)) {
+        const px = Number(markPrice || (STATE.openPositions[symbol] && STATE.openPositions[symbol].mark_price) || (STATE.signals[symbol] && STATE.signals[symbol].price) || 0);
+        addExecutionMarker(symbol, closeSide, px, "CLOSE", quantity);
+      }
       alert(d.msg || JSON.stringify(d));
       await pollMonitor();
     }
@@ -1875,13 +2674,17 @@
       await syncMonitorSettings();
     }
 
-    ["timeframeSelect", "categorySelect", "onlyCertainEarlyChk", "autoTradeChk"].forEach(id => {
+    ["timeframeSelect", "categorySelect", "onlyCertainEarlyChk"].forEach(id => {
       document.getElementById(id).addEventListener("change", () => {
         renderMarketsTable();
         renderSignalsTable();
+        renderVideoStyleDeck();
+        renderExecutionChart();
         syncMonitorSettings();
       });
     });
+
+    window.addEventListener("resize", renderExecutionChart);
 
     setInterval(tickTimersAndCandleTransition, 1000);
     setInterval(pollMonitor, 6000);
