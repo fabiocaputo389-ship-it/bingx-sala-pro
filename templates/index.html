@@ -776,11 +776,11 @@
 
     <div class="card" id="executionChartCard">
       <div class="card-header">
-        <div class="card-title">📈 Grafico Live Esecuzioni Automatiche • BUY / SELL, Livelli TP/IN/SL & Guadagno Reale</div>
+        <div class="card-title">📈 Grafico Live Esecuzioni Automatiche • BUY / SELL, Livelli TP/IN/SL & $ / ☹️ Reale</div>
         <div class="controls-row">
           <span class="pill green">🟢 BUY = Compra</span>
           <span class="pill red">🔴 SELL = Vendi</span>
-          <span id="chartGainBadge" class="pill green">Guadagno Asset: +$0.00</span>
+          <span id="chartGainBadge" class="pill green">$ Guadagno Asset: +$0.00</span>
           <span id="chartAssetBadge" class="pill blue">Asset: BTC-USDT</span>
           <span id="chartMarkersCount" class="pill purple">0 esecuzioni</span>
         </div>
@@ -1054,8 +1054,13 @@
 
     function formatSignedUsdt(val) {
       const n = Number(val || 0);
-      if (Number.isNaN(n)) return "+$0.00";
-      return `${n >= 0 ? "+" : "-"}$${Math.abs(n).toFixed(2)}`;
+      if (Number.isNaN(n)) return "$ +$0.00";
+      const icon = n < 0 ? "☹️" : "$";
+      return `${icon} ${n >= 0 ? "+" : "-"}$${Math.abs(n).toFixed(2)}`;
+    }
+
+    function formatOutcomeSymbol(val) {
+      return Number(val || 0) < 0 ? "☹️" : "$";
     }
 
     function computeMarkerGainUsdt(mk, currentPrice) {
@@ -1311,7 +1316,6 @@
       const inLine = Number(pos.entry_price || lv.entry || 0);
       const slLine = useSl ? Number(pos.sl_price || lv.sl || 0) : 0;
 
-      // Chiusura automatica su TP / SL se abilitata su grafico o monitor
       if (pos && pos.side && currentPrice > 0 && !STATE.inFlightExecutions[`AUTO_CLOSE_${sym}`]) {
         const isLong = String(pos.side).toUpperCase() === "LONG";
         const autoTp = document.getElementById("closeTpChk")?.checked ?? true;
@@ -1450,7 +1454,8 @@
         const isBuy = mk.side === "BUY";
         const color = isBuy ? "#22c55e" : "#ef4444";
         const mkGain = computeMarkerGainUsdt(mk, currentPrice);
-        const mkGainText = `${mkGain >= 0 ? "+" : "-"}$${Math.abs(mkGain).toFixed(2)}`;
+        const isProfit = mkGain >= 0;
+        const mkGainText = `${isProfit ? "$" : "☹️"} ${isProfit ? "+" : "-"}$${Math.abs(mkGain).toFixed(2)}`;
 
         ctx.fillStyle = color;
         ctx.beginPath();
@@ -1470,32 +1475,33 @@
         ctx.fillStyle = "#ffffff";
         ctx.fillText(label, boxX + 5, boxY + 11);
 
-        ctx.font = "bold 10px Inter, sans-serif";
-        const gw = ctx.measureText(mkGainText).width + 10;
+        ctx.font = "bold 10.5px Inter, sans-serif";
+        const gw = ctx.measureText(mkGainText).width + 12;
         const gx = Math.max(padLeft, Math.min(padLeft + plotW - gw, x - gw / 2));
-        const gy = isBuy ? Math.max(padTop + 2, boxY - 17) : Math.min(padTop + plotH - 16, boxY + 17);
-        ctx.fillStyle = mkGain >= 0 ? "rgba(21, 128, 61, 0.94)" : "rgba(185, 28, 28, 0.94)";
-        ctx.fillRect(gx, gy, gw, 15);
-        ctx.strokeStyle = mkGain >= 0 ? "#4ade80" : "#f87171";
-        ctx.lineWidth = 1;
-        ctx.strokeRect(gx, gy, gw, 15);
+        const gy = isBuy ? Math.max(padTop + 2, boxY - 18) : Math.min(padTop + plotH - 17, boxY + 18);
+        ctx.fillStyle = isProfit ? "rgba(21, 128, 61, 0.96)" : "rgba(185, 28, 28, 0.96)";
+        ctx.fillRect(gx, gy, gw, 16);
+        ctx.strokeStyle = isProfit ? "#4ade80" : "#f87171";
+        ctx.lineWidth = 1.1;
+        ctx.strokeRect(gx, gy, gw, 16);
         ctx.fillStyle = "#ffffff";
-        ctx.fillText(mkGainText, gx + 5, gy + 11);
+        ctx.fillText(mkGainText, gx + 6, gy + 11.5);
       });
 
       if (!markers.length) {
         listEl.innerHTML = `
           <span class="exec-tag ${totalAssetGain >= 0 ? "buy" : "sell"}">
-            💰 Guadagno Live ${sym}: <strong>${formatSignedUsdt(totalAssetGain)}</strong>
+            ${formatOutcomeSymbol(totalAssetGain)} Guadagno Live ${sym}: <strong>${formatSignedUsdt(totalAssetGain)}</strong>
           </span>
-          <span class="muted" style="font-size:11px;">I punti BUY/SELL e il guadagno appaiono qui e sul grafico appena vengono eseguiti ordini reali.</span>
+          <span class="muted" style="font-size:11px;">Sul grafico appare <strong>$</strong> sul profitto e <strong>☹️</strong> sulla perdita.</span>
         `;
       } else {
         listEl.innerHTML = markers.slice(0, 10).map(mk => {
           const mkGain = computeMarkerGainUsdt(mk, currentPrice);
+          const isProfit = mkGain >= 0;
           return `
-            <span class="exec-tag ${mk.side === "BUY" ? "buy" : "sell"}">
-              ${mk.side === "BUY" ? "🟢 BUY" : "🔴 SELL"} <strong>${mk.symbol}</strong> @ ${mk.price} • <strong>${formatSignedUsdt(mkGain)}</strong>${mk.closeReason ? ` • ${mk.closeReason}` : ""} • [${mk.mode}] ${mk.time}
+            <span class="exec-tag ${isProfit ? "buy" : "sell"}">
+              ${isProfit ? "$" : "☹️"} ${mk.side === "BUY" ? "🟢 BUY" : "🔴 SELL"} <strong>${mk.symbol}</strong> @ ${mk.price} • <strong>${formatSignedUsdt(mkGain)}</strong>${mk.closeReason ? ` • ${mk.closeReason}` : ""} • [${mk.mode}] ${mk.time}
             </span>
           `;
         }).join("");
@@ -2364,7 +2370,7 @@
 
       const totalLivePnl = posList.reduce((acc, p) => acc + Number(p.unrealized_pnl || 0), 0);
       const liveTotalBadge = document.getElementById("liveTotalPnlBadge");
-      liveTotalBadge.textContent = `Guadagno Live: ${totalLivePnl >= 0 ? "+" : ""}${totalLivePnl.toFixed(2)} USDT`;
+      liveTotalBadge.textContent = `${formatOutcomeSymbol(totalLivePnl)} Guadagno Live: ${totalLivePnl >= 0 ? "+" : ""}${totalLivePnl.toFixed(2)} USDT`;
       liveTotalBadge.className = `pill ${totalLivePnl >= 0 ? "green" : "red"}`;
 
       const strip = document.getElementById("livePositionsStrip");
@@ -2383,7 +2389,7 @@
           <div class="live-pos-card">
             <div class="live-pos-head">
               <span>${p.bingx_name || p.symbol} <span class="pill ${p.side === "LONG" ? "green" : "red"}">${p.side}</span></span>
-              <span class="${cls}">${m.pnl >= 0 ? "+" : ""}${m.pnl.toFixed(2)} USDT (${m.roiPct >= 0 ? "+" : ""}${m.roiPct.toFixed(1)}%)</span>
+              <span class="${cls}">${formatOutcomeSymbol(m.pnl)} ${m.pnl >= 0 ? "+" : ""}${m.pnl.toFixed(2)} USDT (${m.roiPct >= 0 ? "+" : ""}${m.roiPct.toFixed(1)}%)</span>
             </div>
             <div class="live-pos-meta">
               <span>Entry: ${p.entry_price}</span>
@@ -2447,7 +2453,7 @@
             </td>
             <td>${p.leverage}x</td>
             <td class="${cls}">
-              <div>${m.pnl >= 0 ? "+" : ""}${m.pnl.toFixed(2)} USDT</div>
+              <div>${formatOutcomeSymbol(m.pnl)} ${m.pnl >= 0 ? "+" : ""}${m.pnl.toFixed(2)} USDT</div>
               <div style="font-size:11px;">(${m.roiPct >= 0 ? "+" : ""}${m.roiPct.toFixed(1)}%)</div>
             </td>
             <td>
@@ -2463,11 +2469,14 @@
       if (!STATE.tradeLogs.length) {
         logsBox.innerHTML = `<div class="muted">Nessun ordine registrato.</div>`;
       } else {
-        logsBox.innerHTML = STATE.tradeLogs.map(l => `
-          <div class="log-item">
-            [${l.time}] <strong>${l.symbol}</strong> ${l.side} qty=${l.qty} sl=${l.sl} tp=${l.tp}${l.reason ? ` (${l.reason})` : ""} → ${JSON.stringify(l.response)}
-          </div>
-        `).join("");
+        logsBox.innerHTML = STATE.tradeLogs.map(l => {
+          const pnlTag = l.pnl !== undefined && l.pnl !== null ? ` • ${formatSignedUsdt(l.pnl)}` : "";
+          return `
+            <div class="log-item">
+              [${l.time}] <strong>${l.symbol}</strong> ${l.side} qty=${l.qty} sl=${l.sl} tp=${l.tp}${pnlTag}${l.reason ? ` (${l.reason})` : ""} → ${JSON.stringify(l.response)}
+            </div>
+          `;
+        }).join("");
       }
 
       const alertsBox = document.getElementById("audioAlertsBox");
