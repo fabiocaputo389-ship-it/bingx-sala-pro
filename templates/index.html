@@ -1026,7 +1026,8 @@
         customLev: null,
         useSl: true,
         useTp: true,
-        lastExecutedKeys: {}
+        lastExecutedKeys: {},
+        lastMarketFollowTs: {}
       },
       inFlightExecutions: {},
       priceSeries: {},
@@ -1040,7 +1041,7 @@
       if (!STATE.priceSeries[symbol]) STATE.priceSeries[symbol] = [];
       const arr = STATE.priceSeries[symbol];
       const last = arr[arr.length - 1];
-      if (!last || Math.abs(last.price - p) > 0 || (Date.now() - last.ts) >= 2500) {
+      if (!last || Math.abs(last.price - p) > 0 || (Date.now() - last.ts) >= 2000) {
         arr.push({ price: p, ts: Date.now() });
         if (arr.length > 90) arr.shift();
       }
@@ -1139,7 +1140,6 @@
       const plotW = Math.max(40, width - padLeft - padRight);
       const plotH = Math.max(40, height - padTop - padBottom);
 
-      // Griglia orizzontale
       ctx.strokeStyle = "rgba(71, 98, 148, 0.22)";
       ctx.lineWidth = 1;
       for (let i = 0; i <= 4; i++) {
@@ -1172,7 +1172,6 @@
       const span = Math.max(1e-8, maxP - minP);
       const toY = p => padTop + (1 - (p - minP) / span) * plotH;
 
-      // Linee TP2 e SL se presenti
       if (Number(lv.tp2) > 0) {
         const yTp = toY(Number(lv.tp2));
         ctx.save();
@@ -1203,7 +1202,6 @@
         ctx.restore();
       }
 
-      // Curva prezzo live
       const pts = series.length >= 2
         ? series
         : [{ price: currentPrice, ts: Date.now() - 5000 }, { price: currentPrice, ts: Date.now() }];
@@ -1219,7 +1217,6 @@
       });
       ctx.stroke();
 
-      // Etichetta prezzo corrente
       if (currentPrice > 0) {
         const yCur = toY(currentPrice);
         ctx.fillStyle = "#38bdf8";
@@ -1227,7 +1224,6 @@
         ctx.fillText(`${currentPrice}`, padLeft + plotW + 6, yCur + 4);
       }
 
-      // Disegna i punti esatti di BUY (compra) e SELL (vende) sul grafico
       const visibleMarkers = markers.slice(0, 12).reverse();
       visibleMarkers.forEach((mk, idx) => {
         const x = padLeft + ((idx + 1) / (visibleMarkers.length + 1)) * plotW;
@@ -1235,7 +1231,6 @@
         const isBuy = mk.side === "BUY";
         const color = isBuy ? "#22c55e" : "#ef4444";
 
-        // Linea verticale di riferimento al punto di esecuzione
         ctx.save();
         ctx.setLineDash([2, 3]);
         ctx.strokeStyle = isBuy ? "rgba(34, 197, 94, 0.45)" : "rgba(239, 68, 68, 0.45)";
@@ -1245,7 +1240,6 @@
         ctx.stroke();
         ctx.restore();
 
-        // Cerchio e freccia BUY / SELL
         ctx.fillStyle = color;
         ctx.beginPath();
         ctx.arc(x, y, 6, 0, Math.PI * 2);
@@ -1255,7 +1249,6 @@
         ctx.lineWidth = 1.5;
         ctx.stroke();
 
-        // Badge testuale BUY / SELL sopra o sotto il punto
         const label = `${isBuy ? "▲ COMPRA (BUY)" : "▼ VENDI (SELL)"} @ ${mk.price}`;
         ctx.font = "bold 10.5px Inter, sans-serif";
         const tw = ctx.measureText(label).width + 10;
@@ -1298,7 +1291,7 @@
 
       if (!badge) return;
       if (globalAuto) {
-        badge.textContent = "🤖 Auto-Trade BingX: ATTIVO SU SEGNALE";
+        badge.textContent = "🤖 Auto-Trade BingX: ATTIVO SU SEGNALE & MERCATO";
         badge.className = "pill green";
       } else if (perAssetCount > 0) {
         badge.textContent = `🤖 Auto-Trade BingX: ${perAssetCount} ASSET ATTIVI`;
@@ -1456,11 +1449,12 @@
       );
     }
 
-    async function runAutoTradeOnSignals() {
+    async function followMarketTickExecution() {
       const globalAuto = Boolean(document.getElementById("autoTradeChk")?.checked);
       const sigs = Object.values(STATE.signals || {});
       if (!sigs.length) return;
 
+      const now = Date.now();
       for (const s of sigs) {
         if (!s || !s.symbol) continue;
         const symbolAuto = Boolean(STATE.autoSymbols[s.symbol]);
@@ -1471,6 +1465,23 @@
 
         const sInfo = getSignalSideInfo(s);
         if (!sInfo.side) continue;
+
+        const mkt = STATE.markets.find(m => m.symbol === s.symbol);
+        const marketLivePrice = Number((mkt && mkt.lastPrice) || s.price || 0);
+        if (!marketLivePrice || marketLivePrice <= 0) continue;
+
+        recordPricePoint(s.symbol, marketLivePrice);
+
+        const lv = s.levels || {};
+        const entryTarget = Number(lv.entry || s.price || marketLivePrice);
+        const priceMatchesDirection = sInfo.isShort
+          ? (marketLivePrice <= entryTarget * 1.0025)
+          : (marketLivePrice >= entryTarget * 0.9975);
+
+        if (!priceMatchesDirection) continue;
+
+        const lastTs = STATE.autoConfig.lastMarketFollowTs[`${s.symbol}_${sInfo.side}`] || 0;
+        if ((now - lastTs) < 8000) continue;
 
         const candleIdx = (s.candle_timing && s.candle_timing.candle_index)
           ?? (s.early_setup && s.early_setup.candle_id)
@@ -1487,19 +1498,18 @@
           continue;
         }
 
-        const lv = s.levels || {};
         const rp = s.recommended_params || {};
         const early = s.early_setup || {};
         const timing = s.candle_timing || {};
         const qty = Number(STATE.autoConfig.customQty ?? rp.qty ?? 0);
         const lev = Number(STATE.autoConfig.customLev ?? rp.leverage ?? 10);
-        const livePrice = Number(s.price || 0);
         const slVal = STATE.autoConfig.useSl ? (lv.sl || 0) : 0;
         const tpVal = STATE.autoConfig.useTp ? (lv.tp2 || 0) : 0;
 
         if (!qty || qty <= 0) continue;
 
         STATE.inFlightExecutions[execKey] = true;
+        STATE.autoConfig.lastMarketFollowTs[`${s.symbol}_${sInfo.side}`] = now;
         try {
           const r = await fetch("/api/execute_order", {
             method: "POST",
@@ -1511,26 +1521,31 @@
               sl: slVal,
               tp: tpVal,
               leverage: lev,
-              entry: livePrice,
+              entry: marketLivePrice,
               candle_id: early.candle_id || candleIdx,
               candle_index: timing.candle_index || candleIdx,
               tp1: STATE.autoConfig.useTp ? (lv.tp1 || 0) : 0,
               tp3: STATE.autoConfig.useTp ? (lv.tp3 || 0) : 0,
-              auto_signal: true
+              auto_signal: true,
+              follow_market_graph: true
             })
           });
           const d = await r.json();
           if (d && (d.status === "ok" || d.success)) {
             STATE.autoConfig.lastExecutedKeys[execKey] = true;
-            addExecutionMarker(s.symbol, sInfo.side, livePrice, "AUTO", qty);
+            addExecutionMarker(s.symbol, sInfo.side, marketLivePrice, "AUTO-MERCATO", qty);
             playBeep(1040, 200);
           }
         } catch (err) {
-          console.error("Auto-trade execution error:", err);
+          console.error("Market follow execution error:", err);
         } finally {
           delete STATE.inFlightExecutions[execKey];
         }
       }
+    }
+
+    async function runAutoTradeOnSignals() {
+      await followMarketTickExecution();
     }
 
     function getSmartRegime() {
@@ -1955,6 +1970,7 @@
 
       updateSmartScoreUI();
       updateAutoBadges();
+      followMarketTickExecution();
 
       const candleKey = `${interval}_${clk.candleIndex}`;
       const freeList = getFreeSignalsSorted();
@@ -2048,6 +2064,7 @@
         STATE.markets.forEach(m => recordPricePoint(m.symbol, m.lastPrice));
         renderMarketsTable();
         renderExecutionChart();
+        followMarketTickExecution();
       }
     }
 
